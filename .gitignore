@@ -1,0 +1,5 @@
+# ห้ามยกเว้น / Not tracked (root-level)
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
