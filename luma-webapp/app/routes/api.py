@@ -8,6 +8,7 @@ Output  : JSON ที่มี path/URL ของภาพที่ generate เ
 
 import os
 import base64
+import time
 import requests
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
@@ -73,7 +74,7 @@ def generate_image():
         if not images:
             return jsonify({"error": "Forge AI ไม่ส่งรูปกลับมา"}), 502
 
-        filename = f"asset_{current_user.id}_{int(__import__('time').time())}.png"
+        filename = f"asset_{current_user.id}_{int(time.time())}.png"
         relative_path = _save_base64_image(images[0], filename)
         logger.info(f"[generate] saved image → {relative_path}")
 

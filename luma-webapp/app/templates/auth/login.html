@@ -1,9 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>เข้าสู่ระบบ</h1>
-  <form method="POST">
-    <input type="email" name="email" placeholder="Email" required>
-    <input type="password" name="password" placeholder="Password" required>
-    <button type="submit">Login</button>
+<section class="auth-card">
+  <h1>เข้าสู่ระบบ / Login</h1>
+  <p class="auth-subtitle">ยินดีต้อนรับกลับ · Welcome back</p>
+
+  <form method="POST" novalidate>
+    <div class="form-group">
+      <label for="email">อีเมล / Email</label>
+      <input
+        type="email"
+        id="email"
+        name="email"
+        placeholder="you@example.com"
+        required
+        autocomplete="email"
+      >
+    </div>
+
+    <div class="form-group">
+      <label for="password">รหัสผ่าน / Password</label>
+      <input
+        type="password"
+        id="password"
+        name="password"
+        placeholder="••••••••"
+        required
+        autocomplete="current-password"
+      >
+    </div>
+
+    <button type="submit" id="login-btn">เข้าสู่ระบบ / Sign In</button>
   </form>
+
+  <p class="auth-link">
+    ยังไม่มีบัญชี? · No account?
+    <a href="{{ url_for('auth.register') }}">สมัครสมาชิก / Register</a>
+  </p>
+</section>
 {% endblock %}
