@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Dashboard ของ {{ user.username }}</h1>
+
+  <form id="generate-form">
+    <input type="text" id="prompt" placeholder="เช่น a cat wizard, digital art">
+    <button type="submit">Generate</button>
+  </form>
+  <div id="result"></div>
+
+  <script>
+    document.getElementById('generate-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const prompt = document.getElementById('prompt').value;
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({prompt})
+      });
+      const data = await res.json();
+      document.getElementById('result').innerText = JSON.stringify(data);
+    });
+  </script>
+{% endblock %}

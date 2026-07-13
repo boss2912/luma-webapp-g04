@@ -1,0 +1,24 @@
+# LUMA Web App — Direct Dependencies Only
+# Generated: 2026-07-13
+# Install: pip install -r requirements.txt
+
+# ── Web Framework ─────────────────────────────────────────────────────────────
+Flask==3.0.3
+
+# ── Flask Extensions ──────────────────────────────────────────────────────────
+Flask-Login==0.6.3
+Flask-Migrate==4.0.7
+Flask-SQLAlchemy==3.1.1
+Flask-WTF==1.2.1
+
+# ── Form Validation ───────────────────────────────────────────────────────────
+WTForms==3.1.2
+
+# ── HTTP Client (เรียก Forge AI endpoint) ────────────────────────────────────
+requests==2.32.3
+
+# ── Image Processing (บันทึก/แปลง base64 → ไฟล์ภาพ) ─────────────────────────
+Pillow==10.4.0
+
+# ── WSGI Server (ใช้ใน production แทน Flask dev server) ──────────────────────
+# gunicorn==22.0.0   ← uncomment ถ้า deploy บน Linux/Mac

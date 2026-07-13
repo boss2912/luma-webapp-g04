@@ -1,0 +1,23 @@
+"""
+Main Blueprint
+--------------
+Input   : ผู้ใช้เข้าเว็บ /
+Process : render หน้า index หรือ dashboard (ถ้า login แล้ว)
+Output  : หน้า HTML (Jinja template)
+"""
+
+from flask import Blueprint, render_template
+from flask_login import login_required, current_user
+
+main_bp = Blueprint("main", __name__)
+
+
+@main_bp.route("/")
+def index():
+    return render_template("index.html")
+
+
+@main_bp.route("/dashboard")
+@login_required
+def dashboard():
+    return render_template("dashboard.html", user=current_user)
