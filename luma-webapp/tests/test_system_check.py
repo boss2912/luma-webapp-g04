@@ -12,7 +12,7 @@ FAIL = 0
 
 def check(label, fn):
     global PASS, FAIL
-    try:S
+    try:
         fn()
         print(f"  [PASS] {label}")
         PASS += 1
@@ -85,4 +85,8 @@ with app.app_context():
 print("\n" + "=" * 55)
 print(f"  Result: {PASS} passed, {FAIL} failed")
 print("=" * 55)
-sys.exit(0 if FAIL == 0 else 1)
+
+
+def test_all_checks_passed():
+    """pytest entry point — fails the suite if any manual check above failed."""
+    assert FAIL == 0, f"{FAIL} system check(s) failed — see output above"
