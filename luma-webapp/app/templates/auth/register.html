@@ -4,7 +4,13 @@
   <h1>สมัครสมาชิก / Register</h1>
   <p class="auth-subtitle">สร้างบัญชีเพื่อใช้ LUMA · Create your LUMA account</p>
 
-  <form method="POST" novalidate>
+  {% if errors.general %}
+    <p class="field-error field-error-general">{{ errors.general }}</p>
+  {% endif %}
+
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
     <div class="form-group">
       <label for="username">ชื่อผู้ใช้ / Username</label>
       <input
@@ -16,7 +22,10 @@
         autocomplete="username"
         minlength="3"
         maxlength="80"
+        value="{{ username or '' }}"
+        class="{{ 'input-error' if errors.username }}"
       >
+      {% if errors.username %}<p class="field-error">{{ errors.username }}</p>{% endif %}
     </div>
 
     <div class="form-group">
@@ -28,7 +37,10 @@
         placeholder="you@example.com"
         required
         autocomplete="email"
+        value="{{ email or '' }}"
+        class="{{ 'input-error' if errors.email }}"
       >
+      {% if errors.email %}<p class="field-error">{{ errors.email }}</p>{% endif %}
     </div>
 
     <div class="form-group">
@@ -41,7 +53,9 @@
         required
         autocomplete="new-password"
         minlength="8"
+        class="{{ 'input-error' if errors.password }}"
       >
+      {% if errors.password %}<p class="field-error">{{ errors.password }}</p>{% endif %}
     </div>
 
     <button type="submit" id="register-btn">สมัครสมาชิก / Create Account</button>

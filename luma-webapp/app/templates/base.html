@@ -2,26 +2,39 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="LUMA — เว็บแอปสร้างภาพด้วย AI ผ่าน Stable Diffusion / AI image generation web app powered by Stable Diffusion">
   <title>LUMA - Learning-based Universal Media Artist</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
   <nav>
-    <a href="{{ url_for('main.index') }}">LUMA</a>
-    {% if current_user.is_authenticated %}
-      <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
-      <a href="{{ url_for('auth.logout') }}">Logout</a>
-    {% else %}
-      <a href="{{ url_for('auth.login') }}">Login</a>
-      <a href="{{ url_for('auth.register') }}">Register</a>
-    {% endif %}
+    <a href="{{ url_for('main.index') }}" class="{{ 'active' if request.endpoint == 'main.index' }}">LUMA</a>
+
+    <!-- ปุ่ม hamburger โผล่เฉพาะจอมือถือ (ควบคุมด้วย CSS ล้วน ไม่ต้องใช้ JS) -->
+    <input type="checkbox" id="nav-toggle" class="nav-toggle-checkbox">
+    <label for="nav-toggle" class="nav-toggle-btn" aria-label="เปิด/ปิดเมนู">☰</label>
+
+    <div class="nav-links">
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('main.dashboard') }}" class="{{ 'active' if request.endpoint == 'main.dashboard' }}">Dashboard</a>
+        <!-- Fix F15: logout ต้องเป็น POST ไม่ใช่ GET (GET ไม่ควรมี side effect) -->
+        <form method="POST" action="{{ url_for('auth.logout') }}" class="nav-logout-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="nav-link-btn">Logout</button>
+        </form>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}" class="{{ 'active' if request.endpoint == 'auth.login' }}">Login</a>
+        <a href="{{ url_for('auth.register') }}" class="{{ 'active' if request.endpoint == 'auth.register' }}">Register</a>
+      {% endif %}
+    </div>
   </nav>
 
-  {% with messages = get_flashed_messages() %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <ul class="flashes">
-        {% for message in messages %}
-          <li>{{ message }}</li>
+        {% for category, message in messages %}
+          <li class="flash-{{ category }}">{{ message }}</li>
         {% endfor %}
       </ul>
     {% endif %}
