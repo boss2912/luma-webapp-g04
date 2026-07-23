@@ -141,6 +141,21 @@ def list_assets():
     ])
 
 
+def _get_owned_asset_or_404(asset_id):
+    """
+    ดึง Asset ที่ current_user เป็นเจ้าของเท่านั้น — ใช้ร่วมกันทั้ง get_asset_image()
+    และ delete_asset() กันโค้ดซ้ำ
+    ตอบ 404 (ไม่ใช่ 403) ทั้งกรณี "ไม่มี asset นี้" และ "มีแต่ไม่ใช่ของเรา"
+    เพื่อไม่บอกผู้โจมตีว่า asset_id นั้นมีอยู่จริงหรือเปล่า — ลดข้อมูลที่รั่วไหลออกไป
+    """
+    # db.session.get() แทน Asset.query.get() ที่ deprecated ใน SQLAlchemy 2.x
+    # (ดู models.py: load_user() เตือนเรื่องเดียวกันนี้ไว้แล้วสำหรับ User)
+    asset = db.session.get(Asset, asset_id)
+    if asset is None or asset.user_id != current_user.id:
+        abort(404)
+    return asset
+
+
 @api_bp.route("/assets/<int:asset_id>/image", methods=["GET"])
 @login_required
 def get_asset_image(asset_id):
@@ -149,14 +164,33 @@ def get_asset_image(asset_id):
     ให้ทุกคนที่รู้/เดา URL เห็นได้เลย ไม่ต้อง login ไม่ต้องเป็นเจ้าของ
     ตอนนี้ต้อง (1) login และ (2) เป็นเจ้าของ asset นั้นเท่านั้นถึงจะดูรูปได้
     """
-    # db.session.get() แทน Asset.query.get() ที่ deprecated ใน SQLAlchemy 2.x
-    # (ดู models.py: load_user() เตือนเรื่องเดียวกันนี้ไว้แล้วสำหรับ User)
-    asset = db.session.get(Asset, asset_id)
-    if asset is None:
-        abort(404)
-    if asset.user_id != current_user.id:
-        # ตอบ 404 (ไม่ใช่ 403) เพื่อไม่บอกผู้โจมตีว่า asset_id นี้มีอยู่จริง
-        # แค่เป็นของคนอื่น — ลดข้อมูลที่รั่วไหลออกไป
-        abort(404)
+    asset = _get_owned_asset_or_404(asset_id)
     return send_from_directory(UPLOAD_FOLDER, os.path.basename(asset.filename))
+
+
+@api_bp.route("/assets/<int:asset_id>", methods=["DELETE"])
+@login_required
+def delete_asset(asset_id):
+    """
+    Issue #3: ลบ asset ของตัวเอง — ลบทั้งไฟล์ภาพบนดิสก์และแถวใน DB
+    หมายเหตุ CSRF: route นี้อยู่ใต้ api_bp ที่ยกเว้น CSRF ทั้ง blueprint (ดู
+    app/__init__.py) แต่ DELETE ไม่ใช่ "simple method" ตาม Fetch spec เลยต้อง
+    ผ่าน CORS preflight (OPTIONS) ก่อนเสมอ — เว็บนี้ไม่ได้ตั้งค่า CORS ให้ origin
+    อื่นเลย เบราว์เซอร์จึงบล็อก cross-site DELETE ไว้ตั้งแต่ขั้น preflight แล้ว
+    โดยไม่ต้องพึ่ง csrf_token
+    """
+    asset = _get_owned_asset_or_404(asset_id)
+
+    filepath = os.path.join(UPLOAD_FOLDER, os.path.basename(asset.filename))
+    try:
+        os.remove(filepath)
+    except FileNotFoundError:
+        # ไฟล์หายไปจากดิสก์แล้วแต่แถว DB ยังอยู่ — ไม่ต้อง fail การลบ แค่ log ไว้
+        logger.warning(f"[delete_asset] file already missing on disk: {filepath}")
+
+    db.session.delete(asset)
+    db.session.commit()
+    logger.info(f"[delete_asset] user={current_user.id} deleted asset_id={asset_id}")
+
+    return jsonify({"status": "deleted", "asset_id": asset_id})
 

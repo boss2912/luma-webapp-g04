@@ -7,6 +7,7 @@ Output  : redirect ไปหน้า main, หรือแสดง error ร�
 """
 
 from collections import defaultdict
+from datetime import datetime
 from time import time
 from urllib.parse import urlparse
 
@@ -123,6 +124,8 @@ def login():
 
         if user and user.check_password(password):
             login_user(user)
+            user.last_login_at = datetime.utcnow()
+            db.session.commit()
             logger.info(f"[login] user={user.username} logged in")
             # Fix F01: ยอม redirect เฉพาะ next ที่เป็น path ภายในเว็บนี้เท่านั้น
             next_page = request.args.get("next")
