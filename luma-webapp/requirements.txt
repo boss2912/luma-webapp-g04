@@ -22,3 +22,6 @@ Pillow==10.4.0
 
 # ── WSGI Server (ใช้ใน production แทน Flask dev server) ──────────────────────
 # gunicorn==22.0.0   ← uncomment ถ้า deploy บน Linux/Mac
+
+# ── Testing (Issue #6: E2E System Testing) ────────────────────────────────────
+pytest==8.3.3

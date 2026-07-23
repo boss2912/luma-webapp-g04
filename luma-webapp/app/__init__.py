@@ -22,11 +22,21 @@ migrate = Migrate()
 csrf = CSRFProtect()
 
 
-def create_app():
+def create_app(config_overrides=None):
     app = Flask(__name__, instance_relative_config=True)
 
     # 1) โหลด config จาก instance/config.py (เก็บ SECRET_KEY, DB URI ที่นี่ ไม่ push ขึ้น git)
-    app.config.from_pyfile("config.py")
+    # silent=True: ไฟล์นี้ไม่ถูก track ใน git แล้ว (F09) เครื่องที่เพิ่ง clone หรือ
+    # test runner (Issue #6) จะยังไม่มีไฟล์นี้ — ให้ทำงานต่อได้ด้วยค่า default
+    # แทนที่จะ crash ตั้งแต่ตอน import
+    app.config.from_pyfile("config.py", silent=True)
+    app.config.setdefault("SECRET_KEY", "dev-only-insecure-key-set-real-one-in-instance-config-py")
+    app.config.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///luma.db")
+    app.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
+    app.config.setdefault("FORGE_AI_ENDPOINT", "http://localhost:7860/sdapi/v1/txt2img")
+
+    if config_overrides:
+        app.config.update(config_overrides)
 
     # 2) ผูก extensions เข้ากับ app
     db.init_app(app)
