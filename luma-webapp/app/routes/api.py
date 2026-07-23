@@ -149,7 +149,9 @@ def get_asset_image(asset_id):
     ให้ทุกคนที่รู้/เดา URL เห็นได้เลย ไม่ต้อง login ไม่ต้องเป็นเจ้าของ
     ตอนนี้ต้อง (1) login และ (2) เป็นเจ้าของ asset นั้นเท่านั้นถึงจะดูรูปได้
     """
-    asset = Asset.query.get(asset_id)
+    # db.session.get() แทน Asset.query.get() ที่ deprecated ใน SQLAlchemy 2.x
+    # (ดู models.py: load_user() เตือนเรื่องเดียวกันนี้ไว้แล้วสำหรับ User)
+    asset = db.session.get(Asset, asset_id)
     if asset is None:
         abort(404)
     if asset.user_id != current_user.id:

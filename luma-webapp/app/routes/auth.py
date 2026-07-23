@@ -103,17 +103,22 @@ def login():
     errors = {}
 
     if request.method == "POST":
-        client_key = request.remote_addr or "unknown"
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
 
-        if _is_rate_limited(client_key):
+        # key ด้วย email ที่พยายาม login ไม่ใช่ IP — ถ้า key ด้วย IP คนที่ใช้
+        # network เดียวกัน (เช่น network มหาลัย/office) จะโดนบล็อกไปด้วยทั้งที่
+        # ไม่เกี่ยวกับ account ที่ถูกโจมตี การ key ด้วย email จำกัดผลกระทบไว้แค่
+        # account เป้าหมายเท่านั้น
+        rate_limit_key = email or (request.remote_addr or "unknown")
+
+        if _is_rate_limited(rate_limit_key):
             errors["general"] = (
                 "พยายามเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่ / "
                 "Too many failed attempts, please wait a moment"
             )
             return render_template("auth/login.html", errors=errors), 429
 
-        email = request.form.get("email", "").strip().lower()
-        password = request.form.get("password", "")
         user = User.query.filter(db.func.lower(User.email) == email).first()
 
         if user and user.check_password(password):
@@ -125,7 +130,7 @@ def login():
                 next_page = None
             return redirect(next_page or url_for("main.dashboard"))
 
-        _record_failed_attempt(client_key)
+        _record_failed_attempt(rate_limit_key)
         logger.warning(f"[login] failed attempt for email={email}")
         errors["general"] = "อีเมลหรือรหัสผ่านไม่ถูกต้อง / Invalid email or password"
 

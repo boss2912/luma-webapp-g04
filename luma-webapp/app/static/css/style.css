@@ -93,9 +93,13 @@ nav a:first-child {
 }
 nav a.active:first-child { color: var(--color-primary); }
 
-/* ปุ่ม Logout เป็น <form><button> แต่อยากให้หน้าตาเหมือนลิงก์ปกติในนาว (F15) */
+/* ปุ่ม Logout เป็น <form><button> แต่อยากให้หน้าตาเหมือนลิงก์ปกติในนาว (F15)
+   หมายเหตุ: ต้อง qualify selector ด้วย .nav-logout-form (ไม่ใช้ .nav-link-btn เดี่ยวๆ)
+   เพราะ .nav-link-btn อย่างเดียว specificity (0,1,0) แพ้ button[type="submit"]
+   ด้านบน (0,1,1) ทำให้ปุ่ม Logout เคยได้พื้นหลังสีม่วงเต็มเหมือนปุ่ม submit ทั่วไป
+   แทนที่จะเป็นลิงก์เปล่าตามที่ตั้งใจ */
 .nav-logout-form { margin: 0; max-width: none; }
-.nav-link-btn {
+.nav-logout-form .nav-link-btn {
   background: none;
   border: none;
   color: var(--color-text);
@@ -107,7 +111,7 @@ nav a.active:first-child { color: var(--color-primary); }
   cursor: pointer;
   transition: background-color 0.15s;
 }
-.nav-link-btn:hover { background-color: var(--color-surface-2); }
+.nav-logout-form .nav-link-btn:hover { background-color: var(--color-surface-2); }
 
 /* Hamburger — ใช้เทคนิค checkbox hack ไม่ต้องพึ่ง JS (Issue #7: responsive mobile) */
 .nav-toggle-checkbox { display: none; }
