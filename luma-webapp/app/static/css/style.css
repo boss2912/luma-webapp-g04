@@ -9,6 +9,13 @@
   padding: 0;
 }
 
+/* Fix CSS bug (พบตอนวางแผน Issue #8): [hidden] ต้องซ่อน element เสมอ ไม่ว่า
+   selector อื่นจะตั้ง display ไว้เป็นอะไรก็ตาม (เช่น .spinner { display: inline-block })
+   ถ้าไม่มีกฎนี้ ลำดับ CSS ในไฟล์จะเป็นตัวตัดสินแทน ซึ่งพังง่ายเวลาแก้โค้ดทีหลัง */
+[hidden] {
+  display: none !important;
+}
+
 /* ── Variables ────────────────────────────────────────────────────────── */
 :root {
   --color-primary: #6c63ff;
@@ -225,6 +232,34 @@ button:hover {
   transform: translateY(-1px);
 }
 button:active { transform: translateY(0); }
+
+/* ปุ่มตอนกด disabled (ระหว่าง generate) */
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Loading Spinner (Issue #8) ──────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-left: 0.5rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  vertical-align: middle;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
 
 /* ── Card ─────────────────────────────────────────────────────────────── */
 .card {
