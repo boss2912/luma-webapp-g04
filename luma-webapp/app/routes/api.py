@@ -8,9 +8,9 @@ Output  : JSON ที่มี path/URL ของภาพที่ generate เ
 
 import os
 import base64
-import time
+import uuid
 import requests
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, send_from_directory, abort
 from flask_login import login_required, current_user
 from app import db
 from app.models import Asset
@@ -19,8 +19,14 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 api_bp = Blueprint("api", __name__)
 
-# โฟลเดอร์สำหรับเก็บรูปที่ generate (สร้างอัตโนมัติถ้าไม่มี)
-UPLOAD_FOLDER = os.path.join("app", "static", "generated")
+# Fix F05 (IDOR): เดิมเก็บใน app/static/generated/ ซึ่ง Flask เสิร์ฟให้ใครก็ได้
+# เห็นผ่าน URL ตรงๆ โดยไม่เช็ค login เลย (แค่รู้/เดา URL ก็ดูรูปคนอื่นได้)
+# ย้ายออกมานอก static/ แล้วบังคับให้ดูผ่าน route get_asset_image() ที่เช็ค
+# ownership เท่านั้น — ใช้ absolute path ยึดกับตำแหน่งไฟล์นี้เอง (ไม่ใช่ relative
+# path ที่พึ่ง current working directory ตอนรัน ซึ่งเคยทำให้ route หาไฟล์ไม่เจอ)
+UPLOAD_FOLDER = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "generated")
+)
 
 
 def _get_forge_endpoint() -> str:
@@ -39,15 +45,26 @@ def _save_base64_image(b64_string: str, filename: str) -> str:
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     with open(filepath, "wb") as f:
         f.write(base64.b64decode(b64_string))
-    # คืน path แบบ URL-friendly (สำหรับ url_for('static', ...))
-    return f"generated/{filename}"
+    # คืนแค่ชื่อไฟล์ (ไม่ผูกกับ static/ อีกต่อไป — ดูรูปต้องผ่าน
+    # get_asset_image() ที่เช็ค ownership เท่านั้น)
+    return filename
 
 
 @api_bp.route("/generate", methods=["POST"])
 @login_required
 def generate_image():
-    data = request.get_json()
-    prompt = data.get("prompt", "").strip()
+    # silent=True: ถ้า body ไม่ใช่ JSON ที่ parse ได้ จะได้ None แทนที่จะโยน
+    # exception ขึ้นมาเป็น 500 — เช็คแล้วตอบ 400 ที่อ่านง่ายกว่าแทน
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"error": "ต้องส่ง JSON body / request body must be JSON"}), 400
+
+    prompt = data.get("prompt", "")
+    # Fix F04: เดิมถ้า prompt ไม่ใช่ string (เช่น {"prompt": 12345}) การเรียก
+    # .strip() จะ crash เป็น 500 — เช็ค type ก่อนเสมอ
+    if not isinstance(prompt, str):
+        return jsonify({"error": "prompt ต้องเป็น string / prompt must be a string"}), 400
+    prompt = prompt.strip()
 
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
@@ -74,13 +91,16 @@ def generate_image():
         if not images:
             return jsonify({"error": "Forge AI ไม่ส่งรูปกลับมา"}), 502
 
-        filename = f"asset_{current_user.id}_{int(time.time())}.png"
-        relative_path = _save_base64_image(images[0], filename)
-        logger.info(f"[generate] saved image → {relative_path}")
+        # Fix F11: เดิมใช้ int(time.time()) ความละเอียดแค่ระดับวินาที ถ้ามีคน
+        # generate 2 ครั้งในวินาทีเดียวกัน ไฟล์ชื่อชนกันและไฟล์เก่าถูกทับ
+        # เปลี่ยนเป็น uuid4 ที่ไม่ซ้ำกันแทบจะแน่นอน
+        filename = f"asset_{current_user.id}_{uuid.uuid4().hex[:12]}.png"
+        saved_filename = _save_base64_image(images[0], filename)
+        logger.info(f"[generate] saved image → {saved_filename}")
 
         asset = Asset(
             user_id=current_user.id,
-            filename=relative_path,
+            filename=saved_filename,
             prompt=prompt,
         )
         db.session.add(asset)
@@ -89,7 +109,7 @@ def generate_image():
         return jsonify({
             "status": "success",
             "asset_id": asset.id,
-            "image_url": f"/static/{relative_path}",
+            "image_url": f"/api/assets/{asset.id}/image",
         })
 
     except requests.exceptions.ConnectionError:
@@ -115,7 +135,26 @@ def list_assets():
             "prompt": a.prompt,
             "tags": a.tags,
             "created_at": a.created_at.isoformat(),
+            "image_url": f"/api/assets/{a.id}/image",
         }
         for a in assets
     ])
+
+
+@api_bp.route("/assets/<int:asset_id>/image", methods=["GET"])
+@login_required
+def get_asset_image(asset_id):
+    """
+    Fix F05 (IDOR): เดิมรูปถูกเก็บใน app/static/generated/ ทำให้ Flask เสิร์ฟ
+    ให้ทุกคนที่รู้/เดา URL เห็นได้เลย ไม่ต้อง login ไม่ต้องเป็นเจ้าของ
+    ตอนนี้ต้อง (1) login และ (2) เป็นเจ้าของ asset นั้นเท่านั้นถึงจะดูรูปได้
+    """
+    asset = Asset.query.get(asset_id)
+    if asset is None:
+        abort(404)
+    if asset.user_id != current_user.id:
+        # ตอบ 404 (ไม่ใช่ 403) เพื่อไม่บอกผู้โจมตีว่า asset_id นี้มีอยู่จริง
+        # แค่เป็นของคนอื่น — ลดข้อมูลที่รั่วไหลออกไป
+        abort(404)
+    return send_from_directory(UPLOAD_FOLDER, os.path.basename(asset.filename))
 
