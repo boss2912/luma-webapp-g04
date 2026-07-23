@@ -3,8 +3,12 @@ Auth Blueprint
 --------------
 Input   : ฟอร์ม username/email/password จากผู้ใช้
 Process : ตรวจสอบ / hash password / สร้าง session ผ่าน Flask-Login
-Output  : redirect ไปหน้า main, หรือแสดง error ถ้า login ไม่ผ่าน
+Output  : redirect ไปหน้า main, หรือแสดง error รายฟิลด์ใต้ input ถ้าไม่ผ่าน
 """
+
+from collections import defaultdict
+from time import time
+from urllib.parse import urlparse
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
@@ -16,6 +20,36 @@ logger = get_logger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
 
+# Fix F14: in-memory rate limiter สำหรับ login (ไม่เพิ่ม dependency ใหม่)
+# หมายเหตุ: เก็บใน memory ของ process เดียว ถ้า deploy หลาย worker/process
+# แต่ละตัวจะนับแยกกัน — พอสำหรับ dev/งานกลุ่มนี้ ถ้า scale ขึ้นควรย้ายไป Redis
+_RATE_LIMIT_WINDOW_SECONDS = 60
+_RATE_LIMIT_MAX_ATTEMPTS = 5
+_login_attempts = defaultdict(list)
+
+
+def _is_rate_limited(key: str) -> bool:
+    now = time()
+    attempts = _login_attempts[key]
+    attempts[:] = [t for t in attempts if now - t < _RATE_LIMIT_WINDOW_SECONDS]
+    return len(attempts) >= _RATE_LIMIT_MAX_ATTEMPTS
+
+
+def _record_failed_attempt(key: str) -> None:
+    _login_attempts[key].append(time())
+
+
+def _is_safe_next_url(target: str | None) -> bool:
+    """
+    Fix F01: เช็คว่า ?next= เป็น relative path ภายในเว็บนี้เท่านั้น ก่อนอนุญาตให้ redirect
+    ปลอดภัย  : "/dashboard", "/api/assets"
+    อันตราย  : "https://evil.example", "//evil.example" (protocol-relative)
+    """
+    if not target:
+        return False
+    parsed = urlparse(target)
+    return not parsed.scheme and not parsed.netloc
+
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
@@ -23,30 +57,41 @@ def register():
     if current_user.is_authenticated:
         return redirect(url_for("main.dashboard"))
 
+    errors = {}
+    username = email = ""
+
     if request.method == "POST":
-        username = request.form["username"].strip()
-        email = request.form["email"].strip().lower()
-        password = request.form["password"]
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
 
-        # เช็ค username ซ้ำ
-        if User.query.filter_by(username=username).first():
-            flash("ชื่อผู้ใช้นี้ถูกใช้แล้ว / Username already taken", "error")
-            return redirect(url_for("auth.register"))
+        if not username:
+            errors["username"] = "กรุณากรอกชื่อผู้ใช้ / Username is required"
+        if not email:
+            errors["email"] = "กรุณากรอกอีเมล / Email is required"
+        # Fix F08: password policy ฝั่ง server (เดิมไม่เช็คความยาวเลย)
+        if not password or len(password) < 8:
+            errors["password"] = "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร / Password must be at least 8 characters"
 
-        # เช็ค email ซ้ำ
-        if User.query.filter_by(email=email).first():
-            flash("อีเมลนี้ถูกใช้แล้ว / Email already registered", "error")
-            return redirect(url_for("auth.register"))
+        if not errors:
+            # Fix F07 + F12: เช็คซ้ำแบบไม่สนตัวพิมพ์ใหญ่-เล็ก และรวมข้อความ
+            # username ซ้ำ / email ซ้ำ เป็นข้อความเดียวกัน กัน account enumeration
+            # (ถ้าแยกข้อความ ผู้โจมตีจะรู้ได้ว่า username หรือ email ไหนมีอยู่จริงในระบบ)
+            username_taken = User.query.filter(db.func.lower(User.username) == username.lower()).first()
+            email_taken = User.query.filter(db.func.lower(User.email) == email).first()
+            if username_taken or email_taken:
+                errors["general"] = "ไม่สามารถสมัครด้วยข้อมูลนี้ได้ / Unable to register with this information"
 
-        user = User(username=username, email=email)
-        user.set_password(password)
-        db.session.add(user)
-        db.session.commit()
-        logger.info(f"[register] new user: {username} ({email})")
-        flash("สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ / Registration successful! Please log in.", "success")
-        return redirect(url_for("auth.login"))
+        if not errors:
+            user = User(username=username, email=email)
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+            logger.info(f"[register] new user: {username} ({email})")
+            flash("สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ / Registration successful! Please log in.", "success")
+            return redirect(url_for("auth.login"))
 
-    return render_template("auth/register.html")
+    return render_template("auth/register.html", errors=errors, username=username, email=email)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -55,26 +100,42 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for("main.dashboard"))
 
+    errors = {}
+
     if request.method == "POST":
-        email = request.form["email"].strip().lower()
-        password = request.form["password"]
-        user = User.query.filter_by(email=email).first()
+        client_key = request.remote_addr or "unknown"
+
+        if _is_rate_limited(client_key):
+            errors["general"] = (
+                "พยายามเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่ / "
+                "Too many failed attempts, please wait a moment"
+            )
+            return render_template("auth/login.html", errors=errors), 429
+
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        user = User.query.filter(db.func.lower(User.email) == email).first()
 
         if user and user.check_password(password):
             login_user(user)
             logger.info(f"[login] user={user.username} logged in")
-            # redirect ไปหน้าที่ผู้ใช้ต้องการก่อน login (ถ้ามี)
+            # Fix F01: ยอม redirect เฉพาะ next ที่เป็น path ภายในเว็บนี้เท่านั้น
             next_page = request.args.get("next")
+            if not _is_safe_next_url(next_page):
+                next_page = None
             return redirect(next_page or url_for("main.dashboard"))
 
+        _record_failed_attempt(client_key)
         logger.warning(f"[login] failed attempt for email={email}")
-        flash("อีเมลหรือรหัสผ่านไม่ถูกต้อง / Invalid email or password", "error")
+        errors["general"] = "อีเมลหรือรหัสผ่านไม่ถูกต้อง / Invalid email or password"
 
-    return render_template("auth/login.html")
+    return render_template("auth/login.html", errors=errors)
 
 
-@auth_bp.route("/logout")
+@auth_bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
+    # Fix F15: เปลี่ยนจาก GET เป็น POST-only (GET request ไม่ควรมี side effect
+    # เช่นโดน prefetch/crawler ยิงแล้ว logout ผู้ใช้โดยไม่ตั้งใจ)
     logout_user()
     return redirect(url_for("main.index"))
