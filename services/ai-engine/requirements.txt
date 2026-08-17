@@ -1,0 +1,46 @@
+# =============================================================================
+# LUMA - ai-engine service (Forge AI client + Image Processing pipeline)
+# Machine: 192.168.1.30 (example, the GPU box)  |  Python 3.12 (verified)
+#
+# ASCII ONLY - do not add non-ASCII comments here (see backend/requirements.txt
+# for why). Put Thai explanations in INSTALL.md instead.
+#
+# Install:  pip install -r services/ai-engine/requirements.txt
+#
+# All versions below were verified together with a 31-check smoke test covering
+# every OpenCV / NumPy / skimage / matplotlib call the 5 pipeline stages need
+# (imread, cvtColor HSV, filter2D, sepFilter2D, medianBlur, equalizeHist, LUT
+# gamma, dft/idft, morphologyEx, Otsu, findContours, Canny, alpha merge,
+# contourArea, PSNR, SSIM, headless savefig): 31 passed, 0 failed.
+# =============================================================================
+
+# --- HTTP server (exposes /forge/* and /pipeline/* to the backend) ----------
+Flask==3.0.3
+
+# --- Core image processing --------------------------------------------------
+opencv-python==5.0.0.93     # cv2
+numpy==2.5.2
+
+# --- Metrics for 05_evaluation (PSNR / SSIM) -------------------------------
+scikit-image==0.26.0
+scipy==1.18.0               # skew / kurtosis for histogram statistics
+
+# --- Plots for reports and 05_evaluation -----------------------------------
+matplotlib==3.11.1
+# NOTE: on a headless machine set the Agg backend before importing pyplot:
+#   import matplotlib; matplotlib.use("Agg")
+
+# --- Image IO / EXIF (01_acquisition) --------------------------------------
+Pillow==12.3.0
+
+# --- HTTP client (calls Stable Diffusion WebUI / Forge) --------------------
+requests==2.34.2
+
+# --- Testing ---------------------------------------------------------------
+pytest==9.1.1
+
+# --- NOT included on purpose ----------------------------------------------
+# torch / diffusers are NOT listed here. Stable Diffusion WebUI (Forge) runs as
+# a separate application with its own environment (Stability Matrix installs it)
+# and this service only talks to it over HTTP. Adding torch here would download
+# several GB for nothing.

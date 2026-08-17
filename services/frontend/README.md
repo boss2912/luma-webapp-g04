@@ -7,6 +7,22 @@
 
 หน้าตาทั้งหมดที่ผู้ใช้เห็น — เรียก backend ผ่าน `fetch()` ไปที่ API base URL ที่อ่านจาก config
 
+## ไม่ต้องลง Python package
+
+service นี้เป็น HTML / CSS / JS ล้วน จึง **ไม่มี `requirements.txt`**
+เครื่อง frontend (192.168.1.10) ไม่ต้องลง OpenCV, Flask หรืออะไรเลย
+
+**ตอน dev** เสิร์ฟด้วย web server ที่ติดมากับ Python ได้เลย:
+```bash
+cd services/frontend
+python -m http.server 8080
+```
+
+**ตอน V5** Nginx เสิร์ฟให้ — ดู [`../../deploy/README.md`](../../deploy/README.md)
+
+> ช่วง V1–V3 ไฟล์หน้าเว็บยังอยู่ที่ `../backend/app/templates/` เพราะ Flask render ให้
+> จะย้ายมาที่นี่ตอน V4 (ดู issue V4 ใน `docs/ROADMAP.md`)
+
 ## โครงสร้างที่ตั้งใจไว้
 
 ```
