@@ -1,0 +1,21 @@
+# =============================================================================
+# LUMA - full development environment (all services in one venv)
+#
+# Use this when you develop everything on ONE laptop instead of the 3-machine
+# layout. For the real 3-machine deployment install only the service that runs
+# on that machine.
+#
+# ASCII ONLY - do not add non-ASCII comments here.
+# See INSTALL.md for Thai instructions and troubleshooting.
+#
+# Install:  pip install -r requirements-dev.txt
+#
+# The shared pins (Pillow, requests, pytest) are deliberately identical across
+# all three service files so they can coexist in a single venv with no
+# conflict. Verified: the combined set resolves and the v1 test suite still
+# passes 33/33.
+# =============================================================================
+
+-r services/backend/requirements.txt
+-r services/ai-engine/requirements.txt
+-r services/database/requirements.txt

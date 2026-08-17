@@ -1,0 +1,40 @@
+# =============================================================================
+# LUMA - backend service (Flask API)
+# Machine: 192.168.1.20 (example)  |  Python 3.12 (verified)
+#
+# ASCII ONLY - do not add non-ASCII comments here.
+# pip reads this file with the OS locale codec. On Thai-locale Windows that is
+# cp874, and any UTF-8 Thai text makes `pip install -r` fail with
+# UnicodeDecodeError. Put Thai explanations in INSTALL.md instead.
+#
+# Install:  pip install -r services/backend/requirements.txt
+#
+# All versions below were verified together against the v1 test suite
+# (git tag backup/v1-final): pytest 33 passed, 0 failed.
+# =============================================================================
+
+# --- Web framework ----------------------------------------------------------
+Flask==3.0.3
+
+# --- Flask extensions -------------------------------------------------------
+Flask-Login==0.6.3          # session auth
+Flask-Migrate==4.0.7        # Alembic migrations - required, do not rely on db.create_all()
+Flask-SQLAlchemy==3.1.1     # ORM
+Flask-WTF==1.2.1            # CSRFProtect + forms
+
+# --- Form validation --------------------------------------------------------
+WTForms==3.1.2
+
+# --- HTTP client (calls the ai-engine service) ------------------------------
+requests==2.34.2
+
+# --- Image handling (validate uploads, read metadata) -----------------------
+Pillow==12.3.0
+
+# --- Testing ----------------------------------------------------------------
+pytest==9.1.1
+
+# --- Production WSGI server (Linux / macOS only) ----------------------------
+# gunicorn==23.0.0          # uncomment when deploying behind Nginx (V5)
+# Windows has no gunicorn; use waitress instead:
+# waitress==3.0.2

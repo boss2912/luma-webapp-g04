@@ -118,6 +118,7 @@ luma-webapp-g04/
 
 | ไฟล์ | อ่านเมื่อ |
 |---|---|
+| [`INSTALL.md`](INSTALL.md) | ติดตั้ง — Windows · macOS · Linux · Conda · แยก 3 เครื่อง · แก้ปัญหา |
 | ⭐ [`docs/COURSE_REQUIREMENTS.md`](docs/COURSE_REQUIREMENTS.md) | **อ่านก่อนเริ่มทุกงาน** — ข้อกำหนดจากอาจารย์ทั้งหมด สกัดจาก Lecture 1–7 พร้อมเลขหน้าอ้างอิง |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | อยากรู้ว่าตอนนี้ทำอะไร ต่อไปทำอะไร (milestone V1–V5) |
 | [`docs/TEAM_AND_WORKFLOW.md`](docs/TEAM_AND_WORKFLOW.md) | แบ่งงาน · git workflow · กติกา PR |
@@ -131,32 +132,56 @@ luma-webapp-g04/
 
 ## 🚀 การติดตั้ง
 
-> ยังไม่มีโค้ดให้รัน — หัวข้อนี้จะอัปเดตเมื่อ V2 เริ่มมีของ
+📖 **คู่มือเต็ม → [`INSTALL.md`](INSTALL.md)** (Windows · macOS · Linux · Conda · แยก 3 เครื่อง · แก้ปัญหา)
 
-แต่ละ service มี `requirements.txt` แยกกัน ติดตั้งเฉพาะตัวที่เครื่องนั้นต้องใช้:
+**Python 3.12** · ทุกเวอร์ชันถูกล็อกและทดสอบร่วมกันแล้ว — backend `pytest` 33/33 · ai-engine smoke 31/31
 
+### ติดตั้งเร็วสุด (dev บนเครื่องเดียว)
+
+**Windows**
+```powershell
+git clone https://github.com/boss2912/luma-webapp-g04.git
+cd luma-webapp-g04
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements-dev.txt
+```
+
+**macOS / Linux**
 ```bash
 git clone https://github.com/boss2912/luma-webapp-g04.git
 cd luma-webapp-g04
-
-# เครื่อง backend
-python -m venv .venv && .venv\Scripts\Activate.ps1     # Windows
-pip install -r services/backend/requirements.txt
-
-# เครื่อง AI (ต้องมี GPU)
-pip install -r services/ai-engine/requirements.txt
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements-dev.txt
 ```
 
-### ⚠️ ถ้าเจอ `UnicodeDecodeError` ตอน `pip install -r`
-
-บนเครื่อง Windows locale ไทย pip อ่านไฟล์ด้วย codec `cp874` ถ้าไฟล์เป็น UTF-8 ที่มีตัวอักษรไทยจะพัง
-เราแก้โดยให้ `requirements.txt` เป็น **ASCII ล้วน** ถ้ายังเจอปัญหาให้ตั้ง:
-
-```powershell
-$env:PYTHONUTF8 = "1"
+**Conda** (ใช้ได้ทุกระบบ)
+```bash
+conda env create -f environment.yml
+conda activate luma
 ```
 
-> นี่เป็นปัญหาจริงที่เจอใน v1 — ดู [`archive/ARCHITECTURE_v1.md`](archive/ARCHITECTURE_v1.md) ปัญหา B
+### ติดตั้งแบบแยกเครื่อง (3 เครื่องตามสเปกอาจารย์)
+
+ลงเฉพาะที่เครื่องนั้นต้องใช้ — เครื่อง frontend ไม่ต้องลง OpenCV เลย
+
+| เครื่อง | บทบาท | คำสั่ง |
+|---|---|---|
+| `.10` | Frontend + Nginx | **ไม่ต้องลง Python package** (HTML/CSS/JS ล้วน) |
+| `.20` | Flask + SQLite | `pip install -r services/backend/requirements.txt`<br>`pip install -r services/database/requirements.txt` |
+| `.30` | Forge AI + Image Processing | `pip install -r services/ai-engine/requirements.txt` |
+
+### ตั้งค่า config
+
+```bash
+cp services/backend/instance/config.py.example services/backend/instance/config.py
+python -c "import secrets; print(secrets.token_hex(32))"   # เอาค่าไปใส่ SECRET_KEY
+```
+
+> ⛔ `config.py` อยู่ใน `.gitignore` **ห้าม commit** — v1 เคยหลุด `SECRET_KEY` ขึ้น GitHub
 
 ---
 

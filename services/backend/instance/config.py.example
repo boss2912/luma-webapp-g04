@@ -1,0 +1,62 @@
+# =============================================================================
+# LUMA backend - instance config TEMPLATE
+#
+# HOW TO USE
+#   1. copy this file to config.py in the same folder
+#        cp config.py.example config.py
+#        Copy-Item config.py.example config.py      (Windows PowerShell)
+#   2. change SECRET_KEY to a random value of your own
+#   3. point the IP addresses at the real machines on your LAN
+#
+# config.py itself is in .gitignore and MUST NEVER be committed.
+# v1 leaked a SECRET_KEY to GitHub because the ignore line was commented out
+# (see archive/SECURITY_FIXES_v1.md, F09). Anyone who knows SECRET_KEY can
+# forge a session cookie and log in as any user.
+#
+# Generate a fresh key:
+#   python -c "import secrets; print(secrets.token_hex(32))"
+# =============================================================================
+
+# --- Flask -------------------------------------------------------------------
+SECRET_KEY = "CHANGE-ME-run-the-secrets-command-above"
+
+# --- Database ----------------------------------------------------------------
+# SQLite for the 3-machine layout. The file lives next to this config, in
+# services/backend/instance/, and is git-ignored.
+SQLALCHEMY_DATABASE_URI = "sqlite:///luma.db"
+SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+# For the 4-machine layout (PostgreSQL on its own box - Lecture 4 p.56):
+# SQLALCHEMY_DATABASE_URI = "postgresql+psycopg://luma:PASSWORD@192.168.1.40:5432/luma"
+
+# --- ai-engine service (Forge AI + image processing pipeline) ----------------
+# NEVER hardcode "localhost" in application code - read it from here.
+# The project has to run across separate machines (Lecture 4 p.54).
+#
+# Same machine while developing:
+AI_ENGINE_URL     = "http://127.0.0.1:8000"
+FORGE_AI_ENDPOINT = "http://127.0.0.1:7860/sdapi/v1/txt2img"
+#
+# Real 3-machine deployment - replace with the actual IP of the AI box:
+# AI_ENGINE_URL     = "http://192.168.1.30:8000"
+# FORGE_AI_ENDPOINT = "http://192.168.1.30:7860/sdapi/v1/txt2img"
+
+# --- Generation defaults ----------------------------------------------------
+# Values follow what the lecturer recommends in Lecture 2:
+#   CFG scale 8-14 (p.10)  |  steps 20-60 is enough (p.7)  |  seed -1 = random (p.5-6)
+# NOTE: v1 defaulted cfg_scale to 7, which is BELOW the recommended range.
+FORGE_DEFAULT_STEPS        = 20
+FORGE_DEFAULT_CFG_SCALE    = 8
+FORGE_DEFAULT_SAMPLER      = "DPM++ 2M Karras"
+FORGE_DEFAULT_SEED         = -1
+FORGE_TIMEOUT_SECONDS      = 120
+
+# --- Upload / generated files ----------------------------------------------
+# Stored OUTSIDE static/ on purpose. Flask serves everything under static/ to
+# anyone who knows the URL, logged in or not - that was the IDOR bug F05.
+# Files must be served through a route that checks ownership.
+MAX_CONTENT_LENGTH = 16 * 1024 * 1024   # 16 MB per upload
+
+# --- Rate limiting (login) --------------------------------------------------
+RATE_LIMIT_WINDOW_SECONDS = 60
+RATE_LIMIT_MAX_ATTEMPTS   = 5
