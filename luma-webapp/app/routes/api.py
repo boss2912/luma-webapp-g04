@@ -19,6 +19,13 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 api_bp = Blueprint("api", __name__)
 
+# Issue #5: ขอบเขตพารามิเตอร์ที่ยอมรับ — เช็คก่อนยิงต่อไปที่ Forge AI เสมอ
+ALLOWED_DIMENSIONS = (512, 768, 1024)
+MIN_STEPS, MAX_STEPS = 1, 50
+DEFAULT_STEPS = 20
+MIN_CFG_SCALE, MAX_CFG_SCALE = 1, 30
+DEFAULT_CFG_SCALE = 7
+
 # Fix F05 (IDOR): เดิมเก็บใน app/static/generated/ ซึ่ง Flask เสิร์ฟให้ใครก็ได้
 # เห็นผ่าน URL ตรงๆ โดยไม่เช็ค login เลย (แค่รู้/เดา URL ก็ดูรูปคนอื่นได้)
 # ย้ายออกมานอก static/ แล้วบังคับให้ดูผ่าน route get_asset_image() ที่เช็ค
@@ -50,6 +57,49 @@ def _save_base64_image(b64_string: str, filename: str) -> str:
     return filename
 
 
+def _validate_generate_params(data):
+    """
+    Issue #5: ตรวจ negative_prompt / steps / cfg_scale / width / height ก่อนส่งต่อ
+    Forge AI เสมอ — ไม่มี field ไหนที่จำเป็นต้องส่งมา (ทุกตัวมีค่า default)
+    Return: (params dict, error message หรือ None)
+    """
+    params = {
+        "negative_prompt": "",
+        "steps": DEFAULT_STEPS,
+        "cfg_scale": DEFAULT_CFG_SCALE,
+        "width": 512,
+        "height": 512,
+    }
+
+    negative_prompt = data.get("negative_prompt", "")
+    if negative_prompt is not None:
+        if not isinstance(negative_prompt, str):
+            return None, "negative_prompt ต้องเป็น string / negative_prompt must be a string"
+        params["negative_prompt"] = negative_prompt.strip()
+
+    if "steps" in data and data["steps"] is not None:
+        steps = data["steps"]
+        if not isinstance(steps, int) or isinstance(steps, bool) or not (MIN_STEPS <= steps <= MAX_STEPS):
+            return None, f"steps ต้องเป็นจำนวนเต็มระหว่าง {MIN_STEPS}-{MAX_STEPS} / steps must be an integer between {MIN_STEPS} and {MAX_STEPS}"
+        params["steps"] = steps
+
+    if "cfg_scale" in data and data["cfg_scale"] is not None:
+        cfg_scale = data["cfg_scale"]
+        if not isinstance(cfg_scale, (int, float)) or isinstance(cfg_scale, bool) or not (MIN_CFG_SCALE <= cfg_scale <= MAX_CFG_SCALE):
+            return None, f"cfg_scale ต้องเป็นตัวเลขระหว่าง {MIN_CFG_SCALE}-{MAX_CFG_SCALE} / cfg_scale must be a number between {MIN_CFG_SCALE} and {MAX_CFG_SCALE}"
+        params["cfg_scale"] = cfg_scale
+
+    for dim in ("width", "height"):
+        if dim in data and data[dim] is not None:
+            value = data[dim]
+            if value not in ALLOWED_DIMENSIONS:
+                allowed = "/".join(str(d) for d in ALLOWED_DIMENSIONS)
+                return None, f"{dim} ต้องเป็นหนึ่งใน {allowed} / {dim} must be one of {allowed}"
+            params[dim] = value
+
+    return params, None
+
+
 @api_bp.route("/generate", methods=["POST"])
 @login_required
 def generate_image():
@@ -69,6 +119,10 @@ def generate_image():
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
 
+    gen_params, error = _validate_generate_params(data)
+    if error:
+        return jsonify({"error": error}), 400
+
     forge_url = _get_forge_endpoint()
     logger.info(f"[generate] user={current_user.id} prompt='{prompt[:50]}' → {forge_url}")
 
@@ -77,9 +131,7 @@ def generate_image():
             forge_url,
             json={
                 "prompt": prompt,
-                "steps": 20,
-                "width": 512,
-                "height": 512,
+                **gen_params,
             },
             timeout=120,
         )

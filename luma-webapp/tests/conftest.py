@@ -1,9 +1,9 @@
 """
 tests/conftest.py — fixtures ที่ทุก test ไฟล์ใช้ร่วมกัน
 --------------------------------------------------------
-รวมจาก 2 branch ที่แยกกันตาม issue (feature/backend-auth-issue2-3 และ
-feature/forge-ai-issue5-6) — ทั้งสองฝั่งเขียน fixture ชุดเดียวกันไว้โดยตั้งใจ
-ตอน merge จึงใช้ superset ตามที่คอมเมนต์ในทั้งสองไฟล์ระบุไว้
+รวมจาก 2 branch ที่แยกกันตาม issue (feature/backend-auth-issue2-3 Issue #2/#3 และ
+feature/forge-ai-issue5-6 Issue #5/#6) — ทั้งสองฝั่งเขียน fixture ชุดเดียวกันไว้
+โดยตั้งใจ ตอน merge จึงใช้ superset ตามที่คอมเมนต์ในทั้งสองไฟล์ระบุไว้
 
   app     : Flask app instance ที่ config ใหม่สำหรับ test โดยเฉพาะ (in-memory
             SQLite, ปิด CSRF, ไม่ต้องมี instance/config.py ในเครื่อง)
