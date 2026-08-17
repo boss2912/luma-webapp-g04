@@ -78,7 +78,7 @@
 
 | คน | บทบาท | ดูแลโฟลเดอร์ | Branch |
 |---|---|---|---|
-| **คนที่ 1** (บอส) | Web Platform — Frontend + Backend + Nginx | `services/backend/` · `services/frontend/` · `deploy/` | `feat/web-platform` |
+| **คนที่ 1** | Web Platform — Frontend + Backend + Nginx | `services/backend/` · `services/frontend/` · `deploy/` | `feat/web-platform` |
 | **คนที่ 2** | Data & Storage — SQL, schema, Asset Hub queries | `services/database/` | `feat/data-layer` |
 | **คนที่ 3** | AI + Image Processing Engine | `services/ai-engine/` | `feat/ai-ip-engine` |
 
