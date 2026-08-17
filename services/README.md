@@ -5,8 +5,8 @@
 
 | โฟลเดอร์ | บทบาท | เครื่อง (ตัวอย่าง IP) | ผู้ดูแล |
 |---|---|---|---|
-| `backend/` | Flask — API, Auth, Logging | 192.168.1.20 | 👤 คนที่ 1 — Web Platform (บอส) |
-| `frontend/` | HTML / CSS / JS | 192.168.1.10 | 👤 คนที่ 1 — Web Platform (บอส) |
+| `backend/` | Flask — API, Auth, Logging | 192.168.1.20 | 👤 คนที่ 1 — Web Platform |
+| `frontend/` | HTML / CSS / JS | 192.168.1.10 | 👤 คนที่ 1 — Web Platform |
 | `ai-engine/` | Forge AI + Image Processing pipeline | 192.168.1.30 | 👤 คนที่ 3 — AI + Image Processing Engine |
 | `database/` | SQLite schema / migrations / queries | 192.168.1.20 (เครื่องเดียวกับ backend) | 👤 คนที่ 2 — Data & Storage |
 
