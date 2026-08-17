@@ -13,7 +13,7 @@
 
 ---
 
-## คนที่ 1 — Web Platform 👤 บอส
+## คนที่ 1 — Web Platform
 
 **Branch**: `feat/web-platform`
 **โฟลเดอร์**: `services/backend/` · `services/frontend/` · `deploy/`

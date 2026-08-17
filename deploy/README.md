@@ -1,6 +1,6 @@
 # deploy/ — Nginx และ config ต่อเครื่อง
 
-👤 คนที่ 1 — Web Platform (บอส) (Nginx เป็นงาน V5)
+👤 คนที่ 1 — Web Platform (Nginx เป็นงาน V5)
 
 ## โครงสร้าง
 

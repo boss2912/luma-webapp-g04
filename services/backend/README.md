@@ -1,6 +1,6 @@
 # backend/ — Flask API Server
 
-👤 คนที่ 1 — Web Platform (บอส)
+👤 คนที่ 1 — Web Platform
 **เครื่อง**: 192.168.1.20 (ตัวอย่าง) · **พอร์ต**: 5000
 
 ## หน้าที่
