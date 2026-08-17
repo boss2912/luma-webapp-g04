@@ -1,0 +1,31 @@
+# =============================================================================
+# LUMA - database service (schema / migrations / queries)
+# Machine: 192.168.1.20 (same box as backend, per the 3-machine layout)
+# Python 3.12 (verified)
+#
+# ASCII ONLY - do not add non-ASCII comments here (see backend/requirements.txt
+# for why). Put Thai explanations in INSTALL.md instead.
+#
+# Install:  pip install -r services/database/requirements.txt
+#
+# Only needed for standalone schema / query / seed scripts. Running the actual
+# `flask db migrate` / `flask db upgrade` commands needs the backend app
+# context, so install the backend requirements too when doing migrations:
+#   pip install -r services/backend/requirements.txt
+# =============================================================================
+
+# --- ORM + migrations (same pins as backend, so one venv can hold both) -----
+SQLAlchemy==2.0.52
+alembic==1.19.1
+
+# --- Testing ----------------------------------------------------------------
+pytest==9.1.1
+
+# --- NOTE on SQLite ---------------------------------------------------------
+# SQLite ships with Python - nothing to install.
+# Foreign keys are OFF by default in SQLite; every connection must run
+#   PRAGMA foreign_keys = ON;
+# or ON DELETE CASCADE will silently do nothing.
+#
+# For the 4-machine layout (PostgreSQL on its own box) add:
+# psycopg[binary]==3.2.10

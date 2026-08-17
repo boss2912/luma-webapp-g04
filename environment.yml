@@ -1,0 +1,51 @@
+# =============================================================================
+# LUMA - Conda environment (full dev: all services in one env)
+#
+# Create:   conda env create -f environment.yml
+# Activate: conda activate luma
+# Update:   conda env update -f environment.yml --prune
+# Remove:   conda env remove -n luma
+#
+# Works on Windows, macOS (Intel + Apple Silicon) and Linux.
+# Python 3.12 is the version the whole dependency set was verified on.
+#
+# For the real 3-machine deployment you do NOT need everything. See INSTALL.md
+# for slim per-machine environments.
+# =============================================================================
+name: luma
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  # Python itself comes from conda; every library comes from pip so the pinned
+  # versions match requirements.txt exactly (conda-forge build numbers differ
+  # and would drift away from what was tested).
+  - python=3.12
+  - pip
+
+  - pip:
+      # --- backend ------------------------------------------------------------
+      - Flask==3.0.3
+      - Flask-Login==0.6.3
+      - Flask-Migrate==4.0.7
+      - Flask-SQLAlchemy==3.1.1
+      - Flask-WTF==1.2.1
+      - WTForms==3.1.2
+
+      # --- ai-engine: image processing ---------------------------------------
+      - opencv-python==5.0.0.93
+      - numpy==2.5.2
+      - scikit-image==0.26.0
+      - scipy==1.18.0
+      - matplotlib==3.11.1
+
+      # --- database ----------------------------------------------------------
+      - SQLAlchemy==2.0.52
+      - alembic==1.19.1
+
+      # --- shared ------------------------------------------------------------
+      - requests==2.34.2
+      - Pillow==12.3.0
+      - pytest==9.1.1
