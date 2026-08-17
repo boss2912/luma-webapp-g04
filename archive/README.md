@@ -11,18 +11,33 @@
 
 ## โค้ดตัวจริงยังอยู่ใน git
 
+### ใช้ `backup/v1-final` เสมอ
+
 ```bash
-git show backup/pre-restructure-develop:luma-webapp/app/routes/api.py
-git checkout backup/pre-restructure-develop -- luma-webapp/   # ดึงกลับมาทั้งโฟลเดอร์
+git show backup/v1-final:luma-webapp/app/routes/api.py
+git checkout backup/v1-final -- luma-webapp/       # ดึงกลับมาทั้งโฟลเดอร์
 ```
 
-| tag | ชี้ไปที่ |
-|---|---|
-| `backup/pre-restructure-develop` | develop ก่อนรีเซ็ต (มี PR #10/#11/#12 รวมแล้ว) |
-| `backup/pre-restructure-main` | main ก่อนรีเซ็ต |
-| `backup/pr10-security` | branch `fix/security-and-issue9` |
-| `backup/pr11-forge-ai` | branch `feature/forge-ai-issue5-6` |
-| `backup/pr12-backend-auth` | branch `feature/backend-auth-issue2-3` |
+`backup/v1-final` คือ commit สุดท้ายที่โค้ด v1 **ครบและทำงานได้จริง** —
+รวม PR #10/#11/#12 แล้วและ `pytest` ผ่าน 33/33
+
+> ⚠️ ถ้าดึงโค้ดกลับมารัน test **ต้องลบ `luma-webapp/instance/luma.db` ออกก่อน**
+> เพราะ schema ในไฟล์นั้นเก่ากว่า models และ `db.create_all()` ไม่ ALTER ตารางเดิม
+
+### tag ทั้งหมด
+
+| tag | ชี้ไปที่ | มี security fix F01–F15? | ไฟล์ test |
+|---|---|---|---|
+| **`backup/v1-final`** | **v1 สมบูรณ์ที่สุด — รวม 3 PR + test ผ่าน** | ✅ | 9 |
+| `backup/pre-restructure-develop` | develop ในเครื่อง **ก่อน** merge 3 PR | ❌ | 2 |
+| `backup/pre-restructure-main` | main ก่อนรีเซ็ต | ❌ | 0 |
+| `backup/pr10-security` | branch `fix/security-and-issue9` | ✅ | 0 |
+| `backup/pr11-forge-ai` | branch `feature/forge-ai-issue5-6` | ✅ | 6 |
+| `backup/pr12-backend-auth` | branch `feature/backend-auth-issue2-3` | ✅ | 4 |
+
+> ⚠️ **อย่าใช้ `backup/pre-restructure-develop` เป็นแหล่งอ้างอิงโค้ด** — มันชี้ไปที่ develop
+> ในเครื่องก่อนที่ 3 PR จะถูก merge เข้ามา จึง**ไม่มี** CSRFProtect, rate limiter,
+> การแก้ IDOR และ test ส่วนใหญ่ เก็บไว้เป็นแค่บันทึกว่า "ก่อนรีเซ็ตเครื่องอยู่สถานะไหน"
 
 ## สถานะของ v1 ตอนถูกเก็บ
 
