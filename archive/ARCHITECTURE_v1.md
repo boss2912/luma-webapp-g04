@@ -2,7 +2,8 @@
 
 > เอกสารนี้สรุป **สิ่งที่ v1 ทำได้จริง / ทำงานอย่างไร / อะไรควรหยิบกลับมาใช้**
 > โค้ดคำต่อคำอยู่ใน [`CODE_SNAPSHOT_v1.md`](CODE_SNAPSHOT_v1.md)
-> โค้ดใน git อยู่ที่ tag `backup/pre-restructure-develop`
+> โค้ดใน git อยู่ที่ tag **`backup/v1-final`** (ไม่ใช่ `backup/pre-restructure-develop`
+> ซึ่งชี้ไปที่ commit ก่อน merge 3 PR จึงไม่มี security fix — ดู [`README.md`](README.md))
 
 **สถานะตอนถูกเก็บ**: รวม PR #10 + #11 + #12 เข้าด้วยกันแล้ว · `pytest` **33/33 ผ่าน** (บนฐานข้อมูลใหม่)
 

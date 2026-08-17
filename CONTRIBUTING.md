@@ -232,6 +232,6 @@ def gamma_correct(img, gamma, c=1.0):
 2. เช็ค [`archive/ARCHITECTURE_v1.md`](archive/ARCHITECTURE_v1.md) — ปัญหา A–F ที่เคยเจอ
 3. เช็คว่า v1 เคยทำเรื่องนี้ไว้ไหม:
    ```bash
-   git show backup/pre-restructure-develop:luma-webapp/app/routes/api.py
+   git show backup/v1-final:luma-webapp/app/routes/api.py
    ```
 4. ถามในกลุ่ม — บอกด้วยว่าลองอะไรไปแล้ว
