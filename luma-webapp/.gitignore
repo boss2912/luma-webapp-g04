@@ -14,7 +14,8 @@ instance/*.sqlite
 instance/*.sqlite3
 
 # ── Secret config (ห้าม push ขึ้น git!) ────────────────────────────────────
-# instance/config.py  ← uncomment บรรทัดนี้ถ้าต้องการซ่อน config ทั้งหมด
+# Fix F09: เดิม SECRET_KEY placeholder ถูก push ขึ้น git เพราะบรรทัดนี้ถูก comment ไว้
+instance/config.py
 .env
 .env.*
 
@@ -44,8 +45,10 @@ Thumbs.db
 desktop.ini
 
 # ── Generated image uploads (ถ้าเก็บ local) ──────────────────────────────────
+# Fix F05: ย้ายที่เก็บรูปออกจาก app/static/generated/ (Flask เสิร์ฟให้ทุกคนเห็นฟรี)
+# มาไว้ที่ app/generated/ แทน (เสิร์ฟผ่าน route ที่เช็ค ownership เท่านั้น)
 app/static/uploads/
-app/static/generated/
+app/generated/
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
 *.log

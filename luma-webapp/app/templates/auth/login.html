@@ -4,7 +4,13 @@
   <h1>เข้าสู่ระบบ / Login</h1>
   <p class="auth-subtitle">ยินดีต้อนรับกลับ · Welcome back</p>
 
-  <form method="POST" novalidate>
+  {% if errors.general %}
+    <p class="field-error field-error-general">{{ errors.general }}</p>
+  {% endif %}
+
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
     <div class="form-group">
       <label for="email">อีเมล / Email</label>
       <input
@@ -14,7 +20,9 @@
         placeholder="you@example.com"
         required
         autocomplete="email"
+        class="{{ 'input-error' if errors.email }}"
       >
+      {% if errors.email %}<p class="field-error">{{ errors.email }}</p>{% endif %}
     </div>
 
     <div class="form-group">
@@ -26,7 +34,9 @@
         placeholder="••••••••"
         required
         autocomplete="current-password"
+        class="{{ 'input-error' if errors.password }}"
       >
+      {% if errors.password %}<p class="field-error">{{ errors.password }}</p>{% endif %}
     </div>
 
     <button type="submit" id="login-btn">เข้าสู่ระบบ / Sign In</button>

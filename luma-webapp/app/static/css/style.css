@@ -9,6 +9,13 @@
   padding: 0;
 }
 
+/* Fix CSS bug (พบตอนวางแผน Issue #8): [hidden] ต้องซ่อน element เสมอ ไม่ว่า
+   selector อื่นจะตั้ง display ไว้เป็นอะไรก็ตาม (เช่น .spinner { display: inline-block })
+   ถ้าไม่มีกฎนี้ ลำดับ CSS ในไฟล์จะเป็นตัวตัดสินแทน ซึ่งพังง่ายเวลาแก้โค้ดทีหลัง */
+[hidden] {
+  display: none !important;
+}
+
 /* ── Variables ────────────────────────────────────────────────────────── */
 :root {
   --color-primary: #6c63ff;
@@ -47,7 +54,7 @@ nav {
   background-color: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   box-shadow: var(--shadow);
-  height: var(--nav-height);
+  min-height: var(--nav-height);
   display: flex;
   align-items: center;
   padding: 0 1.5rem;
@@ -55,6 +62,7 @@ nav {
   position: sticky;
   top: 0;
   z-index: 100;
+  flex-wrap: wrap;
 }
 
 nav a {
@@ -69,6 +77,12 @@ nav a:hover {
   text-decoration: none;
 }
 
+/* Fix Issue #7: highlight ลิงก์ที่ active อยู่ */
+nav a.active {
+  background-color: var(--color-surface-2);
+  color: var(--color-primary);
+}
+
 /* Brand/Logo */
 nav a:first-child {
   font-size: 1.2rem;
@@ -76,6 +90,54 @@ nav a:first-child {
   color: var(--color-primary);
   margin-right: auto;
   letter-spacing: 0.02em;
+}
+nav a.active:first-child { color: var(--color-primary); }
+
+/* ปุ่ม Logout เป็น <form><button> แต่อยากให้หน้าตาเหมือนลิงก์ปกติในนาว (F15)
+   หมายเหตุ: ต้อง qualify selector ด้วย .nav-logout-form (ไม่ใช้ .nav-link-btn เดี่ยวๆ)
+   เพราะ .nav-link-btn อย่างเดียว specificity (0,1,0) แพ้ button[type="submit"]
+   ด้านบน (0,1,1) ทำให้ปุ่ม Logout เคยได้พื้นหลังสีม่วงเต็มเหมือนปุ่ม submit ทั่วไป
+   แทนที่จะเป็นลิงก์เปล่าตามที่ตั้งใจ */
+.nav-logout-form { margin: 0; max-width: none; }
+.nav-logout-form .nav-link-btn {
+  background: none;
+  border: none;
+  color: var(--color-text);
+  font-weight: 500;
+  font-size: 1rem;
+  font-family: inherit;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.nav-logout-form .nav-link-btn:hover { background-color: var(--color-surface-2); }
+
+/* Hamburger — ใช้เทคนิค checkbox hack ไม่ต้องพึ่ง JS (Issue #7: responsive mobile) */
+.nav-toggle-checkbox { display: none; }
+.nav-toggle-btn {
+  display: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius);
+}
+.nav-toggle-btn:hover { background-color: var(--color-surface-2); }
+.nav-links { display: flex; align-items: center; gap: 0.5rem; }
+
+@media (max-width: 600px) {
+  .nav-toggle-btn { display: block; }
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    order: 3;
+    padding-bottom: 0.75rem;
+  }
+  .nav-toggle-checkbox:checked ~ .nav-links { display: flex; }
+  .nav-logout-form { width: 100%; }
+  .nav-link-btn { width: 100%; text-align: left; }
 }
 
 /* ── Main Content ─────────────────────────────────────────────────────── */
@@ -96,13 +158,28 @@ p  { margin-bottom: 1rem; color: var(--color-text-muted); }
   margin: 0.75rem 1.5rem;
 }
 .flashes li {
-  background-color: #2d2a1a;
-  border: 1px solid #6b5d00;
   border-radius: var(--radius);
   padding: 0.75rem 1rem;
   margin-bottom: 0.5rem;
-  color: #fbbf24;
   font-size: 0.9rem;
+}
+/* Fix Issue #7: เดิม flash message ทุกประเภทใช้สีเหลืองเดียวกันหมด แยกตาม
+   category (success/error/warning ฯลฯ) ที่ backend ส่งมาให้แล้วจาก flash(msg, category) */
+.flash-success {
+  background-color: #16321f;
+  border: 1px solid #22c55e;
+  color: #4ade80;
+}
+.flash-error {
+  background-color: #321616;
+  border: 1px solid var(--color-danger);
+  color: #f87171;
+}
+.flash-warning,
+.flashes li:not(.flash-success):not(.flash-error) {
+  background-color: #2d2a1a;
+  border: 1px solid #6b5d00;
+  color: #fbbf24;
 }
 
 /* ── Forms ────────────────────────────────────────────────────────────── */
@@ -160,6 +237,34 @@ button:hover {
 }
 button:active { transform: translateY(0); }
 
+/* ปุ่มตอนกด disabled (ระหว่าง generate) */
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Loading Spinner (Issue #8) ──────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-left: 0.5rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  vertical-align: middle;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
 /* ── Card ─────────────────────────────────────────────────────────────── */
 .card {
   background: var(--color-surface);
@@ -168,6 +273,52 @@ button:active { transform: translateY(0); }
   padding: 1.5rem;
   box-shadow: var(--shadow);
   margin-bottom: 1rem;
+}
+
+/* ── Auth Card (login/register) — Issue #9 ──────────────────────────────
+   Fix: template อ้างถึง class นี้อยู่แล้ว (<section class="auth-card">)
+   แต่ก่อนหน้านี้ไม่เคยมี CSS จริงมาก่อน เลยแสดงผลเหมือนไม่มี card เลย */
+.auth-card {
+  max-width: 400px;
+  margin: 3rem auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 2rem 1.75rem;
+  box-shadow: var(--shadow);
+}
+.auth-card h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.auth-subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+.auth-link {
+  margin-top: 1.25rem;
+  margin-bottom: 0;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+/* ── Field Errors (Issue #9: error ใต้ field ที่ผิดจริง) ─────────────── */
+.field-error {
+  color: var(--color-danger);
+  font-size: 0.82rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+}
+.field-error-general {
+  background-color: #321616;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+}
+input.input-error {
+  border-color: var(--color-danger);
+}
+input.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
 }
 
 /* ── Asset Grid (แสดง generated images) ─────────────────────────────── */
