@@ -19,6 +19,8 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    avatar_url = db.Column(db.String(255), nullable=True)
+    last_login_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     assets = db.relationship("Asset", backref="owner", lazy=True)
@@ -28,6 +30,9 @@ class User(db.Model, UserMixin):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def __repr__(self):
+        return f"<User id={self.id} username={self.username!r}>"
 
 
 class Asset(db.Model):
@@ -41,6 +46,9 @@ class Asset(db.Model):
     tags = db.Column(db.String(255), nullable=True)  # เช่น "portrait,anime,4k"
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    def __repr__(self):
+        return f"<Asset id={self.id} user_id={self.user_id} filename={self.filename!r}>"
+
 
 class Job(db.Model):
     """เก็บสถานะงานที่ยิงไป Forge AI (queue / pending / done / failed)"""
@@ -48,9 +56,15 @@ class Job(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    prompt = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(20), default="pending")  # pending, running, done, failed
     result_asset_id = db.Column(db.Integer, db.ForeignKey("assets.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    result_asset = db.relationship("Asset", foreign_keys=[result_asset_id])
+
+    def __repr__(self):
+        return f"<Job id={self.id} user_id={self.user_id} status={self.status!r}>"
 
 
 @login_manager.user_loader
