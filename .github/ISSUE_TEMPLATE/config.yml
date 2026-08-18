@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: ยังไม่รู้ว่าจะเริ่มตรงไหน
+    url: https://github.com/boss2912/luma-webapp-g04/blob/main/docs/HOW_TO_WORK.md
+    about: อ่านวิธีทำงานประจำวัน — เลือกงาน · ส่ง PR · รู้ได้ไงว่าเสร็จ
+  - name: งานของฉันอยู่ไหน
+    url: https://github.com/boss2912/luma-webapp-g04/issues/assigned
+    about: เห็นเฉพาะงานตัวเอง อันที่ไม่มีป้าย Blocked คือหยิบไปทำได้เลย
+  - name: จะเขียนหรือเรียก API
+    url: https://github.com/boss2912/luma-webapp-g04/blob/main/docs/API_CONTRACT.md
+    about: สัญญาระหว่าง service - แก้ฝ่ายเดียวไม่ได้ ต้องบอกคนที่เกี่ยวข้อง
