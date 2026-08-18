@@ -108,7 +108,7 @@ luma-webapp-g04/
 ├── docs/                        ⭐ เอกสารอ้างอิงของโปรเจกต์
 ├── archive/                     บันทึกโค้ด v1 ที่ลบออกไป
 ├── tools/                       สคริปต์ช่วยงาน + Forge ปลอม
-└── .github/                     PR template · CODEOWNERS.example
+└── .github/                     PR template · issue template · CODEOWNERS
 ```
 
 **ทุกโฟลเดอร์มี `README.md` ของตัวเอง** บอกว่าใส่อะไร ใครดูแล และอ้างอิงสไลด์หน้าไหน
