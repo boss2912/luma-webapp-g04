@@ -149,7 +149,7 @@ server/src/
 | test อยู่ติดโค้ด | ✅ `services/*/tests/` |
 | `docs/` แยก | ✅ |
 | deploy แยก | ✅ `deploy/` |
-| ไฟล์ประตูหน้าบ้าน | ✅ README / CONTRIBUTING / .gitignore · ⚠️ ยังไม่มี CODEOWNERS |
+| ไฟล์ประตูหน้าบ้าน | ✅ README / CONTRIBUTING / .gitignore / CODEOWNERS |
 
 สรุป: **โครงสร้างของ LUMA ตรงกับที่ทีมจริงใช้แล้ว** ไม่ต้องรื้ออะไร
 สิ่งที่ยังขาดไม่ใช่โฟลเดอร์ แต่เป็น **กลไกการทำงานร่วมกัน** ซึ่งคือส่วนที่ 2
@@ -198,16 +198,16 @@ GitHub จะ **ดึงเจ้าของมาเป็นผู้รี�
 **สังเกตว่ามันตรงกับการแบ่งงาน 3 คนของ LUMA พอดี** ซึ่งไม่ใช่ความบังเอิญ —
 โครงสร้างโฟลเดอร์ที่ดีคือโครงสร้างที่แบ่งงานให้คนได้โดยไม่ต้องทับกัน
 
-ไฟล์ที่ LUMA ควรมี (ใช้ชื่อ GitHub ของแต่ละคน):
+LUMA ใช้แบบเดียวกันแล้วใน [`../.github/CODEOWNERS`](../.github/CODEOWNERS) — โครงคือ:
 
 ```text
-# .github/CODEOWNERS
-/services/frontend/    @<คนที่1>
-/services/backend/     @<คนที่1>
-/services/database/    @<คนที่2>
-/services/ai-engine/   @<คนที่3>
-/docs/API_CONTRACT.md  @<คนที่1> @<คนที่2> @<คนที่3>   # สัญญาร่วม ต้องเห็นชอบทุกคน
-/docs/DECISIONS.md     @<คนที่1> @<คนที่2> @<คนที่3>
+/services/frontend/    คนที่ 1
+/services/backend/     คนที่ 1
+/deploy/               คนที่ 1
+/services/database/    คนที่ 2
+/services/ai-engine/   คนที่ 3
+/docs/API_CONTRACT.md  ทุกคน    # สัญญาร่วม ต้องเห็นชอบทุกคน
+/docs/DECISIONS.md     ทุกคน
 ```
 
 บรรทัดสองบรรทัดสุดท้ายคือหัวใจ: **ไฟล์ที่เป็นข้อตกลงร่วม ต้องให้ทุกคนอนุมัติ**
@@ -432,9 +432,10 @@ python tools/check_all.py --with-tests     # ต้องเขียวก่�
 | mock service | ✅ | — |
 | ตัวตรวจอัตโนมัติ + pre-commit | ✅ | — |
 | บันทึกการตัดสินใจ (ADR) | ✅ | — |
-| **`CODEOWNERS`** | ❌ | ✅ **ควรทำ** — 6 บรรทัด ได้ผู้รีวิวอัตโนมัติ |
-| **PR template** | ❌ | ✅ **ควรทำ** — checklist สั้นๆ กัน PR ครึ่งๆ กลางๆ |
-| **Issue template** | ❌ | 🟡 ทำก็ดี ไม่ทำก็ได้ |
+| **`CODEOWNERS`** | ✅ | ทำแล้ว — เหลือเติม username ของคนที่ 3 |
+| **PR template** | ✅ | ทำแล้ว |
+| **Issue template** | ✅ | ทำแล้ว — บังคับกรอกเงื่อนไขความสำเร็จ |
+| **Milestone · Epic · dependency** | ✅ | ทำแล้ว — ดู [`HOW_TO_WORK.md`](HOW_TO_WORK.md) |
 | **GitHub Actions CI** | ❌ (มี hook ในเครื่อง) | 🟡 ถ้าเหลือเวลา — hook พอสำหรับตอนนี้ |
 | label อัตโนมัติตาม path | ❌ | 🟡 มี label 19 อันแล้ว ติดเองได้ |
 | `CODEMAP.md` / `GLOSSARY.md` | ❌ | 🟡 `README.md` + `ARCHITECTURE.md` ทำหน้าที่นี้อยู่แล้ว |
