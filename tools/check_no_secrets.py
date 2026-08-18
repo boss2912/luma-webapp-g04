@@ -209,11 +209,24 @@ def git(*args: str) -> str:
 
 def list_files(mode: str) -> list[str]:
     if mode == "all":
-        out = git("ls-files")
+        # --others = ไฟล์ที่ยังไม่ถูก track ด้วย
+        # --exclude-standard = ยังเคารพ .gitignore
+        #
+        # ถ้าดูแค่ไฟล์ที่ track แล้ว จะเกิดช่องโหว่จังหวะ: ไฟล์ใหม่ที่เพิ่งเขียน
+        # ยังไม่ถูกสแกน กว่าจะเห็นก็ commit ไปแล้ว ซึ่งสายเกินไปสำหรับ secret
+        out = git("ls-files", "--cached", "--others", "--exclude-standard")
     else:
         # เฉพาะไฟล์ที่ staged และยังมีอยู่ (ตัด D = deleted ออก)
         out = git("diff", "--cached", "--name-only", "--diff-filter=ACMR")
-    return [line.strip() for line in out.splitlines() if line.strip()]
+    # ไฟล์เดียวอาจโผล่ทั้งใน cached และ others ตัดซ้ำโดยคงลำดับ
+    seen: set[str] = set()
+    files = []
+    for line in out.splitlines():
+        name = line.strip()
+        if name and name not in seen:
+            seen.add(name)
+            files.append(name)
+    return files
 
 
 def load_local_terms() -> list[str]:
