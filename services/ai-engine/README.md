@@ -3,6 +3,12 @@
 👤 คนที่ 3 — AI + Image Processing Engine
 **เครื่อง**: 192.168.1.30 (ตัวอย่าง) · เครื่องที่มี GPU
 
+> **งานของโฟลเดอร์นี้** → [issue ที่ติด label `owner:3`](https://github.com/boss2912/luma-webapp-g04/issues?q=is%3Aissue+is%3Aopen+label%3Aowner%3A3)
+> · เริ่มยังไง → [`../../docs/HOW_TO_WORK.md`](../../docs/HOW_TO_WORK.md)
+>
+> ⚠️ โฟลเดอร์นี้ยังไม่มีเจ้าของใน [`../../.github/CODEOWNERS`](../../.github/CODEOWNERS)
+> เพราะยังไม่ทราบ username GitHub ของคนที่ 3 — เติมแล้วจะได้ผู้รีวิวอัตโนมัติ
+
 ## หน้าที่ 2 อย่าง ที่ต้องไม่ปนกัน
 
 ### 1. `forge/` — เรียก Stable Diffusion WebUI (Forge)
