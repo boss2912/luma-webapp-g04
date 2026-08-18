@@ -22,7 +22,8 @@ database/
 ├── queries/      query ที่ใช้ซ้ำ เขียนเป็น .sql พร้อมคำอธิบาย
 ├── seeds/        ข้อมูลตัวอย่างสำหรับ dev/demo
 ├── backup/       สคริปต์ + ไฟล์ backup (⛔ ไฟล์ .db ห้าม commit)
-└── tests/
+├── study/        ซ้อมมือ SQLite ตามสไลด์ — ไม่ใช่ deliverable
+└── tests/        test จริงที่ pytest รัน
 ```
 
 ## ⚠️ สองปัญหาจาก v1 ที่ต้องไม่เกิดซ้ำ
