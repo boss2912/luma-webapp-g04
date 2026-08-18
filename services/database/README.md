@@ -93,6 +93,14 @@ jobs     id · user_id→users · prompt · status · result_asset_id→assets �
 
 ## Query ที่จะต้องเขียน (ใช้ cheat sheet ของอาจารย์)
 
+> query ในตารางนี้เขียนเป็น **SQL ดิบ** ในโฟลเดอร์ `queries/` ไม่ใช่ ORM
+> — เหตุผลอยู่ใน [`../../docs/DECISIONS.md`](../../docs/DECISIONS.md) ADR-008
+> (สั้นๆ: ORM ดูแล schema กับ migration ส่วน query ที่มีตรรกะเขียนเป็น SQL
+> เพื่อให้สิ่งที่ cheat sheet 5 ใบสอนปรากฏในงานจริง)
+>
+> ⚠️ ใช้ named parameter `:name` เสมอ **ห้ามต่อสตริงหรือ f-string** ประกอบ SQL
+
+
 | งาน | เทคนิค | cheat sheet |
 |---|---|---|
 | asset ของ user เรียงใหม่→เก่า | `WHERE` + `ORDER BY DESC` | `1_SQL Basics` |

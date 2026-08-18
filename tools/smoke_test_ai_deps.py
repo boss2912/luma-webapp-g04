@@ -29,6 +29,21 @@ import os
 import sys
 import tempfile
 
+# --- console encoding ------------------------------------------------------
+# Windows Thai locale ใช้ codepage cp874 ซึ่งเข้ารหัส emoji ไม่ได้
+# ทำให้ print() โยน UnicodeEncodeError แล้วสคริปต์ตายทั้งที่ตรวจผ่าน
+# (เคยทำให้ pre-commit hook บล็อก commit มาแล้ว) — บังคับ UTF-8 ไว้เสมอ
+def _force_utf8_stdout() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
+_force_utf8_stdout()
+
+
 PASS = 0
 FAIL = 0
 
