@@ -1,0 +1,79 @@
+name: งานใหม่ (Task)
+description: งานที่คนเดียวทำจบได้ใน 1-2 วัน
+labels: ["type:task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **ก่อนกรอก ให้เช็คขนาดก่อน** ถ้าตอบ "ไม่" ข้อใดข้อหนึ่ง แปลว่ายังใหญ่ไป ให้ซอยเป็นหลายอัน
+
+        - คนเดียวทำจบได้ใน 1-2 วัน
+        - ได้ PR ไม่เกินประมาณ 400 บรรทัด
+        - เขียนเงื่อนไขความสำเร็จได้ไม่เกิน 5 ข้อ
+
+        ถ้ามันใหญ่กว่านี้ ให้สร้างเป็น Epic แล้วแตกงานย่อยใต้มันแทน
+
+  - type: textarea
+    id: why
+    attributes:
+      label: ทำไปทำไม
+      description: เขียนจากมุมผู้ใช้ ไม่ใช่มุมโค้ด
+      placeholder: |
+        ในฐานะผู้ใช้ที่ล็อกอินแล้ว ฉันอยากเห็นภาพที่ฉันเคยสร้างทั้งหมด
+        เพื่อกลับมาใช้ซ้ำได้
+    validations:
+      required: true
+
+  - type: textarea
+    id: criteria
+    attributes:
+      label: เงื่อนไขความสำเร็จ
+      description: >
+        สิ่งที่ตรวจได้ด้วยการ "ดูผลลัพธ์" ไม่ใช่ "ดูโค้ด"
+        MUST = ไม่ทำถือว่ายังไม่เสร็จ · MAY = มีก็ดี ไม่มีก็ปิด issue ได้
+      value: |
+        - [ ] **MUST**
+        - [ ] **MUST**
+        - [ ] **MUST**
+        - [ ] MAY
+    validations:
+      required: true
+
+  - type: textarea
+    id: verify
+    attributes:
+      label: ตรวจยังไง
+      description: คำสั่งหรือขั้นตอนที่คนอื่นทำตามแล้วเห็นผลเหมือนกัน
+      placeholder: |
+        python tools/mock_forge_server.py
+        แล้วสร้างภาพ 3 ใบ · ล็อกอินอีกบัญชีต้องไม่เห็น
+    validations:
+      required: true
+
+  - type: input
+    id: blocked
+    attributes:
+      label: ต้องรออะไรก่อน
+      description: >
+        ใส่เลข issue ที่ต้องเสร็จก่อน เว้นว่างได้ถ้าเริ่มได้เลย
+        หลังสร้างเสร็จอย่าลืมผูกจริงด้วย gh issue edit เลขนี้ --add-blocked-by เลขที่รอ
+      placeholder: "#17, #24"
+
+  - type: dropdown
+    id: owner
+    attributes:
+      label: ใครทำ
+      options:
+        - "คนที่ 1 - หน้าเว็บ + หลังบ้าน"
+        - "คนที่ 2 - ฐานข้อมูล"
+        - "คนที่ 3 - AI + ประมวลผลภาพ"
+        - "ทั้งทีม"
+    validations:
+      required: true
+
+  - type: textarea
+    id: refs
+    attributes:
+      label: อ้างอิง
+      description: เลขหน้าสไลด์ ไฟล์ในโปรเจกต์ หรือลิงก์ที่เกี่ยวข้อง
+      placeholder: "Lecture 5 หน้า 62 · docs/API_CONTRACT.md"
