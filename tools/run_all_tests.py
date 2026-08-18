@@ -1,0 +1,233 @@
+#!/usr/bin/env python3
+"""
+tools/run_all_tests.py
+======================
+รัน pytest ของทุก service แล้วสรุปผลรวมในหน้าจอเดียว
+
+ทำไมต้องมี
+----------
+สาม service แยกโฟลเดอร์ แยกคนดูแล ถ้าต้อง `cd` ไปรันทีละที่
+คนจะรันแค่ของตัวเองแล้วส่ง PR โดยไม่รู้ว่าไปทำของคนอื่นพัง
+ตัวนี้รันให้หมดในคำสั่งเดียว — ใช้ก่อนเปิด PR ทุกครั้ง
+
+จงใจรัน "แยก process ต่อ service" ไม่ใช่ `pytest services/`
+เพราะแต่ละ service มี conftest.py และ fixture ของตัวเอง
+ถ้ารันรวม pytest จะมองเห็นชื่อ module ชนกันแล้วพังแบบงงๆ
+(เช่นมี tests/test_auth.py ทั้งใน backend และ database)
+
+การใช้งาน
+---------
+    python tools/run_all_tests.py                 # รันทุก service
+    python tools/run_all_tests.py backend         # เฉพาะ service ที่ระบุ
+    python tools/run_all_tests.py -k login        # ส่ง -k ต่อให้ pytest
+    python tools/run_all_tests.py --quiet         # โชว์เฉพาะสรุป
+    python tools/run_all_tests.py --coverage      # เปิด coverage (ต้องมี pytest-cov)
+
+exit code 0 = ผ่านหมด · 1 = มี service ที่ล้ม
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SERVICES_DIR = REPO_ROOT / "services"
+
+# ดึงบรรทัดสรุปของ pytest เช่น "3 failed, 30 passed, 1 skipped in 2.11s"
+SUMMARY = re.compile(
+    r"(?P<count>\d+)\s+(?P<kind>passed|failed|error|errors|skipped|xfailed|xpassed)")
+
+
+class Result:
+    def __init__(self, name: str, status: str, seconds: float,
+                 counts: dict[str, int], tail: str = "") -> None:
+        self.name = name
+        self.status = status            # PASS / FAIL / SKIP / NO-PYTEST
+        self.seconds = seconds
+        self.counts = counts
+        self.tail = tail
+
+
+def has_tests(tests_dir: Path) -> bool:
+    """มีไฟล์ test จริงไหม — .gitkeep อย่างเดียวไม่นับ"""
+    if not tests_dir.is_dir():
+        return False
+    return any(tests_dir.rglob("test_*.py")) or any(tests_dir.rglob("*_test.py"))
+
+
+def find_services(only: list[str]) -> list[tuple[str, Path]]:
+    if not SERVICES_DIR.is_dir():
+        return []
+    found = []
+    for service in sorted(SERVICES_DIR.iterdir()):
+        if not service.is_dir() or service.name.startswith("."):
+            continue
+        if only and service.name not in only:
+            continue
+        found.append((service.name, service))
+    return found
+
+
+def parse_counts(output: str) -> dict[str, int]:
+    """อ่านบรรทัดสรุปท้ายสุดของ pytest
+
+    ระวัง: รูปแบบบรรทัดสรุปไม่เหมือนกันสองโหมด
+        ปกติ   `=========== 1 failed, 30 passed in 2.11s ============`
+        -q     `1 failed, 1 skipped in 0.10s`      <- ไม่มี = ขนาบ
+    จึงห้ามใช้ "=" เป็นเงื่อนไข ให้ดูที่ `<เลข> <คำ>` + `in <วินาที>s` แทน
+    """
+    counts: dict[str, int] = {}
+    for line in reversed(output.splitlines()):
+        stripped = line.strip(" =")
+        is_summary = (
+            SUMMARY.search(stripped)
+            and (re.search(r"\bin\s+[\d.]+s", stripped) or "no tests ran" in stripped)
+        )
+        if not is_summary:
+            continue
+        for match in SUMMARY.finditer(stripped):
+            kind = match.group("kind").rstrip("s")
+            counts[kind] = counts.get(kind, 0) + int(match.group("count"))
+        if counts:
+            break
+    return counts
+
+
+def run_service(name: str, path: Path, extra: list[str],
+                quiet: bool, coverage: bool) -> Result:
+    tests_dir = path / "tests"
+    if not has_tests(tests_dir):
+        return Result(name, "SKIP", 0.0, {},
+                      "ยังไม่มีไฟล์ test_*.py ในโฟลเดอร์ tests/")
+
+    cmd = [sys.executable, "-m", "pytest", "tests", "-q", "--color=no"]
+    if coverage:
+        cmd += ["--cov=app", "--cov-report=term-missing"]
+    cmd += extra
+
+    if not quiet:
+        print(f"  $ cd services/{name} && {' '.join(cmd[2:])}")
+
+    start = time.perf_counter()
+    proc = subprocess.run(cmd, cwd=path, capture_output=True,
+                          text=True, encoding="utf-8", errors="replace")
+    elapsed = time.perf_counter() - start
+    output = (proc.stdout or "") + (proc.stderr or "")
+
+    if "No module named pytest" in output:
+        return Result(name, "NO-PYTEST", elapsed, {},
+                      "ยังไม่ได้ลง pytest — pip install -r requirements-dev.txt")
+
+    counts = parse_counts(output)
+    # pytest exit code 5 = ไม่เจอ test เลย ไม่ถือว่าล้ม
+    status = "PASS" if proc.returncode in (0, 5) else "FAIL"
+    tail = "" if status == "PASS" else "\n".join(output.strip().splitlines()[-25:])
+
+    if not quiet and output.strip():
+        for line in output.strip().splitlines():
+            print(f"    {line}")
+
+    return Result(name, status, elapsed, counts, tail)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="รัน pytest ของทุก service แล้วสรุปผลรวม")
+    parser.add_argument("services", nargs="*",
+                        help="ชื่อ service ที่ต้องการรัน (เว้นว่าง = ทุกตัว)")
+    parser.add_argument("--quiet", action="store_true",
+                        help="ไม่พิมพ์ output ของ pytest โชว์แค่สรุป")
+    parser.add_argument("--coverage", action="store_true",
+                        help="เปิด coverage (ต้องลง pytest-cov ก่อน)")
+    parser.add_argument("-k", dest="keyword",
+                        help="ส่งต่อให้ pytest -k (เลือกเฉพาะ test ที่ชื่อตรง)")
+    parser.add_argument("-x", dest="exitfirst", action="store_true",
+                        help="หยุดทันทีที่เจอ test แรกที่ล้ม")
+    args = parser.parse_args()
+
+    extra: list[str] = []
+    if args.keyword:
+        extra += ["-k", args.keyword]
+    if args.exitfirst:
+        extra.append("-x")
+
+    services = find_services(args.services)
+    if not services:
+        print("ไม่พบ service ให้รัน")
+        print(f"(ดูใน {SERVICES_DIR.relative_to(REPO_ROOT).as_posix()}/)")
+        return 1
+
+    print("=" * 66)
+    print(f"  LUMA - รัน test ทุก service ({len(services)} ตัว)")
+    print(f"  python {sys.version.split()[0]}")
+    print("=" * 66)
+
+    results: list[Result] = []
+    for name, path in services:
+        print(f"\n--- {name} " + "-" * (60 - len(name)))
+        results.append(run_service(name, path, extra, args.quiet, args.coverage))
+
+    # ---- สรุป -------------------------------------------------------------
+    print()
+    print("=" * 66)
+    print("  สรุป")
+    print("=" * 66)
+    print(f"  {'service':<14}{'ผล':<12}{'ผ่าน':>6}{'ล้ม':>6}{'ข้าม':>7}{'เวลา':>9}")
+    print("  " + "-" * 62)
+
+    grand: dict[str, int] = {}
+    failed = 0
+    for result in results:
+        for kind, count in result.counts.items():
+            grand[kind] = grand.get(kind, 0) + count
+        if result.status == "FAIL":
+            failed += 1
+        passed = result.counts.get("passed", 0)
+        bad = result.counts.get("failed", 0) + result.counts.get("error", 0)
+        skipped = result.counts.get("skipped", 0)
+        shown = "-" if result.status in ("SKIP", "NO-PYTEST") else str(passed)
+        print(f"  {result.name:<14}{result.status:<12}{shown:>6}"
+              f"{bad or '-':>6}{skipped or '-':>7}{result.seconds:>8.2f}s")
+
+    print("  " + "-" * 62)
+    total_pass = grand.get("passed", 0)
+    total_fail = grand.get("failed", 0) + grand.get("error", 0)
+    total_skip = grand.get("skipped", 0)
+    print(f"  {'รวม':<14}{'':<12}{total_pass:>6}{total_fail or '-':>6}"
+          f"{total_skip or '-':>7}"
+          f"{sum(r.seconds for r in results):>8.2f}s")
+    print()
+
+    for result in results:
+        if result.status in ("SKIP", "NO-PYTEST"):
+            print(f"  [{result.status}] {result.name}: {result.tail}")
+
+    if failed:
+        print()
+        for result in results:
+            if result.status == "FAIL":
+                print(f"  --- {result.name} ท้าย output ---")
+                for line in result.tail.splitlines():
+                    print(f"    {line}")
+        print()
+        print("=" * 66)
+        print(f"ไม่ผ่าน: {failed} service มี test ล้ม")
+        print("=" * 66)
+        return 1
+
+    print("=" * 66)
+    if total_pass == 0:
+        print("ยังไม่มี test เลย — เขียน test ก่อนเขียนโค้ดจริงได้ตาม")
+        print("CONTRIBUTING.md (Definition of Done ข้อ test)")
+    else:
+        print(f"ผ่านหมด: {total_pass} test")
+    print("=" * 66)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

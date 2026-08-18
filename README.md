@@ -107,7 +107,8 @@ luma-webapp-g04/
 ├── deploy/                      nginx · env ต่อเครื่อง
 ├── docs/                        ⭐ เอกสารอ้างอิงของโปรเจกต์
 ├── archive/                     บันทึกโค้ด v1 ที่ลบออกไป
-└── tools/                       สคริปต์ช่วยงาน
+├── tools/                       สคริปต์ช่วยงาน + Forge ปลอม
+└── .github/                     PR template · CODEOWNERS.example
 ```
 
 **ทุกโฟลเดอร์มี `README.md` ของตัวเอง** บอกว่าใส่อะไร ใครดูแล และอ้างอิงสไลด์หน้าไหน
@@ -124,6 +125,9 @@ luma-webapp-g04/
 | [`docs/TEAM_AND_WORKFLOW.md`](docs/TEAM_AND_WORKFLOW.md) | แบ่งงาน · git workflow · กติกา PR |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | ทำไมโครงสร้างเป็นแบบนี้ · service คุยกันอย่างไร |
 | [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md) | สัญญา API ระหว่าง frontend ↔ backend ↔ ai-engine |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | **ก่อนแก้อะไรที่ดูแปลก** — บันทึกว่าทำไมถึงตัดสินใจแบบนั้น (ADR) |
+| [`docs/INDUSTRY_PRACTICES.md`](docs/INDUSTRY_PRACTICES.md) | ทีมจริงบน GitHub เขาวางโครงสร้างและทำงานร่วมกันอย่างไร |
+| [`tools/README.md`](tools/README.md) | เครื่องมือช่วยงาน — ตัวตรวจก่อน PR · Forge ปลอม · รัน test ทุก service |
 | [`archive/SECURITY_FIXES_v1.md`](archive/SECURITY_FIXES_v1.md) | **ก่อน review PR ทุกครั้ง** — checklist ช่องโหว่ F01–F15 |
 | [`archive/ARCHITECTURE_v1.md`](archive/ARCHITECTURE_v1.md) | อยากหยิบ logic จาก v1 กลับมาใช้ |
 | [`archive/CODE_SNAPSHOT_v1.md`](archive/CODE_SNAPSHOT_v1.md) | อยากดูโค้ด v1 คำต่อคำ |
