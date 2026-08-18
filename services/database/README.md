@@ -22,7 +22,8 @@ database/
 ├── queries/      query ที่ใช้ซ้ำ เขียนเป็น .sql พร้อมคำอธิบาย
 ├── seeds/        ข้อมูลตัวอย่างสำหรับ dev/demo
 ├── backup/       สคริปต์ + ไฟล์ backup (⛔ ไฟล์ .db ห้าม commit)
-└── tests/
+├── study/        ซ้อมมือ SQLite ตามสไลด์ — ไม่ใช่ deliverable
+└── tests/        test จริงที่ pytest รัน
 ```
 
 ## ⚠️ สองปัญหาจาก v1 ที่ต้องไม่เกิดซ้ำ
@@ -92,6 +93,14 @@ jobs     id · user_id→users · prompt · status · result_asset_id→assets �
 - [ ] ข้อมูล seed สำหรับ demo
 
 ## Query ที่จะต้องเขียน (ใช้ cheat sheet ของอาจารย์)
+
+> query ในตารางนี้เขียนเป็น **SQL ดิบ** ในโฟลเดอร์ `queries/` ไม่ใช่ ORM
+> — เหตุผลอยู่ใน [`../../docs/DECISIONS.md`](../../docs/DECISIONS.md) ADR-008
+> (สั้นๆ: ORM ดูแล schema กับ migration ส่วน query ที่มีตรรกะเขียนเป็น SQL
+> เพื่อให้สิ่งที่ cheat sheet 5 ใบสอนปรากฏในงานจริง)
+>
+> ⚠️ ใช้ named parameter `:name` เสมอ **ห้ามต่อสตริงหรือ f-string** ประกอบ SQL
+
 
 | งาน | เทคนิค | cheat sheet |
 |---|---|---|

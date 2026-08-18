@@ -46,6 +46,14 @@ backend/
 - [ ] ไฟล์ที่ผู้ใช้สร้าง **ไม่เก็บใน `static/`** — เสิร์ฟผ่าน route ที่เช็ค ownership (F05)
 - [ ] ใช้ `datetime.now(datetime.UTC)` ไม่ใช่ `datetime.utcnow()` ที่ deprecated แล้ว
 
+## ORM แค่ไหน SQL แค่ไหน
+
+`models/` ใช้ SQLAlchemy ORM ตามปกติ แต่ **query ที่มีตรรกะ**
+(JOIN / GROUP BY / HAVING / window function) อยู่เป็นไฟล์ `.sql` ใน
+`../database/queries/` และเรียกด้วย `db.session.execute(text(...))`
+
+อ่านเหตุผลก่อนแปลงเป็น ORM: [`../../docs/DECISIONS.md`](../../docs/DECISIONS.md) ADR-008
+
 ## อ้างอิงในสไลด์
 
 - Flask พื้นฐาน / routing / Jinja: **Lecture 4 หน้า 69–101**

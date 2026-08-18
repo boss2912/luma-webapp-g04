@@ -96,6 +96,24 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 แล้ว activate ใหม่ · หรือใช้ `cmd` แทน: `.\.venv\Scripts\activate.bat`
 
+### ตรวจว่าติดตั้งถูกจริง
+
+```bash
+python tools/check_env_installed.py
+```
+
+บอกทันทีว่าขาดอะไร เวอร์ชันไหนไม่ตรง และเวอร์ชัน Python ถูกหรือเปล่า
+**ควรรันทุกครั้งหลังตั้งเครื่องเสร็จ** — เคยมีกรณี env ที่ดูเหมือนใช้ได้
+แต่จริงๆ เป็น Python คนละเวอร์ชันและ package ไม่ตรง 11 จาก 16 ตัว
+
+ถ้าลงเฉพาะ service เดียว (แบบ 3 เครื่องในหัวข้อ 6) บอกด้วยว่าเครื่องนี้ทำหน้าที่อะไร:
+
+```bash
+python tools/check_env_installed.py --profile backend
+python tools/check_env_installed.py --profile database
+python tools/check_env_installed.py --profile ai-engine
+```
+
 ### ออกจาก venv
 ```powershell
 deactivate
@@ -142,6 +160,24 @@ import matplotlib.pyplot as plt
 ถ้ามีปัญหาให้ `cv.imwrite()` เป็นไฟล์แล้วเปิดดูแทน — ในโปรเจกต์นี้เราเซฟไฟล์อยู่แล้ว
 เพราะต้องเอาไปใส่รายงาน
 
+### ตรวจว่าติดตั้งถูกจริง
+
+```bash
+python tools/check_env_installed.py
+```
+
+บอกทันทีว่าขาดอะไร เวอร์ชันไหนไม่ตรง และเวอร์ชัน Python ถูกหรือเปล่า
+**ควรรันทุกครั้งหลังตั้งเครื่องเสร็จ** — เคยมีกรณี env ที่ดูเหมือนใช้ได้
+แต่จริงๆ เป็น Python คนละเวอร์ชันและ package ไม่ตรง 11 จาก 16 ตัว
+
+ถ้าลงเฉพาะ service เดียว (แบบ 3 เครื่องในหัวข้อ 6) บอกด้วยว่าเครื่องนี้ทำหน้าที่อะไร:
+
+```bash
+python tools/check_env_installed.py --profile backend
+python tools/check_env_installed.py --profile database
+python tools/check_env_installed.py --profile ai-engine
+```
+
 ### ออกจาก venv
 ```bash
 deactivate
@@ -187,6 +223,26 @@ conda env remove -n luma                         # ลบ env ทิ้ง (ถ�
 conda create -n luma-backend python=3.12 pip
 conda activate luma-backend
 pip install -r services/backend/requirements.txt
+```
+
+---
+
+### ตรวจว่าติดตั้งถูกจริง
+
+```bash
+python tools/check_env_installed.py
+```
+
+บอกทันทีว่าขาดอะไร เวอร์ชันไหนไม่ตรง และเวอร์ชัน Python ถูกหรือเปล่า
+**ควรรันทุกครั้งหลังตั้งเครื่องเสร็จ** — เคยมีกรณี env ที่ดูเหมือนใช้ได้
+แต่จริงๆ เป็น Python คนละเวอร์ชันและ package ไม่ตรง 11 จาก 16 ตัว
+
+ถ้าลงเฉพาะ service เดียว (แบบ 3 เครื่องในหัวข้อ 6) บอกด้วยว่าเครื่องนี้ทำหน้าที่อะไร:
+
+```bash
+python tools/check_env_installed.py --profile backend
+python tools/check_env_installed.py --profile database
+python tools/check_env_installed.py --profile ai-engine
 ```
 
 ---

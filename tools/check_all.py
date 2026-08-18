@@ -26,6 +26,21 @@ import sys
 import time
 from pathlib import Path
 
+# --- console encoding ------------------------------------------------------
+# Windows Thai locale ใช้ codepage cp874 ซึ่งเข้ารหัส emoji ไม่ได้
+# ทำให้ print() โยน UnicodeEncodeError แล้วสคริปต์ตายทั้งที่ตรวจผ่าน
+# (เคยทำให้ pre-commit hook บล็อก commit มาแล้ว) — บังคับ UTF-8 ไว้เสมอ
+def _force_utf8_stdout() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
+_force_utf8_stdout()
+
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TOOLS = REPO_ROOT / "tools"
 
@@ -51,7 +66,8 @@ class Check:
         self.in_pre_commit = in_pre_commit
 
 
-def build_checks(pre_commit: bool, with_tests: bool) -> list[Check]:
+def build_checks(pre_commit: bool, with_tests: bool,
+                 with_env: bool = False) -> list[Check]:
     py = sys.executable
     checks = [
         # ตรวจตัวตรวจก่อน — ถ้า detector เสียเงียบๆ ผลของข้ออื่นก็เชื่อไม่ได้
@@ -69,6 +85,13 @@ def build_checks(pre_commit: bool, with_tests: bool) -> list[Check]:
         Check("links", "ลิงก์ในเอกสารชี้ถูก",
               [py, str(TOOLS / "check_doc_links.py")], False),
     ]
+    # ตั้งใจให้เป็น opt-in ไม่ใช่ค่าเริ่มต้น และไม่อยู่ใน pre-commit hook
+    # เพราะคนที่แก้แค่เอกสาร (หรือคนทำ frontend ที่ไม่ต้องลง Python เลย)
+    # ไม่ควรถูกบล็อกด้วยเรื่องที่ไม่เกี่ยวกับสิ่งที่เขาแก้
+    # ใช้ตอนตั้งเครื่องเสร็จใหม่ๆ หรือตอนสงสัยว่า env เพี้ยน
+    if with_env:
+        checks.append(Check("env", "environment ที่ลงไว้ตรงกับ requirements",
+                            [py, str(TOOLS / "check_env_installed.py")], False))
     if with_tests:
         checks.append(Check("tests", "pytest ทุก service",
                             [py, str(TOOLS / "run_all_tests.py"), "--quiet"], False))
@@ -116,6 +139,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="รันตัวตรวจทุกตัวก่อนเปิด PR")
     parser.add_argument("--with-tests", action="store_true",
                         help="รัน pytest ทุก service ด้วย")
+    parser.add_argument("--with-env", action="store_true",
+                        help="ตรวจว่า environment ที่ลงไว้ตรงกับ requirements ด้วย")
     parser.add_argument("--pre-commit", action="store_true",
                         help="โหมด git hook: ตรวจเฉพาะที่จำเป็นและเร็ว")
     parser.add_argument("--install-hook", action="store_true",
@@ -125,7 +150,7 @@ def main() -> int:
     if args.install_hook:
         return install_hook()
 
-    checks = build_checks(args.pre_commit, args.with_tests)
+    checks = build_checks(args.pre_commit, args.with_tests, args.with_env)
 
     header = "pre-commit" if args.pre_commit else "ตรวจก่อนเปิด PR"
     print("#" * 66)
