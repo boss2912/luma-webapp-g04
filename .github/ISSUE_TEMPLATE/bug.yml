@@ -1,0 +1,58 @@
+name: บั๊ก (Bug)
+description: มีอะไรทำงานไม่ถูกต้อง
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **กฎที่คุ้มที่สุดของโปรเจกต์นี้**: bug ที่เคยหลุดแล้ว
+        ให้เพิ่ม test 1 ตัว **ก่อน** แก้เสมอ จะได้ไม่กลับมาอีก
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: ควรจะเป็นยังไง
+      placeholder: กดลบภาพแล้วภาพควรหายไปจากแกลเลอรี
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: จริงๆ เป็นยังไง
+      description: ถ้ามีข้อความ error ให้วางมาทั้งก้อน อย่าสรุปเอง
+      placeholder: ภาพหายจากหน้าจอ แต่กด F5 แล้วกลับมา
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: ทำยังไงให้เกิดซ้ำ
+      description: ละเอียดพอที่คนอื่นทำตามแล้วเจอเหมือนกัน
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: เครื่องที่เจอ
+      placeholder: "Windows 11 · Python 3.12 · Chrome"
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: เจอที่ส่วนไหน
+      options:
+        - หน้าเว็บ
+        - หลังบ้าน / API
+        - ฐานข้อมูล
+        - AI / ประมวลผลภาพ
+        - deploy / Nginx
+        - ยังไม่แน่ใจ
+    validations:
+      required: true

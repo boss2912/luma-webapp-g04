@@ -120,6 +120,7 @@ luma-webapp-g04/
 | ไฟล์ | อ่านเมื่อ |
 |---|---|
 | [`INSTALL.md`](INSTALL.md) | ติดตั้ง — Windows · macOS · Linux · Conda · แยก 3 เครื่อง · แก้ปัญหา |
+| ⭐ [`docs/HOW_TO_WORK.md`](docs/HOW_TO_WORK.md) | **อ่านก่อนเริ่มทำงานวันแรก** — เลือกงานยังไง · ส่ง PR ยังไง · รู้ได้ไงว่าเสร็จ |
 | ⭐ [`docs/COURSE_REQUIREMENTS.md`](docs/COURSE_REQUIREMENTS.md) | **อ่านก่อนเริ่มทุกงาน** — ข้อกำหนดจากอาจารย์ทั้งหมด สกัดจาก Lecture 1–7 พร้อมเลขหน้าอ้างอิง |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | อยากรู้ว่าตอนนี้ทำอะไร ต่อไปทำอะไร (milestone V1–V5) |
 | [`docs/TEAM_AND_WORKFLOW.md`](docs/TEAM_AND_WORKFLOW.md) | แบ่งงาน · git workflow · กติกา PR |
