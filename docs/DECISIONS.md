@@ -36,6 +36,7 @@
 | [ADR-005](#adr-005--ทดสอบ-backend-ด้วย-forge-ปลอม-ไม่ผูกกับเครื่อง-gpu) | ทดสอบ backend ด้วย Forge ปลอม | ✅ | `tools/mock_forge_server.py` |
 | [ADR-006](#adr-006--รายชื่อส่วนตัวเก็บในไฟล์ที่ไม่ขึ้น-git) | รายชื่อส่วนตัวเก็บในไฟล์ที่ไม่ขึ้น git | ✅ | `tools/check_no_secrets.py` |
 | [ADR-007](#adr-007--pin-ด้วย--เท่านั้น-และ-requirements-devtxt-ต้องใช้--r) | pin ด้วย `==` เท่านั้น · dev ใช้ `-r` | ✅ | `tools/check_version_alignment.py` |
+| [ADR-008](#adr-008--orm-ทำหน้าที่-schema-กับ-migration-ส่วน-query-เขียนเป็น-sql-ดิบ) | ORM ทำ schema/migration · query เป็น SQL ดิบ | ✅ | checklist ตอนรีวิว PR |
 
 ---
 
@@ -341,6 +342,105 @@ Flask==3.0.3      # เอาตัวนี้เท่านั้น
 
 `tools/check_version_alignment.py` ฟ้องทั้งสองกรณี:
 บรรทัดที่ไม่ใช่ `==` และการที่ `requirements-dev.txt` pin เวอร์ชันเอง
+
+---
+
+## ADR-008 — ORM ทำหน้าที่ schema กับ migration ส่วน query เขียนเป็น SQL ดิบ
+
+**วันที่**: 18 ส.ค. 2026 · **สถานะ**: ✅
+
+### บริบท
+
+ฝั่งฐานข้อมูลมี "วิธีที่ถูก" อยู่สองสายที่มาจากคนละที่ และทั้งคู่มีน้ำหนัก
+
+**สายที่ 1 — สไลด์อาจารย์** `Lecture 7 หน้า 99–108 · FLASK + SQLite CRUD`
+สอน Create / Read / Update / Delete ด้วย `fetchone()` / `fetchall()`
+คือเขียน SQL เองแล้วเรียกผ่าน `sqlite3` ตรงๆ
+
+อาจารย์ยังแจก **cheat sheet SQL 5 ใบ** (`1_SQL Basics` … `5_SQL Window Functions`)
+และเกมฝึก SQL อีก 2 เว็บ (Lecture 7 หน้า 109–110)
+→ ตีความได้ว่าอาจารย์**ตั้งใจให้เห็น SQL** ไม่ใช่แค่ให้ข้อมูลถูกเก็บลงตาราง
+
+**สายที่ 2 — โค้ดเดิมของเรา** v1 นิยามตารางผ่าน SQLAlchemy ORM
+(`archive/CODE_SNAPSHOT_v1.md`) และ `services/backend/requirements.txt`
+pin `Flask-SQLAlchemy==3.1.1` + `Flask-Migrate==4.0.7` ไว้แล้ว
+
+### ปัญหาถ้าไม่ตัดสินใจ
+
+ทั้งสองสายทำงานเดียวกันได้ คนละคนจึงจะหยิบคนละสายโดยสุจริตใจ แล้วพังคนละแบบ:
+
+| ถ้าเผลอไปทาง ORM ล้วน | ถ้าเผลอไปทาง `sqlite3` ดิบล้วน |
+|---|---|
+| SQL หายจากโปรเจกต์ทั้งหมด window function / `GROUP BY … HAVING` ที่ cheat sheet ใบ 2–5 สอน จะไม่โผล่ในงานสักบรรทัด | เสีย Flask-Migrate → กลับไปพึ่ง `db.create_all()` |
+| เหลือแต่ `db.session.query(...)` ตอนนำเสนอไม่มีอะไรให้ชี้ว่า "นี่คือ SQL ที่เขียนเอง" | **นี่คือบั๊กที่ v1 เจอมาแล้วจริง** — PR #12 เพิ่ม 3 คอลัมน์ แต่ `.db` เก่ายังเป็น schema เดิม `create_all()` ไม่ ALTER ตารางที่มีอยู่ → **test ล้ม 3 ข้อ** |
+
+และเป็นปัญหาข้ามเจ้าของโฟลเดอร์ด้วย — `services/backend/app/models/`
+มีเจ้าของสองคนใน `.github/CODEOWNERS` (คนที่ 2 ออกแบบตาราง คนที่ 1 เรียกใช้)
+ถ้าไม่ตกลงกันไว้ ก็จะแก้กลับไปกลับมา
+
+### ทางเลือกที่พิจารณา
+
+| ทางเลือก | ข้อดี | ทำไมไม่เลือก |
+|---|---|---|
+| **ก. ORM ล้วน** | เขียนเร็ว ไม่ต้องคิดเรื่อง SQL injection | SQL ที่อาจารย์แจก cheat sheet มาให้ 5 ใบ จะไม่ปรากฏในงานเลย |
+| **ข. `sqlite3` ดิบล้วน ตามสไลด์เป๊ะ** | ตรงกับที่สอนที่สุด | เสีย Alembic → บั๊ก v1 กลับมา และย้ายไป PostgreSQL (แบบ 4 เครื่อง) ยากขึ้นมาก |
+| **ค. แบ่งตามหน้าที่** ✅ | ได้ทั้ง migration และ SQL ที่มองเห็น | ต้องรู้ว่าเส้นแบ่งอยู่ตรงไหน — จึงต้องมี ADR นี้ |
+
+### การตัดสินใจ
+
+แบ่งตาม**หน้าที่** ไม่ใช่ตามความชอบ:
+
+| งาน | เครื่องมือ | อยู่ที่ไหน |
+|---|---|---|
+| นิยามตาราง · ความสัมพันธ์ · การเปลี่ยน schema | ORM + Flask-Migrate | `services/backend/app/models/` · `services/database/migrations/` |
+| CRUD ธรรมดาระหว่างจัดการ session/auth | ORM ก็ได้ | `services/backend/` |
+| **query ที่มีตรรกะ** — JOIN, GROUP BY, HAVING, window function, รายงาน | **SQL ดิบ** | `services/database/queries/*.sql` |
+
+**เส้นแบ่งจำง่ายๆ**: ถ้า query นั้นน่าเอาไปโชว์ตอนนำเสนอ ให้เขียนเป็น SQL
+
+> ข้อสำคัญ: **ไม่ต้องเลือกระหว่าง SQLAlchemy กับสไลด์** SQLAlchemy เขียน SQL ดิบได้
+> ผ่าน `text()` และชื่อ method เหมือนสไลด์ทุกตัว ทดสอบจริงบน Python 3.12 +
+> SQLAlchemy 2.0.52 แล้ว ผ่านทั้ง `COLLATE NOCASE`, `ON DELETE CASCADE`,
+> `ROW_NUMBER() OVER (PARTITION BY …)` และการกัน SQL injection
+
+```python
+from sqlalchemy import text
+
+row = db.session.execute(
+    text("SELECT * FROM users WHERE username = :n"),
+    {"n": username},
+).fetchone()                      # <- ชื่อเดียวกับ Lecture 7 หน้า 99-108
+```
+
+### กฎบังคับ 2 ข้อที่มาพร้อมกับการอนุญาตให้เขียน SQL ดิบ
+
+1. **ต้องใช้ named parameter (`:name`) เสมอ ห้ามต่อสตริง**
+   `text(f"... WHERE name = '{name}'")` คือช่องโหว่ SQL injection เต็มรูปแบบ
+   ทดสอบแล้วว่าแบบ `:name` กันได้จริง — ยิง `x'; DROP TABLE users; --` เข้าไป
+   ตารางยังอยู่ครบ
+2. **ทุกการเปลี่ยน schema ต้องผ่าน migration** ห้ามแก้ตารางด้วยมือหรือ
+   ด้วย `CREATE TABLE` ใน query ปกติ ไม่งั้นเครื่องแต่ละคนจะ schema ไม่ตรงกัน
+
+### ผลที่ตามมา
+
+- ✅ SQL ที่อาจารย์สอนปรากฏในโปรเจกต์จริง ชี้ให้ดูได้ตอนนำเสนอ
+- ✅ ยังมี Alembic → บั๊ก `db.create_all()` ของ v1 ไม่กลับมา
+- ✅ ย้ายไป PostgreSQL (แบบ 4 เครื่อง Lecture 4 หน้า 56) ได้ เพราะ ORM คุมเรื่อง dialect
+      ส่วนไฟล์ `.sql` เขียนเป็น standard SQL เท่าที่ทำได้อยู่แล้ว
+- ⚠️ **ต้องรู้ SQL สองสำเนียง** — คนอ่านโค้ดจะเจอทั้ง `db.session.query()` และ `.sql`
+      แก้ด้วยกฎเส้นแบ่งข้างบน และทุกไฟล์ใน `queries/` ต้องมีคอมเมนต์บอกว่าใครเรียก
+- ⚠️ **SQL ดิบไม่มีใครตรวจ type ให้** พิมพ์ชื่อคอลัมน์ผิดจะรู้ตอน runtime
+      แก้ด้วยการเขียน test ให้ทุกไฟล์ใน `queries/`
+- ⚠️ `.sql` ไม่ถูกจับตาโดย Alembic — ถ้าเปลี่ยนชื่อคอลัมน์ ต้องไล่แก้ไฟล์ `.sql` เอง
+
+### บังคับใช้อย่างไร
+
+ยังไม่มีสคริปต์ตรวจ ใช้ checklist ตอนรีวิว PR:
+
+- [ ] มี `text("...")` หรือ f-string ที่ประกอบ SQL อยู่ใน `app/models/` ไหม → ไม่ควรมี
+- [ ] ไฟล์ใน `queries/` ทุกไฟล์ใช้ `:name` ไม่ใช่การต่อสตริง
+- [ ] เปลี่ยน schema แล้วมีไฟล์ migration มาด้วยไหม
+- [ ] query ที่ใช้ JOIN / GROUP BY / window function ไปโผล่เป็น ORM แทนที่จะเป็น `.sql` ไหม
 
 ---
 
