@@ -3,6 +3,12 @@
 👤 คนที่ 2 — Data & Storage
 **เครื่อง**: 192.168.1.20 (เครื่องเดียวกับ backend ตามแบบ 3 เครื่อง — Lecture 4 หน้า 56)
 
+> **งานของโฟลเดอร์นี้** → [issue ที่ติด label `owner:2`](https://github.com/boss2912/luma-webapp-g04/issues?q=is%3Aissue+is%3Aopen+label%3Aowner%3A2)
+> · เริ่มยังไง → [`../../docs/HOW_TO_WORK.md`](../../docs/HOW_TO_WORK.md)
+>
+> โฟลเดอร์นี้มีเจ้าของตาม [`../../.github/CODEOWNERS`](../../.github/CODEOWNERS)
+> — คนอื่นแก้ได้แต่ต้องให้เจ้าของรีวิวก่อน
+
 ## หน้าที่
 
 ออกแบบและดูแลข้อมูลทั้งหมดของ LUMA — schema, การเปลี่ยน schema, query, ข้อมูลตัวอย่าง, backup

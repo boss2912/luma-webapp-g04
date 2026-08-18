@@ -3,6 +3,12 @@
 👤 คนที่ 1 — Web Platform
 **เครื่อง**: 192.168.1.10 (ตัวอย่าง)
 
+> **งานของโฟลเดอร์นี้** → [issue ที่ติด label `area:frontend`](https://github.com/boss2912/luma-webapp-g04/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%3Afrontend)
+> · เริ่มยังไง → [`../../docs/HOW_TO_WORK.md`](../../docs/HOW_TO_WORK.md)
+>
+> โฟลเดอร์นี้มีเจ้าของตาม [`../../.github/CODEOWNERS`](../../.github/CODEOWNERS)
+> — คนอื่นแก้ได้แต่ต้องให้เจ้าของรีวิวก่อน
+
 ## หน้าที่
 
 หน้าตาทั้งหมดที่ผู้ใช้เห็น — เรียก backend ผ่าน `fetch()` ไปที่ API base URL ที่อ่านจาก config
