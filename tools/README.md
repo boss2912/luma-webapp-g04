@@ -33,6 +33,7 @@ python tools/check_all.py --with-tests
 | [`check_requirements_ascii.py`](check_requirements_ascii.py) | กัน pip พังบนเครื่อง locale ไทย | ✅ | ✅ |
 | [`check_version_alignment.py`](check_version_alignment.py) | เวอร์ชัน dependency ต้องสอดคล้องกัน | ✅ | ✅ |
 | [`check_doc_links.py`](check_doc_links.py) | ลิงก์ในเอกสารต้องชี้ถูก | ✅ | – |
+| [`check_env_installed.py`](check_env_installed.py) | env ที่ลงในเครื่องต้องตรงกับ requirements | `--with-env` | – |
 | [`run_all_tests.py`](run_all_tests.py) | รัน pytest ทุก service สรุปรวม | `--with-tests` | – |
 | [`mock_forge_server.py`](mock_forge_server.py) | Forge AI ปลอม ไม่ต้องมี GPU | – | – |
 
@@ -123,6 +124,38 @@ python tools/check_version_alignment.py
 
 บังคับใช้ [ADR-001](../docs/DECISIONS.md#adr-001--package-ที่ใช้ร่วมกันต้องล็อกเวอร์ชันตรงกันทุก-service)
 กับ [ADR-007](../docs/DECISIONS.md#adr-007--pin-ด้วย--เท่านั้น-และ-requirements-devtxt-ต้องใช้--r)
+
+### `check_env_installed.py` — env ที่ลงจริงต้องตรงกับไฟล์
+
+```bash
+python tools/check_env_installed.py                    # ทุก service (dev เครื่องเดียว)
+python tools/check_env_installed.py --profile database # เฉพาะของคนที่ 2
+python tools/check_env_installed.py --show-extra       # โชว์ของที่ลงเกินมาด้วย
+python tools/check_env_installed.py --self-test
+```
+
+**ต่างจาก `check_version_alignment.py` ตรงไหน** — อันนั้นตรวจว่า *ไฟล์*
+สอดคล้องกันเอง อันนี้ตรวจว่า *ของที่ลงในเครื่อง* ตรงกับไฟล์
+
+สองอย่างนี้ผ่าน/ไม่ผ่านแยกกันได้ และช่องว่างนี้เคยเกิดจริง: env conda ของสมาชิก
+คนหนึ่งเป็น Python 3.11 + Flask 3.1.3 ทั้งที่ repo ล็อก Python 3.12 + Flask 3.0.3
+ไม่ตรง 11 จาก 16 ตัว โดย `check_version_alignment.py` รายงาน "ผ่าน" อยู่ตลอด
+เพราะไฟล์ตรงกันจริง
+
+ตรวจ 4 อย่าง:
+
+1. เวอร์ชัน Python ตรงกับ `python=` ใน `environment.yml`
+2. package ที่ล็อกไว้ ลงครบไหม
+3. ที่ลงแล้ว เวอร์ชันตรงไหม
+4. (แจ้งเฉยๆ) package ที่ลงเกินมา — ต้องใช้ `--show-extra`
+
+`--profile` มีไว้สำหรับ deploy แบบ 3 เครื่อง (Lecture 4 หน้า 56) ที่แต่ละเครื่อง
+ลงเฉพาะของตัวเอง เครื่อง backend ไม่ต้องมี OpenCV
+
+> **ไม่อยู่ใน pre-commit และไม่อยู่ใน `check_all` โดยค่าเริ่มต้น** ตั้งใจให้เป็น opt-in
+> เพราะคนที่แก้แค่เอกสาร หรือคนทำ frontend ที่ไม่ต้องลง Python เลย
+> ไม่ควรถูกบล็อกด้วยเรื่องที่ไม่เกี่ยวกับสิ่งที่เขาแก้
+> ใช้ตอนตั้งเครื่องเสร็จใหม่ๆ หรือตอนสงสัยว่า env เพี้ยน
 
 ### `check_doc_links.py` — ลิงก์ในเอกสารต้องชี้ถูก
 
