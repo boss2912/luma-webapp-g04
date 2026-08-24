@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LUMA — หน้าแรก</title>
+  <link rel="stylesheet" href="../css/main.css" />
+</head>
+<body data-page="home">
+  <header class="app-header">
+    <div id="app-nav-slot"></div>
+  </header>
+
+  <main class="app-main">
+    <h1>ยินดีต้อนรับสู่ LUMA</h1>
+    <p>
+      สร้างและแก้ไขภาพด้วย AI — หน้านี้ใช้ layout กลาง (เมนู + เนื้อหา)
+      ร่วมกับทุกหน้าใน <code>pages/</code> ตาม issue #56
+    </p>
+
+    <!-- ตัวอย่างทดสอบ MUST ของ #56: ต้องไม่เห็น span นี้เลย
+         แม้ .spinner จะตั้ง display: inline-block ไว้ก็ตาม -->
+    <p>
+      สถานะระบบ:
+      <span class="spinner" hidden>กำลังโหลด…</span>
+      <span class="status-ok">พร้อมใช้งาน</span>
+    </p>
+  </main>
+
+  <!-- ฟอร์ม logout จริงจะเชื่อมกับ backend ใน #57+ ตอนนี้เป็นโครงเปล่า -->
+  <form id="logout-form" action="#" method="post" hidden></form>
+
+  <script src="../js/layout.js"></script>
+</body>
+</html>
