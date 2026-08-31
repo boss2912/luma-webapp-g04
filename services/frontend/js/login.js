@@ -1,11 +1,12 @@
 /**
  * LUMA — Login form
  * -------------------------------------------------------------------------
- * ตอนนี้ยังไม่มี endpoint จริงให้เรียก เพราะ:
- *   - #32 [TEAM] ตกลง API contract 7 ข้อ ก่อนเริ่มเขียนโค้ด ยัง Blocked
- *   - #50 [WEB] เข้าสู่ระบบ / ออกจากระบบ ยัง Blocked (ฝั่ง backend)
+ * ตอนนี้ใช้ js/mock-auth.js จำลอง backend ไปก่อน (ดูคอมเมนต์ในไฟล์นั้น)
+ * เพราะ #32/#49 ปิด contract แล้ว แต่ backend ตัวจริงยังไม่รันขึ้นมา
  *
- * ฟอร์มนี้เลย validate ฝั่ง client และโชว์ข้อความแจ้งสถานะไว้ก่อน
+ * พอ backend จริงพร้อมใช้งาน ให้ลบ TODO ด้านล่างออก แล้วเรียก fetch()
+ * ตรงตาม docs/API_CONTRACT.md แทน (เอา mock-auth.js ออกจาก login.html ด้วย)
+ *
  * ห้าม hardcode localhost/IP — อ่าน API base จาก window.LUMA_CONFIG เท่านั้น
  */
 
@@ -32,8 +33,29 @@ function initLoginForm() {
 
     setLoading(true);
     try {
-      // TODO(#32, #50): ยังไม่มี endpoint จริง — โครงไว้รอเสียบ
-      showError("ระบบ login ยังไม่เชื่อมต่อ backend (รอ issue #32/#50)");
+      // TODO(#50): สลับเป็น fetch จริงตอน backend รันได้แล้ว เช่น
+      //
+      // const res = await fetch(`${API_BASE}/api/login`, {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({ email, password }),
+      // });
+      // const data = await res.json();
+      // if (!res.ok) throw new Error(data.message || "เข้าสู่ระบบไม่สำเร็จ");
+
+      const result = await window.LUMA_MOCK_AUTH.mockLogin({
+        email,
+        password,
+      });
+      if (!result.ok) {
+        showError(result.data.message);
+        return;
+      }
+
+      // จำลอง session ไว้ใน sessionStorage เพื่อทดสอบ flow "จำว่าล็อกอินอยู่"
+      // (ของปลอม — backend จริงจะใช้ cookie/session ฝั่งเซิร์ฟเวอร์แทน)
+      sessionStorage.setItem("luma_mock_session", JSON.stringify(result.data));
+      window.location.href = "index.html";
     } catch (err) {
       showError(err.message || "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง");
     } finally {
@@ -42,6 +64,8 @@ function initLoginForm() {
   });
 
   function showError(message) {
+    // ใช้ textContent เสมอ ไม่ใช้ innerHTML เพราะข้อความ error
+    // อาจสะท้อนกลับมาจาก backend ในอนาคต ป้องกัน stored/reflected XSS
     errorBox.textContent = message;
     errorBox.removeAttribute("hidden");
   }

@@ -1,14 +1,16 @@
 /**
  * LUMA — Register form
  * -------------------------------------------------------------------------
- * ตอนนี้ยังไม่มี endpoint จริงให้เรียก เพราะ:
- *   - #32 [TEAM] ตกลง API contract 7 ข้อ ก่อนเริ่มเขียนโค้ด ยัง Blocked
- *   - #49 [WEB] สมัครสมาชิก + ตรวจข้อมูล + กันการเดาว่ามีบัญชีอยู่จริง
- *     ยัง Blocked (ฝั่ง backend)
+ * ตอนนี้ใช้ js/mock-auth.js จำลอง backend ไปก่อน (ดูคอมเมนต์ในไฟล์นั้น)
+ * เพราะ #32/#49 ปิด contract แล้ว แต่ backend ตัวจริงยังไม่รันขึ้นมา
  *
- * หมายเหตุ: การเช็ค "อีเมลนี้มีคนใช้แล้วหรือยัง" ต้องทำที่ backend เท่านั้น
- * (ดู #49 "กันการเดาว่ามีบัญชีอยู่จริง") ฝั่ง frontend นี้เช็คได้แค่ฟอร์แมต
- * และความยาว ไม่เช็คว่าอีเมลซ้ำหรือไม่
+ * พอ backend จริงพร้อมใช้งาน ให้ลบ TODO ด้านล่างออก แล้วเรียก fetch()
+ * ตรงตาม docs/API_CONTRACT.md แทน (เอา mock-auth.js ออกจาก register.html ด้วย)
+ *
+ * ห้าม hardcode localhost/IP — อ่าน API base จาก window.LUMA_CONFIG เท่านั้น
+ *
+ * หมายเหตุ: การเช็ค "อีเมลนี้มีคนใช้แล้วหรือยัง" ต้องทำที่ backend จริงเท่านั้น
+ * (ดู #49 "กันการเดาว่ามีบัญชีอยู่จริง") mock-auth.js จำลองพฤติกรรมนี้ไว้แล้ว
  */
 
 const API_BASE = window.LUMA_CONFIG ? window.LUMA_CONFIG.apiBase : "";
@@ -43,8 +45,27 @@ function initRegisterForm() {
 
     setLoading(true);
     try {
-      // TODO(#32, #49): ยังไม่มี endpoint จริง — โครงไว้รอเสียบ
-      showError("ระบบสมัครสมาชิกยังไม่เชื่อมต่อ backend (รอ issue #32/#49)");
+      // TODO(#49): สลับเป็น fetch จริงตอน backend รันได้แล้ว เช่น
+      //
+      // const res = await fetch(`${API_BASE}/api/register`, {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({ displayName, email, password }),
+      // });
+      // const data = await res.json();
+      // if (!res.ok) throw new Error(data.message || "สมัครสมาชิกไม่สำเร็จ");
+
+      const result = await window.LUMA_MOCK_AUTH.mockRegister({
+        displayName,
+        email,
+        password,
+      });
+      if (!result.ok) {
+        showError(result.data.message);
+        return;
+      }
+
+      window.location.href = "login.html";
     } catch (err) {
       showError(err.message || "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง");
     } finally {
@@ -52,6 +73,7 @@ function initRegisterForm() {
     }
   });
 
+  /** ตรวจฝั่ง client เท่านั้น — เช็คอีเมลซ้ำต้องทำที่ backend (#49) */
   function validate({ displayName, email, password, confirmPassword }) {
     if (!displayName || !email || !password || !confirmPassword) {
       return "กรอกข้อมูลให้ครบทุกช่อง";
@@ -66,6 +88,8 @@ function initRegisterForm() {
   }
 
   function showError(message) {
+    // ใช้ textContent เสมอ ไม่ใช้ innerHTML เพราะข้อความ error
+    // อาจสะท้อนกลับมาจาก backend ในอนาคต ป้องกัน stored/reflected XSS
     errorBox.textContent = message;
     errorBox.removeAttribute("hidden");
   }
