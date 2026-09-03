@@ -1,13 +1,35 @@
 """
 LUMA Backend Application Package
 Application Factory `create_app()`
-Issue #51 — ระบบความปลอดภัย Security Headers, Cookie Hardening, และ CORS
+Issue #46, #47, #48, #51 — App Factory, Blueprints, Clean Logging, and Security
 """
 
 import os
+import logging
 from datetime import timedelta
 from flask import Flask, jsonify, request
 from app.models import db
+
+
+def setup_logging(app: Flask):
+    """
+    ตั้งค่าระบบ Logging ไม่ให้พิมพ์ซ้ำซ้อน (Issue #48)
+    เมื่อรัน pytest หรือเรียก create_app() หลายครั้ง Handler จะไม่ถูกผูกซ้ำ
+    """
+    app.logger.handlers.clear()
+    app.logger.propagate = False
+
+    formatter = logging.Formatter(
+        "[%(asctime)s] %(levelname)s in %(module)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(logging.DEBUG if app.debug else logging.INFO)
+
+    app.logger.addHandler(stream_handler)
+    app.logger.setLevel(logging.DEBUG if app.debug else logging.INFO)
 
 
 def create_app(config_overrides: dict | None = None) -> Flask:
@@ -28,7 +50,6 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         AI_ENGINE_URL="http://127.0.0.1:7860",
         FORGE_TIMEOUT_SECONDS=120,
-        # Cookie Hardening ป้องกันการขโมย Cookie ข้ามไซต์
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=24),
@@ -44,6 +65,9 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     if config_overrides:
         app.config.update(config_overrides)
 
+    # ตั้งค่าระบบ Logging สะอาดไม่ซ้อน (Issue #48)
+    setup_logging(app)
+
     # สร้างโฟลเดอร์ instance และ upload directory ถ้ายังไม่มี
     os.makedirs(instance_path, exist_ok=True)
     uploads_dir = os.path.join(instance_path, "uploads", "generated")
@@ -58,7 +82,6 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     # ตั้งค่า CORS และ Security Headers สำหรับทุก response
     @app.after_request
     def apply_security_headers_and_cors(response):
-        # 1. CORS Headers
         origin = request.headers.get("Origin")
         if origin:
             response.headers["Access-Control-Allow-Origin"] = origin
@@ -66,7 +89,6 @@ def create_app(config_overrides: dict | None = None) -> Flask:
             response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, X-CSRF-Token"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
 
-        # 2. Security Headers (Issue #51 — OWASP Security Standard)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
