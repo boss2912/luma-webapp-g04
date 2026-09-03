@@ -24,6 +24,8 @@
     const metaAssetId = document.getElementById("meta-asset-id");
     const metaPrompt = document.getElementById("meta-prompt");
 
+    let isGenerating = false;
+
     console.log("🎨 LUMA Generator พร้อมทำงาน เชื่อมต่อ Backend:", API_BASE);
 
     async function handleGenerateSubmit(event) {
@@ -31,11 +33,17 @@
         event.preventDefault();
         event.stopPropagation();
       }
+
+      // ป้องกันการส่งคำขอซ้ำซ้อน (Debounce / Double-click prevention)
+      if (isGenerating) return false;
+      isGenerating = true;
+
       hideError();
 
       const prompt = form.prompt ? form.prompt.value.trim() : "";
       if (!prompt) {
         showError("กรุณากรอก Prompt สำหรับสร้างภาพ");
+        isGenerating = false;
         return false;
       }
 
@@ -96,6 +104,7 @@
         console.error("❌ เกิดข้อผิดพลาด:", err);
         showError(err.message || "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ ตรวจสอบว่า Backend และ AI Engine ทำงานอยู่");
       } finally {
+        isGenerating = false;
         setLoading(false);
       }
 
@@ -103,7 +112,6 @@
     }
 
     form.addEventListener("submit", handleGenerateSubmit);
-    form.onsubmit = handleGenerateSubmit;
 
     function showError(message) {
       errorBox.textContent = message;
