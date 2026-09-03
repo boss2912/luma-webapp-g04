@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LUMA — Smart Canvas</title>
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/canvas.css" />
+</head>
+<body data-page="canvas">
+  <header class="app-header">
+    <div id="app-nav-slot"></div>
+  </header>
+
+  <main class="app-main">
+    <h1>🪄 Smart Canvas & Image Studio</h1>
+    <p>เครื่องมือแต่งภาพอัจฉริยะ: ลบพื้นหลังอัตโนมัติ และสกัดจานสี (Color Palette) จากภาพ</p>
+
+    <div class="canvas-layout">
+      <!-- พื้นที่แสดงรูปภาพ Canvas -->
+      <section class="canvas-viewport-card">
+        <div class="canvas-preview-box" id="canvas-preview-box">
+          <p id="canvas-placeholder">เลือกภาพเพื่อเริ่มต้นประมวลผล หรืออัปโหลดภาพของคุณ</p>
+          <img class="canvas-image" id="canvas-image" alt="ภาพสำหรับแก้ไข" hidden />
+        </div>
+      </section>
+
+      <!-- แถบเครื่องมือ Smart Tools -->
+      <section class="canvas-tools-card">
+        <!-- 1. เลือก/อัปโหลดภาพ -->
+        <div class="tool-section">
+          <h3 class="tool-title">1. แหล่งที่มาของภาพ</h3>
+          <input type="file" id="canvas-file-input" accept="image/*" style="display: none;" />
+          <button class="tool-btn tool-btn--secondary" type="button" id="btn-upload">
+            📁 อัปโหลดภาพจากเครื่อง
+          </button>
+        </div>
+
+        <!-- 2. ลบพื้นหลัง (Issue #61) -->
+        <div class="tool-section">
+          <h3 class="tool-title">2. ลบพื้นหลัง (Segmentation)</h3>
+          <p style="font-size: 0.85rem; color: #666; margin: 0;">ตัดฉากหลังออกให้เหลือเฉพาะวัตถุหลัก (PNG โปร่งใส)</p>
+          <button class="tool-btn" type="button" id="btn-remove-bg" disabled>
+            ✂️ ลบพื้นหลังอัตโนมัติ
+          </button>
+        </div>
+
+        <!-- 3. สกัดจานสี (Issue #60) -->
+        <div class="tool-section">
+          <h3 class="tool-title">3. จานสีหลัก (Color Palette)</h3>
+          <p style="font-size: 0.85rem; color: #666; margin: 0;">สกัด 5 โทนสีเด่นจากภาพ คลิกที่สีเพื่อคัดลอกโค้ด HEX</p>
+          <button class="tool-btn tool-btn--secondary" type="button" id="btn-extract-palette" disabled>
+            🎨 สกัดจานสีจากภาพ
+          </button>
+
+          <!-- แถบแสดงกล่องสี -->
+          <div class="palette-swatches" id="palette-container" hidden></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <form id="logout-form" action="#" method="post" hidden></form>
+
+  <script src="../js/layout.js"></script>
+  <script src="../js/canvas.js"></script>
+</body>
+</html>

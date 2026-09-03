@@ -1,0 +1,146 @@
+/* ==========================================================================
+   LUMA — Smart Canvas Styles
+   Issue #60 (Color Palette) & #61 (Background Removal / Segmentation)
+   ========================================================================== */
+
+.canvas-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .canvas-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.canvas-viewport-card {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.canvas-preview-box {
+  width: 100%;
+  min-height: 420px;
+  background: #f8f9fa;
+  border: 2px dashed #d0d7de;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas-preview-box.has-image {
+  background: repeating-conic-gradient(#e0e0e0 0% 25%, #ffffff 0% 50%) 50% / 20px 20px;
+  border-style: solid;
+}
+
+.canvas-image {
+  max-width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+  display: block;
+}
+
+.canvas-tools-card {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.tool-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tool-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.tool-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+}
+
+.tool-btn {
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: #2f3ba3;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.tool-btn:hover:not(:disabled) {
+  background: #26308a;
+}
+
+.tool-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.tool-btn--secondary {
+  background: #f0f4ff;
+  color: #2f3ba3;
+  border: 1px solid #c7d2fe;
+}
+
+.tool-btn--secondary:hover:not(:disabled) {
+  background: #e0e7ff;
+}
+
+.palette-swatches {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.palette-swatch {
+  flex: 1;
+  min-width: 50px;
+  height: 55px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  transition: transform 0.15s ease;
+}
+
+.palette-swatch:hover {
+  transform: scale(1.08);
+}

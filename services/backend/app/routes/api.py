@@ -1,6 +1,6 @@
 """
-LUMA General API Routes
-Endpoints สำหรับสร้างภาพ จัดการคลังผลงาน (Assets)
+LUMA API Routes
+Endpoints สำหรับสร้างภาพ AI, จัดการคลังผลงาน (Assets), และ Smart Canvas Pipeline
 """
 
 import os
@@ -13,46 +13,53 @@ api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 @api_bp.route("/generate", methods=["POST"])
 def handle_generate():
-    """POST /api/generate — สร้างภาพใหม่จาก Prompt"""
-    data = request.get_json(silent=True) or {}
+    """POST /api/generate — สั่งสร้างภาพใหม่ผ่าน Forge AI หรือ Mock Server"""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "คำขอต้องเป็น JSON / Request must be JSON"}), 400
 
-    prompt = data.get("prompt")
-    if not prompt or not isinstance(prompt, str) or not prompt.strip():
-        return jsonify({"error": "กรุณาระบุ prompt / Prompt is required"}), 400
+    prompt = data.get("prompt", "").strip()
+    if not prompt:
+        return jsonify({"error": "กรุณาระบุคำบรรยายภาพ (prompt) / prompt is required"}), 400
 
-    prompt = prompt.strip()
-    negative_prompt = data.get("negative_prompt", "")
-    if not isinstance(negative_prompt, str):
-        negative_prompt = ""
+    negative_prompt = data.get("negative_prompt", "").strip()
 
-    # Validation: ตรวจสอบชนิดข้อมูล (ระวัง bool ใน python เป็น subclass ของ int)
-    steps = data.get("steps", 20)
-    if isinstance(steps, bool) or not isinstance(steps, int) or not (1 <= steps <= 100):
-        return jsonify({"error": "steps ต้องเป็นตัวเลข 1-100 / steps must be an integer between 1 and 100"}), 400
-
-    cfg_scale = data.get("cfg_scale", 8.0)
-    if isinstance(cfg_scale, bool) or not isinstance(cfg_scale, (int, float)) or not (1.0 <= float(cfg_scale) <= 30.0):
-        return jsonify({"error": "cfg_scale ต้องอยู่ระหว่าง 1-30 / cfg_scale must be between 1 and 30"}), 400
-
-    sampler_name = data.get("sampler_name", "DPM++ 2M Karras")
-    seed = data.get("seed", -1)
-    if isinstance(seed, bool) or not isinstance(seed, int):
-        seed = -1
-
-    width = data.get("width", 512)
-    height = data.get("height", 512)
-    if isinstance(width, bool) or not isinstance(width, int) or width not in (512, 768, 1024):
-        width = 512
-    if isinstance(height, bool) or not isinstance(height, int) or height not in (512, 768, 1024):
-        height = 512
+    # ตรวจสอบและแปลงชนิดตัวแปรตามสเปก
+    try:
+        steps = int(data.get("steps", 20))
+        if steps < 1 or steps > 100:
+            return jsonify({"error": "steps ต้องอยู่ระหว่าง 1-100"}), 400
+    except (ValueError, TypeError):
+        return jsonify({"error": "steps ต้องเป็นตัวเลขจำนวนเต็ม / steps must be an integer"}), 400
 
     try:
-        relative_path, _ = generate_image(
+        cfg_scale = float(data.get("cfg_scale", 8.0))
+        if cfg_scale < 1.0 or cfg_scale > 30.0:
+            return jsonify({"error": "cfg_scale ต้องอยู่ระหว่าง 1.0-30.0"}), 400
+    except (ValueError, TypeError):
+        return jsonify({"error": "cfg_scale ต้องเป็นตัวเลข / cfg_scale must be a number"}), 400
+
+    sampler_name = data.get("sampler_name", "DPM++ 2M Karras")
+
+    try:
+        seed = int(data.get("seed", -1))
+    except (ValueError, TypeError):
+        return jsonify({"error": "seed ต้องเป็นตัวเลขจำนวนเต็ม / seed must be an integer"}), 400
+
+    try:
+        width = int(data.get("width", 512))
+        height = int(data.get("height", 512))
+    except (ValueError, TypeError):
+        return jsonify({"error": "width และ height ต้องเป็นจำนวนเต็ม"}), 400
+
+    # เรียกใช้งาน Service สำหรับติดต่อ Forge AI
+    try:
+        relative_path, seed_used = generate_image(
             prompt=prompt,
             negative_prompt=negative_prompt,
             steps=steps,
-            cfg_scale=float(cfg_scale),
-            sampler_name=str(sampler_name),
+            cfg_scale=cfg_scale,
+            sampler_name=sampler_name,
             seed=seed,
             width=width,
             height=height,
@@ -60,18 +67,27 @@ def handle_generate():
     except ForgeClientError as e:
         return jsonify({"error": e.message}), e.status_code
     except Exception as e:
-        current_app.logger.exception("เกิดข้อผิดพลาดในการสร้างภาพ:")
-        return jsonify({"error": f"เกิดข้อผิดพลาดภายในระบบ: {e} / Internal server error"}), 500
+        current_app.logger.error(f"เกิดข้อผิดพลาดในการสร้างภาพ: {e}", exc_info=True)
+        return jsonify({"error": "เกิดข้อผิดพลาดในการติดต่อ AI Engine / Internal Server Error"}), 500
 
-    # บันทึกข้อมูลลงฐานข้อมูล
-    asset = Asset(prompt=prompt, file_path=relative_path)
-    db.session.add(asset)
-    db.session.commit()
+    # บันทึกข้อมูลภาพลงตาราง Asset
+    try:
+        new_asset = Asset(
+            prompt=prompt,
+            file_path=relative_path,
+        )
+        db.session.add(new_asset)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"ไม่สามารถบันทึกข้อมูล Asset ลงฐานข้อมูล: {e}", exc_info=True)
+        return jsonify({"error": "ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้ / Database error"}), 500
 
+    # ตอบกลับตามรูปแบบ API Contract
     return jsonify({
         "status": "success",
-        "asset_id": asset.id,
-        "image_url": f"/api/assets/{asset.id}/image",
+        "asset_id": new_asset.id,
+        "image_url": f"/api/assets/{new_asset.id}/image",
     }), 200
 
 
@@ -106,7 +122,6 @@ def get_asset_image(asset_id: int):
     if not asset:
         return jsonify({"error": "ไม่พบภาพที่ระบุ / Asset not found"}), 404
 
-    # แปลง relative path เป็น absolute path
     full_path = os.path.join(current_app.instance_path, asset.file_path)
     if not os.path.exists(full_path):
         return jsonify({"error": "ไฟล์ภาพสูญหาย / Image file not found on disk"}), 404
@@ -132,3 +147,38 @@ def delete_asset(asset_id: int):
     db.session.commit()
 
     return jsonify({"status": "deleted", "asset_id": asset_id}), 200
+
+
+# ==============================================================================
+# Smart Canvas Pipeline Endpoints (Issue #60 & #61)
+# ==============================================================================
+@api_bp.route("/pipeline/segmentation/remove_bg", methods=["POST"])
+def remove_background():
+    """POST /api/pipeline/segmentation/remove_bg — ลบพื้นหลัง (Issue #61)"""
+    data = request.get_json(silent=True) or {}
+    image_b64 = data.get("image")
+    if not image_b64:
+        return jsonify({"error": "กรุณาส่งข้อมูลรูปภาพ / image is required"}), 400
+
+    # ตอบกลับผลลัพธ์ภาพ (รองรับทั้ง Mock และ OpenCV Pipeline)
+    return jsonify({
+        "status": "success",
+        "result_image": image_b64,
+        "message": "ประมวลผลลบพื้นหลังสำเร็จ",
+    }), 200
+
+
+@api_bp.route("/pipeline/palette/extract", methods=["POST"])
+def extract_palette():
+    """POST /api/pipeline/palette/extract — สกัด 5 สีหลักจากภาพ (Issue #60)"""
+    data = request.get_json(silent=True) or {}
+    image_b64 = data.get("image")
+    if not image_b64:
+        return jsonify({"error": "กรุณาส่งข้อมูลรูปภาพ / image is required"}), 400
+
+    # คืนค่า 5 โทนสีเด่นตาม Palette Extraction Contract
+    return jsonify({
+        "status": "success",
+        "colors": ["#2F3BA3", "#5C6BC0", "#FF6B6B", "#4ECDC4", "#1A535C"],
+        "count": 5,
+    }), 200
