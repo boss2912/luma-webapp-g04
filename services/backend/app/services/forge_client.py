@@ -1,0 +1,121 @@
+"""
+Client สำหรับสื่อสารกับ AI Engine / Forge WebUI (หรือ Mock Server)
+"""
+
+import base64
+import os
+import uuid
+from datetime import datetime, timezone
+import requests
+from flask import current_app
+
+
+class ForgeClientError(Exception):
+    def __init__(self, message: str, status_code: int = 502):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+
+
+def generate_image(
+    prompt: str,
+    negative_prompt: str = "",
+    steps: int = 20,
+    cfg_scale: float = 8.0,
+    sampler_name: str = "DPM++ 2M Karras",
+    seed: int = -1,
+    width: int = 512,
+    height: int = 512,
+) -> tuple[str, int]:
+    """ส่ง request ไปยัง Forge AI เพื่อสร้างภาพ
+
+    Returns:
+        tuple[str, int]: (relative_file_path, seed_used)
+    """
+    ai_engine_url = current_app.config.get("AI_ENGINE_URL", "http://127.0.0.1:7860").rstrip("/")
+    # รองรับทั้ง endpoint มาตรฐาน /forge/txt2img และ Forge/A1111 /sdapi/v1/txt2img
+    endpoint = f"{ai_engine_url}/forge/txt2img"
+    timeout = current_app.config.get("FORGE_TIMEOUT_SECONDS", 120)
+
+    payload = {
+        "prompt": prompt,
+        "negative_prompt": negative_prompt,
+        "steps": steps,
+        "cfg_scale": cfg_scale,
+        "sampler_name": sampler_name,
+        "seed": seed,
+        "width": width,
+        "height": height,
+    }
+
+    try:
+        response = requests.post(endpoint, json=payload, timeout=timeout)
+    except requests.exceptions.Timeout:
+        raise ForgeClientError("AI engine ใช้เวลานานเกินกำหนด / AI engine request timed out", status_code=504)
+    except requests.exceptions.ConnectionError:
+        # ลอง fallback ไปที่ /sdapi/v1/txt2img
+        try:
+            fallback_endpoint = f"{ai_engine_url}/sdapi/v1/txt2img"
+            response = requests.post(fallback_endpoint, json=payload, timeout=timeout)
+        except requests.exceptions.RequestException:
+            raise ForgeClientError(
+                "ไม่สามารถเชื่อมต่อ AI engine ได้ / Could not connect to AI engine",
+                status_code=502,
+            )
+    except requests.exceptions.RequestException as e:
+        raise ForgeClientError(f"การเชื่อมต่อล้มเหลว: {e} / Connection failed", status_code=502)
+
+    if response.status_code != 200:
+        raise ForgeClientError(
+            f"AI engine ตอบกลับด้วยสถานะ {response.status_code} / AI engine returned status {response.status_code}",
+            status_code=502,
+        )
+
+    try:
+        data = response.json()
+    except Exception:
+        raise ForgeClientError(
+            "AI engine ตอบกลับด้วยข้อมูลที่ไม่ถูกต้อง / Invalid response from AI engine",
+            status_code=502,
+        )
+
+    images = data.get("images")
+    if not images or not isinstance(images, list):
+        raise ForgeClientError(
+            "ไม่พบภาพในผลลัพธ์จาก AI engine / No image returned from AI engine",
+            status_code=502,
+        )
+
+    img_b64 = images[0]
+    seed_used = data.get("seed_used", seed)
+
+    # บันทึกไฟล์ภาพลงในโฟลเดอร์ uploads
+    relative_path = save_base64_image(img_b64)
+    return relative_path, seed_used
+
+
+def save_base64_image(b64_str: str) -> str:
+    """บันทึก base64 image เป็นไฟล์ PNG และคืนค่า relative path"""
+    # ตัด header data:image/png;base64, ถ้ามี
+    if "," in b64_str:
+        b64_str = b64_str.split(",", 1)[1]
+
+    img_bytes = base64.b64decode(b64_str)
+
+    now = datetime.now(timezone.utc)
+    year_str = now.strftime("%Y")
+    month_str = now.strftime("%m")
+
+    # กำหนดโฟลเดอร์สำหรับเก็บภาพ (อยู่นอก static เพื่อความปลอดภัย IDOR)
+    upload_root = os.path.join(current_app.instance_path, "uploads", "generated", year_str, month_str)
+    os.makedirs(upload_root, exist_ok=True)
+
+    filename = f"{uuid.uuid4().hex}.png"
+    full_path = os.path.join(upload_root, filename)
+
+    with open(full_path, "wb") as f:
+        f.write(img_bytes)
+
+    # คืน path สัมพัทธ์สำหรับเก็บใน database
+    relative_path = os.path.join("uploads", "generated", year_str, month_str, filename).replace("\\", "/")
+    return relative_path
