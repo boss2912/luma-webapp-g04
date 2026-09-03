@@ -1,16 +1,17 @@
 """
 LUMA Backend Application Package
 Application Factory `create_app()`
+Issue #51 — ระบบความปลอดภัย Security Headers, Cookie Hardening, และ CORS
 """
 
 import os
+from datetime import timedelta
 from flask import Flask, jsonify, request
 from app.models import db
 
 
 def create_app(config_overrides: dict | None = None) -> Flask:
     """Application Factory สำหรับสร้าง Flask Application"""
-    # กำหนด instance path ให้อยู่ที่ services/backend/instance/ เสมอ
     backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     instance_path = os.path.join(backend_dir, "instance")
 
@@ -20,13 +21,17 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         instance_relative_config=True,
     )
 
-    # กำหนดค่าเริ่มต้น
+    # กำหนดค่าเริ่มต้นตามมาตรฐานความปลอดภัย (OWASP & ADR-001)
     app.config.from_mapping(
-        SECRET_KEY="luma-dev-secret-key",
+        SECRET_KEY="luma-dev-secret-key-change-in-production",
         SQLALCHEMY_DATABASE_URI=f"sqlite:///{os.path.join(instance_path, 'luma.db')}",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         AI_ENGINE_URL="http://127.0.0.1:7860",
         FORGE_TIMEOUT_SECONDS=120,
+        # Cookie Hardening ป้องกันการขโมย Cookie ข้ามไซต์
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=24),
     )
 
     # โหลด config จาก instance/config.py ถ้ามี
@@ -48,18 +53,32 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     db.init_app(app)
 
     with app.app_context():
-        # สร้างตารางเริ่มต้นสำหรับการทดสอบ
         db.create_all()
 
-    # ตั้งค่า CORS เบื้องต้นสำหรับทุก request ใต้ /api/
+    # ตั้งค่า CORS และ Security Headers สำหรับทุก response
     @app.after_request
-    def apply_cors(response):
+    def apply_security_headers_and_cors(response):
+        # 1. CORS Headers
         origin = request.headers.get("Origin")
         if origin:
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, X-CSRF-Token"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+
+        # 2. Security Headers (Issue #51 — OWASP Security Standard)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob: http: https:; "
+            "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*"
+        )
+
         return response
 
     @app.before_request
@@ -70,7 +89,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
             if origin:
                 response.headers["Access-Control-Allow-Origin"] = origin
                 response.headers["Access-Control-Allow-Credentials"] = "true"
-                response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+                response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, X-CSRF-Token"
                 response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
             return response
 
@@ -84,13 +103,17 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     def unauthorized(error):
         return jsonify({"error": "ยังไม่ได้เข้าสู่ระบบ / Unauthorized"}), 401
 
+    @app.errorhandler(403)
+    def forbidden(error):
+        return jsonify({"error": "ไม่มีสิทธิ์เข้าถึง / Forbidden"}), 403
+
     @app.errorhandler(404)
     def not_found(error):
         return jsonify({"error": "ไม่พบหน้าที่ระบุ / Not found"}), 404
 
     @app.errorhandler(429)
     def too_many_requests(error):
-        return jsonify({"error": "เรียกใช้งานบ่อยเกินไป กรุณารอสักครู่ / Too many requests"}), 429
+        return jsonify({"error": "พยายามเข้าสู่ระบบบ่อยเกินไป กรุณารอสักครู่ / Too many requests (Rate limit exceeded)"}), 429
 
     @app.errorhandler(500)
     def internal_server_error(error):
