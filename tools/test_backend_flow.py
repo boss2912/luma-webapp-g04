@@ -14,6 +14,7 @@ tools/test_backend_flow.py — สคริปต์ทดสอบระบบ 
 
 import os
 import sys
+import subprocess
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BACKEND_DIR = os.path.join(BASE_DIR, "services", "backend")
@@ -56,7 +57,8 @@ def main():
     for filename, desc in files_to_run:
         filepath = os.path.join(TESTS_DIR, filename)
         if os.path.exists(filepath):
-            os.system(f'"{sys.executable}" "{filepath}"')
+            # ใช้ subprocess.run เพื่อรองรับ path ที่มีช่องว่างบน Windows (เช่น D:\Image Processing)
+            subprocess.run([sys.executable, filepath])
 
 
 if __name__ == "__main__":
