@@ -1,7 +1,7 @@
 /**
  * LUMA — Shared layout loader & Auth State Manager
  * -------------------------------------------------------------------------
- * โหลดเมนูกลาง และตรวจสอบสถานะ Authentication แบบ Real-time
+ * โหลดเมนูกลาง และตรวจสอบสถานะ Authentication
  */
 
 const API_BASE = window.LUMA_CONFIG ? window.LUMA_CONFIG.apiBase : "http://127.0.0.1:5000";
@@ -54,7 +54,7 @@ async function checkAuthStatus() {
       userSlot.appendChild(userGreeting);
       userSlot.appendChild(logoutBtn);
     } else {
-      localStorage.removeItem("luma_user_email");
+      userSlot.innerHTML = '<a class="app-nav__link" data-page="login" href="login.html">เข้าสู่ระบบ</a>';
     }
   } catch {
     // ถ้าต่อ API ไม่ได้ ให้ใช้สถานะปกติ

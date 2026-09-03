@@ -32,9 +32,13 @@ def generate_image(
     Returns:
         tuple[str, int]: (relative_file_path, seed_used)
     """
-    ai_engine_url = current_app.config.get("AI_ENGINE_URL", "http://127.0.0.1:7860").rstrip("/")
-    # รองรับทั้ง endpoint มาตรฐาน /forge/txt2img และ Forge/A1111 /sdapi/v1/txt2img
-    endpoint = f"{ai_engine_url}/forge/txt2img"
+    # ดึง URL จาก config หรือใช้ mock default port 7860
+    endpoint = current_app.config.get("FORGE_AI_ENDPOINT")
+    if not endpoint:
+        ai_url = current_app.config.get("AI_ENGINE_URL", "http://127.0.0.1:7860").rstrip("/")
+        # ถ้า config ดันตั้งไว้เป็น port 8000 ให้ fallback หา 7860 ถ้าต่อไม่ติด
+        endpoint = f"{ai_url}/forge/txt2img"
+
     timeout = current_app.config.get("FORGE_TIMEOUT_SECONDS", 120)
 
     payload = {
@@ -48,26 +52,28 @@ def generate_image(
         "height": height,
     }
 
-    try:
-        response = requests.post(endpoint, json=payload, timeout=timeout)
-    except requests.exceptions.Timeout:
-        raise ForgeClientError("AI engine ใช้เวลานานเกินกำหนด / AI engine request timed out", status_code=504)
-    except requests.exceptions.ConnectionError:
-        # ลอง fallback ไปที่ /sdapi/v1/txt2img
-        try:
-            fallback_endpoint = f"{ai_engine_url}/sdapi/v1/txt2img"
-            response = requests.post(fallback_endpoint, json=payload, timeout=timeout)
-        except requests.exceptions.RequestException:
-            raise ForgeClientError(
-                "ไม่สามารถเชื่อมต่อ AI engine ได้ / Could not connect to AI engine",
-                status_code=502,
-            )
-    except requests.exceptions.RequestException as e:
-        raise ForgeClientError(f"การเชื่อมต่อล้มเหลว: {e} / Connection failed", status_code=502)
+    # พยายามยิง endpoint หลัก
+    endpoints_to_try = [
+        endpoint,
+        "http://127.0.0.1:7860/forge/txt2img",
+        "http://127.0.0.1:7860/sdapi/v1/txt2img",
+    ]
+    
+    response = None
+    last_error = None
 
-    if response.status_code != 200:
+    for ep in endpoints_to_try:
+        try:
+            response = requests.post(ep, json=payload, timeout=5)
+            if response.status_code == 200:
+                break
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            continue
+
+    if response is None or response.status_code != 200:
         raise ForgeClientError(
-            f"AI engine ตอบกลับด้วยสถานะ {response.status_code} / AI engine returned status {response.status_code}",
+            "ไม่สามารถเชื่อมต่อ AI engine ได้ / Could not connect to AI engine (ตรวจสอบว่า python tools/mock_forge_server.py ทำงานอยู่)",
             status_code=502,
         )
 
@@ -96,7 +102,6 @@ def generate_image(
 
 def save_base64_image(b64_str: str) -> str:
     """บันทึก base64 image เป็นไฟล์ PNG และคืนค่า relative path"""
-    # ตัด header data:image/png;base64, ถ้ามี
     if "," in b64_str:
         b64_str = b64_str.split(",", 1)[1]
 
