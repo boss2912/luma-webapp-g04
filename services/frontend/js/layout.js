@@ -1,6 +1,10 @@
 /**
- * LUMA — Shared layout loader
+ * LUMA — Shared layout loader & Auth State Manager
+ * -------------------------------------------------------------------------
+ * โหลดเมนูกลาง และตรวจสอบสถานะ Authentication แบบ Real-time
  */
+
+const API_BASE = window.LUMA_CONFIG ? window.LUMA_CONFIG.apiBase : "http://127.0.0.1:5000";
 
 async function initLayout() {
   const slot = document.getElementById("app-nav-slot");
@@ -14,8 +18,60 @@ async function initLayout() {
     slot.innerHTML = await res.text();
     markCurrentPage();
     setupMobileToggle();
+    checkAuthStatus();
   } catch (err) {
     console.error("[layout] โหลดเมนูไม่สำเร็จ:", err);
+  }
+}
+
+async function checkAuthStatus() {
+  const userSlot = document.getElementById("nav-user-slot");
+  if (!userSlot) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/me`, {
+      credentials: "include",
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const displayName = data.displayName || data.email.split("@")[0];
+
+      // สร้างปุ่มออกจากระบบและแสดงชื่อ
+      userSlot.innerHTML = "";
+
+      const userGreeting = document.createElement("span");
+      userGreeting.style.fontSize = "0.85rem";
+      userGreeting.style.color = "#555";
+      userGreeting.style.marginRight = "0.5rem";
+      userGreeting.textContent = `👤 ${displayName}`;
+
+      const logoutBtn = document.createElement("button");
+      logoutBtn.className = "nav-link-btn";
+      logoutBtn.textContent = "ออกจากระบบ";
+      logoutBtn.addEventListener("click", handleLogout);
+
+      userSlot.appendChild(userGreeting);
+      userSlot.appendChild(logoutBtn);
+    } else {
+      localStorage.removeItem("luma_user_email");
+    }
+  } catch {
+    // ถ้าต่อ API ไม่ได้ ให้ใช้สถานะปกติ
+  }
+}
+
+async function handleLogout() {
+  try {
+    await fetch(`${API_BASE}/api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch (err) {
+    console.error("Logout error:", err);
+  } finally {
+    localStorage.removeItem("luma_user_email");
+    window.location.href = "login.html";
   }
 }
 
