@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LUMA — เข้าสู่ระบบ</title>
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/auth.css" />
+</head>
+<body data-page="login" class="auth-page">
+  <div class="auth-card">
+    <a class="auth-card__brand" href="index.html">🎨 LUMA</a>
+    <p class="auth-card__subtitle">เข้าสู่ระบบเพื่อจัดการและสร้างผลงาน AI</p>
+
+    <div class="auth-error" id="login-error" hidden role="alert"></div>
+
+    <form class="auth-form" id="login-form" novalidate>
+      <div class="auth-field">
+        <label class="auth-field__label" for="login-email">อีเมล (Email) *</label>
+        <input
+          class="auth-field__input"
+          type="email"
+          id="login-email"
+          name="email"
+          placeholder="yourname@example.com"
+          autocomplete="username"
+          required
+        />
+      </div>
+
+      <div class="auth-field">
+        <label class="auth-field__label" for="login-password">รหัสผ่าน (Password) *</label>
+        <input
+          class="auth-field__input"
+          type="password"
+          id="login-password"
+          name="password"
+          placeholder="กรอกรหัสผ่านของคุณ"
+          autocomplete="current-password"
+          required
+        />
+      </div>
+
+      <button class="auth-submit" type="submit" id="login-submit">
+        เข้าสู่ระบบ
+      </button>
+    </form>
+
+    <p class="auth-footer">
+      ยังไม่มีบัญชีผู้ใช้งาน? <a href="register.html">สมัครสมาชิกที่นี่</a>
+    </p>
+  </div>
+
+  <script src="../js/login.js"></script>
+</body>
+</html>

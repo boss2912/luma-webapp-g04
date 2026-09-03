@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LUMA — สมัครสมาชิก</title>
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/auth.css" />
+</head>
+<body data-page="register" class="auth-page">
+  <div class="auth-card">
+    <a class="auth-card__brand" href="index.html">🎨 LUMA</a>
+    <p class="auth-card__subtitle">สร้างบัญชีผู้ใช้ใหม่เพื่อเริ่มต้นใช้งาน LUMA</p>
+
+    <div class="auth-error" id="register-error" hidden role="alert"></div>
+
+    <form class="auth-form" id="register-form" novalidate>
+      <div class="auth-field">
+        <label class="auth-field__label" for="register-name">ชื่อที่แสดง (Display Name) *</label>
+        <input
+          class="auth-field__input"
+          type="text"
+          id="register-name"
+          name="displayName"
+          placeholder="เช่น Artist101"
+          autocomplete="name"
+          required
+        />
+      </div>
+
+      <div class="auth-field">
+        <label class="auth-field__label" for="register-email">อีเมล (Email) *</label>
+        <input
+          class="auth-field__input"
+          type="email"
+          id="register-email"
+          name="email"
+          placeholder="yourname@example.com"
+          autocomplete="username"
+          required
+        />
+      </div>
+
+      <div class="auth-field">
+        <label class="auth-field__label" for="register-password">รหัสผ่าน (Password) *</label>
+        <input
+          class="auth-field__input"
+          type="password"
+          id="register-password"
+          name="password"
+          placeholder="อย่างน้อย 8 ตัวอักษร"
+          autocomplete="new-password"
+          minlength="8"
+          required
+        />
+      </div>
+
+      <div class="auth-field">
+        <label class="auth-field__label" for="register-confirm">ยืนยันรหัสผ่าน *</label>
+        <input
+          class="auth-field__input"
+          type="password"
+          id="register-confirm"
+          name="confirmPassword"
+          placeholder="กรอกรหัสผ่านซ้ำอีกครั้ง"
+          autocomplete="new-password"
+          minlength="8"
+          required
+        />
+      </div>
+
+      <button class="auth-submit" type="submit" id="register-submit">
+        สมัครสมาชิก
+      </button>
+    </form>
+
+    <p class="auth-footer">
+      มีบัญชีอยู่แล้ว? <a href="login.html">เข้าสู่ระบบ</a>
+    </p>
+  </div>
+
+  <script src="../js/register.js"></script>
+</body>
+</html>

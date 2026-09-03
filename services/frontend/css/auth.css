@@ -1,0 +1,123 @@
+/* ==========================================================================
+   LUMA — Auth Pages (Login & Register)
+   ========================================================================== */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: #f4f6f8;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.auth-card__brand {
+  display: block;
+  text-align: center;
+  font-weight: 800;
+  font-size: 1.6rem;
+  color: #2f3ba3;
+  text-decoration: none;
+  margin-bottom: 0.5rem;
+}
+
+.auth-card__subtitle {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0;
+  margin-bottom: 1.75rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.auth-field__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.auth-field__input {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.95rem;
+  width: 100%;
+}
+
+.auth-field__input:focus-visible {
+  outline: 2px solid #2f3ba3;
+  outline-offset: 1px;
+  border-color: #2f3ba3;
+}
+
+.auth-submit {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: #2f3ba3;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.auth-submit:hover:not(:disabled) {
+  background: #26308a;
+}
+
+.auth-submit:disabled {
+  background: #9aa0d6;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: #fdecea;
+  color: #b3261e;
+  font-size: 0.9rem;
+  border: 1px solid #f5c2c7;
+  margin-bottom: 0.5rem;
+}
+
+.auth-footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.auth-footer a {
+  color: #2f3ba3;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
