@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LUMA — คลังผลงาน</title>
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/gallery.css" />
+</head>
+<body data-page="gallery">
+  <header class="app-header">
+    <div id="app-nav-slot"></div>
+  </header>
+
+  <main class="app-main">
+    <h1>🖼️ คลังผลงานของฉัน</h1>
+    <p>รวมภาพทั้งหมดที่สร้างขึ้นผ่าน LUMA คุณสามารถค้นหาและดูรายละเอียดของแต่ละภาพได้ที่นี่</p>
+
+    <!-- แถบค้นหาภาพ -->
+    <div class="gallery-header-bar">
+      <form class="gallery-search-box" id="gallery-search-form">
+        <input
+          class="gallery-search-input"
+          type="text"
+          id="gallery-search-input"
+          placeholder="ค้นหาตาม Prompt เช่น sakura, anime..."
+        />
+        <button class="gallery-search-btn" type="submit">ค้นหา</button>
+      </form>
+    </div>
+
+    <!-- สถานะกำลังโหลด -->
+    <div class="spinner" id="gallery-loading" hidden>กำลังโหลดข้อมูลภาพ…</div>
+
+    <!-- แสดงเมื่อไม่มีภาพ -->
+    <div class="gallery-empty" id="gallery-empty" hidden>
+      <h3>ยังไม่มีภาพในคลังผลงาน</h3>
+      <p>เริ่มต้นสร้างภาพแรกของคุณได้ที่หน้า <a href="generate.html">สร้างภาพ AI</a></p>
+    </div>
+
+    <!-- ตารางแสดงการ์ดรูปภาพ -->
+    <div class="gallery-grid" id="gallery-grid"></div>
+
+    <!-- แถบเปลี่ยนหน้า (Pagination) -->
+    <div class="gallery-pagination" id="gallery-pagination" hidden>
+      <button class="pagination-btn" id="prev-btn" disabled>« หน้าก่อนหน้า</button>
+      <span class="pagination-info" id="page-info">หน้า 1</span>
+      <button class="pagination-btn" id="next-btn" disabled>หน้าถัดไป »</button>
+    </div>
+  </main>
+
+  <form id="logout-form" action="#" method="post" hidden></form>
+
+  <script src="../js/layout.js"></script>
+  <script src="../js/gallery.js"></script>
+</body>
+</html>
