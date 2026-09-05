@@ -3,11 +3,12 @@
 👤 คนที่ 3 — AI + Image Processing Engine
 **เครื่อง**: 192.168.1.30 (ตัวอย่าง) · เครื่องที่มี GPU
 
-> **งานของโฟลเดอร์นี้** → [issue ที่ติด label `owner:3`](https://github.com/boss2912/luma-webapp-g04/issues?q=is%3Aissue+is%3Aopen+label%3Aowner%3A3)
-> · เริ่มยังไง → [`../../docs/HOW_TO_WORK.md`](../../docs/HOW_TO_WORK.md)
+> **⭐ หยิบ issue ไหนก่อน** → [`../../docs/START_3_AI_IP.md`](../../docs/START_3_AI_IP.md) — คิวงานเรียงลำดับ + งานวันแรก
+> · [issue ที่ติด label `owner:3`](https://github.com/boss2912/luma-webapp-g04/issues?q=is%3Aissue+is%3Aopen+label%3Aowner%3A3)
+> · วิธีทำงานประจำวัน → [`../../docs/HOW_TO_WORK.md`](../../docs/HOW_TO_WORK.md)
 >
-> ⚠️ โฟลเดอร์นี้ยังไม่มีเจ้าของใน [`../../.github/CODEOWNERS`](../../.github/CODEOWNERS)
-> เพราะยังไม่ทราบ username GitHub ของคนที่ 3 — เติมแล้วจะได้ผู้รีวิวอัตโนมัติ
+> โฟลเดอร์นี้เป็นของ `@tsheringdorji` ตาม [`../../.github/CODEOWNERS`](../../.github/CODEOWNERS)
+> — คนอื่นแก้ได้แต่ต้องให้เจ้าของรีวิวก่อน
 
 ## หน้าที่ 2 อย่าง ที่ต้องไม่ปนกัน
 

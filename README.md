@@ -120,6 +120,9 @@ luma-webapp-g04/
 | ไฟล์ | อ่านเมื่อ |
 |---|---|
 | [`INSTALL.md`](INSTALL.md) | ติดตั้ง — Windows · macOS · Linux · Conda · แยก 3 เครื่อง · แก้ปัญหา |
+| ⭐ [`docs/START_1_WEB.md`](docs/START_1_WEB.md) | **คนที่ 1 เริ่มตรงนี้** — คิวงานเรียงลำดับ · งานวันแรก · commit ว่าอะไร |
+| ⭐ [`docs/START_2_DATA.md`](docs/START_2_DATA.md) | **คนที่ 2 เริ่มตรงนี้** — คิวงานเรียงลำดับ · งานวันแรก · commit ว่าอะไร |
+| ⭐ [`docs/START_3_AI_IP.md`](docs/START_3_AI_IP.md) | **คนที่ 3 เริ่มตรงนี้** — คิวงานเรียงลำดับ · งานวันแรก · commit ว่าอะไร |
 | ⭐ [`docs/HOW_TO_WORK.md`](docs/HOW_TO_WORK.md) | **อ่านก่อนเริ่มทำงานวันแรก** — เลือกงานยังไง · ส่ง PR ยังไง · รู้ได้ไงว่าเสร็จ |
 | ⭐ [`docs/COURSE_REQUIREMENTS.md`](docs/COURSE_REQUIREMENTS.md) | **อ่านก่อนเริ่มทุกงาน** — ข้อกำหนดจากอาจารย์ทั้งหมด สกัดจาก Lecture 1–7 พร้อมเลขหน้าอ้างอิง |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | อยากรู้ว่าตอนนี้ทำอะไร ต่อไปทำอะไร (milestone V1–V5) |
@@ -128,6 +131,8 @@ luma-webapp-g04/
 | [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md) | สัญญา API ระหว่าง frontend ↔ backend ↔ ai-engine |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | **ก่อนแก้อะไรที่ดูแปลก** — บันทึกว่าทำไมถึงตัดสินใจแบบนั้น (ADR) |
 | [`docs/INDUSTRY_PRACTICES.md`](docs/INDUSTRY_PRACTICES.md) | ทีมจริงบน GitHub เขาวางโครงสร้างและทำงานร่วมกันอย่างไร |
+| [`docs/worklog/`](docs/worklog/README.md) | บันทึกว่าใครทำอะไรไปแล้ว — **เขียนก่อนปิดแชท AI ทุกครั้ง** |
+| ⭐ [`AGENTS.md`](AGENTS.md) | **กติกา repo สำหรับ AI — ต้นฉบับเดียว** · Antigravity / Codex / Cursor อ่านเอง · Claude Code อ่านผ่าน `.claude/skills/luma-project/` · เครื่องมืออื่นคัดลอกไปวางเป็นข้อความแรก |
 | [`tools/README.md`](tools/README.md) | เครื่องมือช่วยงาน — ตัวตรวจก่อน PR · Forge ปลอม · รัน test ทุก service |
 | [`archive/SECURITY_FIXES_v1.md`](archive/SECURITY_FIXES_v1.md) | **ก่อน review PR ทุกครั้ง** — checklist ช่องโหว่ F01–F15 |
 | [`archive/ARCHITECTURE_v1.md`](archive/ARCHITECTURE_v1.md) | อยากหยิบ logic จาก v1 กลับมาใช้ |
