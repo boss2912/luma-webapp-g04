@@ -1,108 +1,114 @@
 /**
- * LUMA — Register form
+ * LUMA — Register Page Logic
  * -------------------------------------------------------------------------
- * ตอนนี้ใช้ js/mock-auth.js จำลอง backend ไปก่อน (ดูคอมเมนต์ในไฟล์นั้น)
- * เพราะ #32/#49 ปิด contract แล้ว แต่ backend ตัวจริงยังไม่รันขึ้นมา
+ * จัดการฟอร์มสมัครสมาชิก ตรวจสอบความถูกต้องของข้อมูล
+ * และส่งคำขอไปยัง POST /api/auth/register
  *
- * พอ backend จริงพร้อมใช้งาน ให้ลบ TODO ด้านล่างออก แล้วเรียก fetch()
- * ตรงตาม docs/API_CONTRACT.md แทน (เอา mock-auth.js ออกจาก register.html ด้วย)
- *
- * ห้าม hardcode localhost/IP — อ่าน API base จาก window.LUMA_CONFIG เท่านั้น
- *
- * หมายเหตุ: การเช็ค "อีเมลนี้มีคนใช้แล้วหรือยัง" ต้องทำที่ backend จริงเท่านั้น
- * (ดู #49 "กันการเดาว่ามีบัญชีอยู่จริง") mock-auth.js จำลองพฤติกรรมนี้ไว้แล้ว
+ * อ้างอิง: Issue #49, docs/API_CONTRACT.md
  */
 
-const API_BASE = window.LUMA_CONFIG ? window.LUMA_CONFIG.apiBase : "";
-const MIN_PASSWORD_LENGTH = 8;
+(() => {
+  const API_BASE = window.LUMA_CONFIG ? window.LUMA_CONFIG.apiBase : "http://127.0.0.1:5000";
 
-function initRegisterForm() {
-  const form = document.getElementById("register-form");
-  if (!form) return;
+  function initRegister() {
+    const form = document.getElementById("register-form");
+    if (!form) return;
 
-  const errorBox = document.getElementById("register-error");
-  const submitBtn = document.getElementById("register-submit");
+    const errorBox = document.getElementById("register-error");
+    const successBox = document.getElementById("register-success");
+    const submitBtn = document.getElementById("register-submit");
 
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    hideError();
-
-    const displayName = form.displayName.value.trim();
-    const email = form.email.value.trim();
-    const password = form.password.value;
-    const confirmPassword = form.confirmPassword.value;
-
-    const validationError = validate({
-      displayName,
-      email,
-      password,
-      confirmPassword,
-    });
-    if (validationError) {
-      showError(validationError);
-      return;
+    function showError(msg) {
+      if (errorBox) {
+        errorBox.textContent = msg;
+        errorBox.removeAttribute("hidden");
+      }
+      if (successBox) successBox.setAttribute("hidden", "");
     }
 
-    setLoading(true);
-    try {
-      // TODO(#49): สลับเป็น fetch จริงตอน backend รันได้แล้ว เช่น
-      //
-      // const res = await fetch(`${API_BASE}/api/register`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ displayName, email, password }),
-      // });
-      // const data = await res.json();
-      // if (!res.ok) throw new Error(data.message || "สมัครสมาชิกไม่สำเร็จ");
+    function hideMessages() {
+      if (errorBox) errorBox.setAttribute("hidden", "");
+      if (successBox) successBox.setAttribute("hidden", "");
+    }
 
-      const result = await window.LUMA_MOCK_AUTH.mockRegister({
-        displayName,
-        email,
-        password,
-      });
-      if (!result.ok) {
-        showError(result.data.message);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideMessages();
+
+      const email = form.email ? form.email.value.trim() : "";
+      const displayName = form.displayName ? form.displayName.value.trim() : "";
+      const password = form.password ? form.password.value : "";
+      const confirmPassword = form.confirmPassword ? form.confirmPassword.value : "";
+
+      // ตรวจสอบความถูกต้องฝั่ง Client
+      if (!email) {
+        showError("กรุณากรอกอีเมล");
+        return;
+      }
+      if (!email.includes("@") || !email.includes(".")) {
+        showError("รูปแบบอีเมลไม่ถูกต้อง");
+        return;
+      }
+      if (!displayName) {
+        showError("กรุณากรอกชื่อแสดงผล");
+        return;
+      }
+      if (password.length < 8) {
+        showError("รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร");
+        return;
+      }
+      if (password !== confirmPassword) {
+        showError("รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน");
         return;
       }
 
-      window.location.href = "login.html";
-    } catch (err) {
-      showError(err.message || "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง");
-    } finally {
-      setLoading(false);
-    }
-  });
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "กำลังสมัครสมาชิก…";
+      }
 
-  /** ตรวจฝั่ง client เท่านั้น — เช็คอีเมลซ้ำต้องทำที่ backend (#49) */
-  function validate({ displayName, email, password, confirmPassword }) {
-    if (!displayName || !email || !password || !confirmPassword) {
-      return "กรอกข้อมูลให้ครบทุกช่อง";
-    }
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      return `รหัสผ่านต้องยาวอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`;
-    }
-    if (password !== confirmPassword) {
-      return "รหัสผ่านทั้งสองช่องไม่ตรงกัน";
-    }
-    return null;
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/register`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            displayName,
+            password,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || `สมัครสมาชิกไม่สำเร็จ (HTTP ${res.status})`);
+        }
+
+        if (successBox) {
+          successBox.textContent = "สมัครสมาชิกสำเร็จ! กำลังนำคุณไปหน้าเข้าสู่ระบบ…";
+          successBox.removeAttribute("hidden");
+        }
+
+        setTimeout(() => {
+          window.location.href = "login.html?registered=true";
+        }, 1500);
+      } catch (err) {
+        console.error("Register error:", err);
+        showError(err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "สมัครสมาชิก";
+        }
+      }
+    });
   }
 
-  function showError(message) {
-    // ใช้ textContent เสมอ ไม่ใช้ innerHTML เพราะข้อความ error
-    // อาจสะท้อนกลับมาจาก backend ในอนาคต ป้องกัน stored/reflected XSS
-    errorBox.textContent = message;
-    errorBox.removeAttribute("hidden");
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initRegister);
+  } else {
+    initRegister();
   }
-
-  function hideError() {
-    errorBox.textContent = "";
-    errorBox.setAttribute("hidden", "");
-  }
-
-  function setLoading(isLoading) {
-    submitBtn.disabled = isLoading;
-    submitBtn.textContent = isLoading ? "กำลังสมัครสมาชิก…" : "สมัครสมาชิก";
-  }
-}
-
-document.addEventListener("DOMContentLoaded", initRegisterForm);
+})();

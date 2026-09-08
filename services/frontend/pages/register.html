@@ -7,74 +7,90 @@
   <link rel="stylesheet" href="../css/main.css" />
   <link rel="stylesheet" href="../css/auth.css" />
 </head>
-<body data-page="register" class="auth-page">
-  <div class="auth-card">
-    <a class="auth-card__brand" href="index.html">LUMA</a>
+<body data-page="register">
+  <header class="app-header">
+    <div id="app-nav-slot"></div>
+  </header>
 
-    <form class="auth-form" id="register-form" novalidate>
-      <p class="auth-error" id="register-error" hidden role="alert"></p>
-
-      <div class="auth-field">
-        <label class="auth-field__label" for="register-name">ชื่อที่แสดง</label>
-        <input
-          class="auth-field__input"
-          type="text"
-          id="register-name"
-          name="displayName"
-          autocomplete="name"
-          required
-        />
+  <main class="app-main">
+    <div class="auth-container">
+      <div class="auth-header">
+        <h1>สมัครสมาชิก LUMA</h1>
+        <p>สร้างบัญชีเพื่อเริ่มต้นสร้างและจัดเก็บผลงาน AI</p>
       </div>
 
-      <div class="auth-field">
-        <label class="auth-field__label" for="register-email">อีเมล</label>
-        <input
-          class="auth-field__input"
-          type="email"
-          id="register-email"
-          name="email"
-          autocomplete="username"
-          required
-        />
+      <div id="register-error" class="auth-alert auth-alert--error" hidden role="alert"></div>
+      <div id="register-success" class="auth-alert auth-alert--success" hidden role="status"></div>
+
+      <form id="register-form" class="auth-form" action="javascript:void(0);" novalidate>
+        <div class="form-group">
+          <label for="email">อีเมล *</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            class="form-control"
+            placeholder="example@domain.com"
+            required
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="displayName">ชื่อแสดงผล *</label>
+          <input
+            type="text"
+            id="displayName"
+            name="displayName"
+            class="form-control"
+            placeholder="เช่น สมชาย ใจดี"
+            required
+            autocomplete="nickname"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="password">รหัสผ่าน (อย่างน้อย 8 ตัวอักษร) *</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            class="form-control"
+            placeholder="••••••••"
+            required
+            minlength="8"
+            autocomplete="new-password"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="confirmPassword">ยืนยันรหัสผ่าน *</label>
+          <input
+            type="password"
+            id="confirmPassword"
+            name="confirmPassword"
+            class="form-control"
+            placeholder="••••••••"
+            required
+            minlength="8"
+            autocomplete="new-password"
+          />
+        </div>
+
+        <button type="submit" id="register-submit" class="auth-btn">
+          สมัครสมาชิก
+        </button>
+      </form>
+
+      <div class="auth-footer">
+        มีบัญชีผู้ใช้อยู่แล้ว? <a href="login.html">เข้าสู่ระบบ</a>
       </div>
+    </div>
+  </main>
 
-      <div class="auth-field">
-        <label class="auth-field__label" for="register-password">รหัสผ่าน</label>
-        <input
-          class="auth-field__input"
-          type="password"
-          id="register-password"
-          name="password"
-          autocomplete="new-password"
-          minlength="8"
-          required
-        />
-      </div>
+  <form id="logout-form" action="#" method="post" hidden></form>
 
-      <div class="auth-field">
-        <label class="auth-field__label" for="register-confirm">ยืนยันรหัสผ่าน</label>
-        <input
-          class="auth-field__input"
-          type="password"
-          id="register-confirm"
-          name="confirmPassword"
-          autocomplete="new-password"
-          minlength="8"
-          required
-        />
-      </div>
-
-      <button class="auth-submit" type="submit" id="register-submit">
-        สมัครสมาชิก
-      </button>
-    </form>
-
-    <p class="auth-footer">
-      มีบัญชีอยู่แล้ว? <a href="login.html">เข้าสู่ระบบ</a>
-    </p>
-  </div>
-
-  <script src="../js/mock-auth.js"></script>
+  <script src="../js/layout.js"></script>
   <script src="../js/register.js"></script>
 </body>
 </html>
