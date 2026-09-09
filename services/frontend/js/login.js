@@ -5,10 +5,12 @@
  * พร้อมส่ง Session Cookie ข้ามพอร์ต (credentials: "include")
  *
  * อ้างอิง: Issue #50, docs/API_CONTRACT.md
+ *
+ * ห้าม hardcode localhost/IP — อ่าน API base จาก window.LUMA_CONFIG เท่านั้น
  */
 
 (() => {
-  const API_BASE = window.LUMA_CONFIG ? window.LUMA_CONFIG.apiBase : "http://127.0.0.1:5000";
+  const API_BASE = window.LUMA_CONFIG ? window.LUMA_CONFIG.apiBase : "";
 
   function initLogin() {
     const form = document.getElementById("login-form");
