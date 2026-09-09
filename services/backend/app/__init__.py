@@ -6,6 +6,7 @@ Issue #47 — Blueprint Modular Architecture & JSON Error Handlers
 
 import os
 from flask import Flask, jsonify
+from flask_migrate import Migrate
 from app.models import db
 
 
@@ -36,14 +37,14 @@ def create_app(config_overrides: dict | None = None) -> Flask:
 
     os.makedirs(instance_path, exist_ok=True)
 
+    # ผูกระบบฐานข้อมูลและ Flask-Migrate ตาม ADR-008
     db.init_app(app)
 
-    with app.app_context():
-        db.create_all()
+    migrations_dir = os.path.abspath(os.path.join(backend_dir, "..", "database", "migrations"))
+    migrate = Migrate(app, db, directory=migrations_dir)
 
     # ==========================================================================
     # ลงทะเบียน JSON Error Handlers (Issue #47)
-    # ตอบกลับเป็น JSON ทุกกรณี ไม่ส่ง HTML Error ของ Flask หลุดออกไป
     # ==========================================================================
     @app.errorhandler(400)
     def bad_request(error):
@@ -75,7 +76,6 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     app.register_blueprint(api_bp)
     app.register_blueprint(auth_bp)
 
-    # Route ตรวจสอบสถานะ Server
     @app.route("/health", methods=["GET"])
     def health_check():
         return jsonify({"status": "ok", "service": "luma-backend"}), 200
