@@ -7,6 +7,7 @@ Issue #48 — ระบบ Logging สะอาด ไม่พิมพ์ซ�
 import os
 import logging
 from flask import Flask, jsonify
+from flask_migrate import Migrate
 from app.models import db
 
 
@@ -61,12 +62,12 @@ def create_app(config_overrides: dict | None = None) -> Flask:
 
     os.makedirs(instance_path, exist_ok=True)
 
+    # ผูกระบบฐานข้อมูลและ Flask-Migrate ตาม ADR-008
     db.init_app(app)
 
-    with app.app_context():
-        db.create_all()
+    migrations_dir = os.path.abspath(os.path.join(backend_dir, "..", "database", "migrations"))
+    migrate = Migrate(app, db, directory=migrations_dir)
 
-    # Route ตรวจสอบสถานะ Server
     @app.route("/health", methods=["GET"])
     def health_check():
         app.logger.info("Health check endpoint ถูกเรียกใช้งาน")
