@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LUMA — ผลงานของฉัน</title>
+  <title>LUMA — คลังผลงานของฉัน</title>
   <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/gallery.css" />
 </head>
 <body data-page="gallery">
   <header class="app-header">
@@ -12,15 +13,35 @@
   </header>
 
   <main class="app-main">
-    <h1>ผลงานของฉัน</h1>
-    <p>
-      หน้านี้เป็นโครงเปล่า ใช้ layout กลางเดียวกับหน้าอื่น —
-      แกลเลอรีจริง + ค้นหา/กรอง tag จะเพิ่มใน issue #58 และ #59
-    </p>
+    <header class="gallery-header">
+      <h1>🖼️ คลังผลงานของฉัน</h1>
+      <p>รวมภาพทั้งหมดที่สร้างขึ้นผ่าน LUMA คุณสามารถค้นหาและดูรายละเอียดของแต่ละภาพได้ที่นี่</p>
+
+      <form class="gallery-search-bar" id="gallery-search-form" action="javascript:void(0);">
+        <input
+          type="text"
+          id="gallery-search-input"
+          placeholder="ค้นหาตาม Prompt เช่น sakura, anime..."
+        />
+        <button type="submit">ค้นหา</button>
+      </form>
+    </header>
+
+    <div id="gallery-error" class="gallery-error" hidden></div>
+    <div id="gallery-empty" class="gallery-empty" hidden></div>
+
+    <section id="gallery-grid" class="gallery-grid"></section>
+
+    <div class="gallery-pagination" id="gallery-pagination">
+      <button type="button" id="gallery-prev-btn" disabled>ก่อนหน้า</button>
+      <span id="gallery-page-indicator">หน้า 1 จาก 1</span>
+      <button type="button" id="gallery-next-btn" disabled>ถัดไป</button>
+    </div>
   </main>
 
   <form id="logout-form" action="#" method="post" hidden></form>
 
   <script src="../js/layout.js"></script>
+  <script src="../js/gallery.js"></script>
 </body>
 </html>

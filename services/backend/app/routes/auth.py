@@ -1,12 +1,12 @@
 """
 LUMA Auth Routes
-Endpoints สำหรับระบบสมาชิก Authentication พร้อมระบบ Rate Limiting (Issue #51)
+Endpoints สำหรับระบบสมาชิก Authentication พร้อมระบบ Rate Limiting (Issue #50/#51)
 """
 
 import time
 from collections import defaultdict
 from flask import Blueprint, jsonify, request, session, current_app
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.models import User, db
 
@@ -23,12 +23,6 @@ _login_failed_attempts: dict[str, list[float]] = defaultdict(list)
 # ข้อความ error เดียวกันทั้งสองกรณี (ไม่มี user / รหัสผิด) กันคนเดา
 # ว่าอีเมลไหนสมัครไว้แล้วจากข้อความ error ที่ต่างกัน
 _INVALID_CREDENTIALS = "อีเมลหรือรหัสผ่านไม่ถูกต้อง / Invalid credentials"
-
-
-@auth_bp.route("/ping", methods=["GET"])
-def ping():
-    """GET /api/auth/ping — ตรวจสอบการทำงานของ Blueprint auth (Issue #47)"""
-    return jsonify({"status": "ok", "blueprint": "auth"}), 200
 
 
 def check_rate_limit(ip_address: str, max_attempts: int = 5, window_seconds: int = 60) -> bool:
@@ -52,9 +46,51 @@ def reset_rate_limit(ip_address: str):
     _login_failed_attempts.pop(ip_address, None)
 
 
+@auth_bp.route("/ping", methods=["GET"])
+def ping():
+    """GET /api/auth/ping — ตรวจสอบการทำงานของ Blueprint auth (Issue #47)"""
+    return jsonify({"status": "ok", "blueprint": "auth"}), 200
+
+
+@auth_bp.route("/register", methods=["POST"])
+def register():
+    """POST /api/auth/register — สมัครสมาชิกใหม่ บันทึกลงตาราง users จริง (Issue #16/#50)"""
+    data = request.get_json(silent=True) or {}
+    email = data.get("email", "").strip().lower()
+    display_name = data.get("displayName", "").strip()
+    password = data.get("password", "")
+
+    if not email or "@" not in email:
+        return jsonify({"error": "กรุณาระบุอีเมลที่ถูกต้อง / Valid email required"}), 400
+    if not display_name:
+        return jsonify({"error": "กรุณาระบุชื่อแสดงผล / displayName required"}), 400
+    if not password or len(password) < 8:
+        return jsonify({"error": "รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร / Password must be at least 8 chars"}), 400
+
+    existing = User.query.filter(
+        (User.email == email) | (User.username == display_name)
+    ).first()
+    if existing is not None:
+        return jsonify({"error": "อีเมลหรือชื่อนี้ถูกใช้แล้ว / Email or displayName already taken"}), 409
+
+    user = User(
+        username=display_name,
+        email=email,
+        password_hash=generate_password_hash(password),
+    )
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({
+        "status": "success",
+        "message": "สมัครสมาชิกสำเร็จ",
+        "user": {"email": user.email, "displayName": user.username},
+    }), 201
+
+
 @auth_bp.route("/login", methods=["POST"])
 def login():
-    """POST /api/auth/login — เข้าสู่ระบบด้วยข้อมูลจริงจากตาราง users พร้อม Rate Limiting"""
+    """POST /api/auth/login — เข้าสู่ระบบด้วยข้อมูลจริงจากตาราง users พร้อม Rate Limiting (Issue #50/#51)"""
     ip_address = request.remote_addr or "127.0.0.1"
 
     # 1. ตรวจสอบ Rate Limiting (บล็อกถ้าเกิน 5 ครั้งใน 1 นาที)
@@ -92,14 +128,17 @@ def login():
 
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
-    """POST /api/auth/logout — ออกจากระบบและล้าง Session"""
+    """POST /api/auth/logout — ออกจากระบบและล้าง Session (Issue #50)"""
     session.pop("user_id", None)
-    return jsonify({"status": "success", "message": "ออกจากระบบสำเร็จ"}), 200
+    return jsonify({
+        "status": "success",
+        "message": "ออกจากระบบสำเร็จ",
+    }), 200
 
 
 @auth_bp.route("/me", methods=["GET"])
 def get_current_user():
-    """GET /api/auth/me — ตรวจสอบข้อมูลผู้ใช้ปัจจุบัน"""
+    """GET /api/auth/me — ตรวจสอบข้อมูลผู้ใช้ที่ล็อกอินอยู่ (Issue #50)"""
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"error": "ยังไม่ได้เข้าสู่ระบบ / Unauthorized"}), 401

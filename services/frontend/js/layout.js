@@ -3,10 +3,12 @@
  * -------------------------------------------------------------------------
  * โหลดเมนูกลาง, จัดการ Responsive Toggle, และแสดงสถานะของหน้าปัจจุบัน
  * Issue #56 — โครงหน้าเว็บ UI
+ *
+ * ห้าม hardcode localhost/IP — อ่าน API base จาก window.LUMA_CONFIG เท่านั้น
  */
 
 (() => {
-  const API_BASE = window.LUMA_CONFIG ? window.LUMA_CONFIG.apiBase : "http://127.0.0.1:5000";
+  const API_BASE = window.LUMA_CONFIG ? window.LUMA_CONFIG.apiBase : "";
 
   async function initLayout() {
     const slot = document.getElementById("app-nav-slot");
