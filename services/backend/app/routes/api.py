@@ -1,9 +1,11 @@
 """
 LUMA API Routes
-Endpoint สร้างภาพ AI (Issue #22)
+Endpoint สร้างภาพ AI (Issue #22) + คลังผลงาน (Issue #80 ส่วน Asset Hub)
 """
 
-from flask import Blueprint, current_app, jsonify, request
+import os
+
+from flask import Blueprint, current_app, jsonify, request, send_file
 from app.models import db, Asset
 from app.services.forge_client import generate_image, ForgeClientError
 
@@ -90,3 +92,52 @@ def handle_generate():
         "asset_id": new_asset.id,
         "image_url": f"/api/assets/{new_asset.id}/image",
     }), 200
+
+
+@api_bp.route("/assets", methods=["GET"])
+def list_assets():
+    """GET /api/assets — รายการผลงาน เรียงใหม่->เก่า รองรับค้นหา+แบ่งหน้า (docs/API_CONTRACT.md ข้อ 2)
+
+    ยังไม่กรองตามเจ้าของ (asset.user_id) — POST /api/generate ยังไม่ผูก asset
+    กับผู้ใช้ที่ login อยู่ (ดู #96: user_id เป็น nullable ไว้ก่อนตั้งใจ รอ auth)
+    ตอนนี้ auth จริงมาแล้ว (#91) แต่ /api/generate ยังไม่อัปเดตให้ set user_id
+    เป็นงานต่อเนื่องที่ต้องทำก่อนเปิด ownership check ตรงนี้ ไม่งั้น asset
+    เก่าทั้งหมด (user_id เป็น NULL) จะหายไปจากทุกคนทันที
+    """
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    q = request.args.get("q", "", type=str).strip()
+
+    query = Asset.query
+    if q:
+        query = query.filter(Asset.prompt.ilike(f"%{q}%"))
+
+    query = query.order_by(Asset.created_at.desc())
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    items = [item.to_dict() for item in pagination.items]
+
+    return jsonify({
+        "items": items,
+        "page": pagination.page,
+        "per_page": pagination.per_page,
+        "total": pagination.total,
+    }), 200
+
+
+@api_bp.route("/assets/<int:asset_id>/image", methods=["GET"])
+def get_asset_image(asset_id: int):
+    """GET /api/assets/<asset_id>/image — เสิร์ฟไฟล์ภาพจริง (docs/API_CONTRACT.md ข้อ 2)
+
+    ⚠️ ownership check ("ต้องล็อกอิน + เป็นเจ้าของ ไม่งั้น 404" ตาม API_CONTRACT.md)
+    ยังไม่เปิดใช้ด้วยเหตุผลเดียวกับ list_assets() ด้านบน — asset เก่าไม่มีเจ้าของ
+    """
+    asset = db.session.get(Asset, asset_id)
+    if asset is None:
+        return jsonify({"error": "ไม่พบภาพที่ระบุ / Asset not found"}), 404
+
+    full_path = os.path.join(current_app.instance_path, asset.file_path)
+    if not os.path.exists(full_path):
+        return jsonify({"error": "ไฟล์ภาพสูญหาย / Image file not found on disk"}), 404
+
+    return send_file(full_path, mimetype="image/png")
