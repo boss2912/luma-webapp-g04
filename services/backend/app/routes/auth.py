@@ -6,11 +6,18 @@ Endpoints สำหรับระบบสมาชิก Authentication พร
 import time
 from collections import defaultdict
 from flask import Blueprint, jsonify, request, session, current_app
+from werkzeug.security import check_password_hash
+
+from app.models import User, db
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 # ระบบบันทึกการพยายาม Login ล้มเหลวแบบ In-memory (IP -> [timestamp1, timestamp2, ...])
 _login_failed_attempts: dict[str, list[float]] = defaultdict(list)
+
+# ข้อความ error เดียวกันทั้งสองกรณี (ไม่มี user / รหัสผิด) กันคนเดา
+# ว่าอีเมลไหนสมัครไว้แล้วจากข้อความ error ที่ต่างกัน
+_INVALID_CREDENTIALS = "อีเมลหรือรหัสผ่านไม่ถูกต้อง / Invalid credentials"
 
 
 def check_rate_limit(ip_address: str, max_attempts: int = 5, window_seconds: int = 60) -> bool:
@@ -36,7 +43,7 @@ def reset_rate_limit(ip_address: str):
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
-    """POST /api/auth/login — เข้าสู่ระบบพร้อมระบบ Rate Limiting ป้องกันเดารหัสผ่าน"""
+    """POST /api/auth/login — เข้าสู่ระบบด้วยข้อมูลจริงจากตาราง users พร้อม Rate Limiting"""
     ip_address = request.remote_addr or "127.0.0.1"
 
     # 1. ตรวจสอบ Rate Limiting (บล็อกถ้าเกิน 5 ครั้งใน 1 นาที)
@@ -47,44 +54,49 @@ def login():
         }), 429
 
     data = request.get_json(silent=True) or {}
-    email = data.get("email", "").strip()
+    email = data.get("email", "").strip().lower()
     password = data.get("password", "")
 
     if not email or not password:
         return jsonify({"error": "กรุณาระบุอีเมลและรหัสผ่าน / Email and password required"}), 400
 
-    # ตรวจสอบรหัสผ่าน (จำลองล้มเหลวถ้ารหัสผ่าน < 8 ตัวอักษร)
-    if len(password) < 8 or password == "wrong-password":
+    # 2. เทียบรหัสผ่านจริงกับ hash ในตาราง users — ไม่ใช่การเทียบสตริง/ความยาวแบบเดิม
+    user = User.query.filter_by(email=email).first()
+    if user is None or not check_password_hash(user.password_hash, password):
         record_failed_attempt(ip_address)
-        return jsonify({"error": "อีเมลหรือรหัสผ่านไม่ถูกต้อง / Invalid credentials"}), 401
+        return jsonify({"error": _INVALID_CREDENTIALS}), 401
 
     # Login สำเร็จ -> ล้างประวัติล้มเหลว
     reset_rate_limit(ip_address)
 
-    display_name = email.split("@")[0].capitalize()
-    session["user"] = {
-        "email": email,
-        "displayName": display_name,
-    }
+    # เก็บแค่ user_id ใน session ไม่ยัดข้อมูล user ทั้งก้อนลง cookie
+    session["user_id"] = user.id
 
     return jsonify({
         "status": "success",
         "message": "เข้าสู่ระบบสำเร็จ",
-        "user": session["user"],
+        "user": {"email": user.email, "displayName": user.username},
     }), 200
 
 
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
     """POST /api/auth/logout — ออกจากระบบและล้าง Session"""
-    session.pop("user", None)
+    session.pop("user_id", None)
     return jsonify({"status": "success", "message": "ออกจากระบบสำเร็จ"}), 200
 
 
 @auth_bp.route("/me", methods=["GET"])
 def get_current_user():
     """GET /api/auth/me — ตรวจสอบข้อมูลผู้ใช้ปัจจุบัน"""
-    user = session.get("user")
-    if not user:
+    user_id = session.get("user_id")
+    if not user_id:
         return jsonify({"error": "ยังไม่ได้เข้าสู่ระบบ / Unauthorized"}), 401
-    return jsonify(user), 200
+
+    user = db.session.get(User, user_id)
+    if user is None:
+        # user_id ใน session ชี้ไป user ที่ถูกลบไปแล้ว — ถือว่า session ใช้ไม่ได้แล้ว
+        session.pop("user_id", None)
+        return jsonify({"error": "ยังไม่ได้เข้าสู่ระบบ / Unauthorized"}), 401
+
+    return jsonify({"email": user.email, "displayName": user.username}), 200
