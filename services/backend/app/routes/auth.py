@@ -1,15 +1,107 @@
 """
 LUMA Auth Routes
-Blueprint สำหรับจัดการระบบ Authentication
-Issue #47 — Blueprint Modular Architecture
+Endpoints สำหรับระบบสมาชิก Authentication (Issue #50 Login / Logout / Session)
 """
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request, session
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from app.models import User, db
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+
+# ข้อความ error เดียวกันทั้งสองกรณี (ไม่มี user / รหัสผิด) กันคนเดา
+# ว่าอีเมลไหนสมัครไว้แล้วจากข้อความ error ที่ต่างกัน
+_INVALID_CREDENTIALS = "อีเมลหรือรหัสผ่านไม่ถูกต้อง / Invalid credentials"
 
 
 @auth_bp.route("/ping", methods=["GET"])
 def ping():
-    """GET /api/auth/ping — ตรวจสอบการทำงานของ Blueprint auth"""
+    """GET /api/auth/ping — ตรวจสอบการทำงานของ Blueprint auth (Issue #47)"""
     return jsonify({"status": "ok", "blueprint": "auth"}), 200
+
+
+@auth_bp.route("/register", methods=["POST"])
+def register():
+    """POST /api/auth/register — สมัครสมาชิกใหม่ บันทึกลงตาราง users จริง (Issue #16/#50)"""
+    data = request.get_json(silent=True) or {}
+    email = data.get("email", "").strip().lower()
+    display_name = data.get("displayName", "").strip()
+    password = data.get("password", "")
+
+    if not email or "@" not in email:
+        return jsonify({"error": "กรุณาระบุอีเมลที่ถูกต้อง / Valid email required"}), 400
+    if not display_name:
+        return jsonify({"error": "กรุณาระบุชื่อแสดงผล / displayName required"}), 400
+    if not password or len(password) < 8:
+        return jsonify({"error": "รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร / Password must be at least 8 chars"}), 400
+
+    existing = User.query.filter(
+        (User.email == email) | (User.username == display_name)
+    ).first()
+    if existing is not None:
+        return jsonify({"error": "อีเมลหรือชื่อนี้ถูกใช้แล้ว / Email or displayName already taken"}), 409
+
+    user = User(
+        username=display_name,
+        email=email,
+        password_hash=generate_password_hash(password),
+    )
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({
+        "status": "success",
+        "message": "สมัครสมาชิกสำเร็จ",
+        "user": {"email": user.email, "displayName": user.username},
+    }), 201
+
+
+@auth_bp.route("/login", methods=["POST"])
+def login():
+    """POST /api/auth/login — เข้าสู่ระบบและสร้าง Session ด้วยข้อมูลจริงจากตาราง users (Issue #50)"""
+    data = request.get_json(silent=True) or {}
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+
+    if not email or not password:
+        return jsonify({"error": "กรุณาระบุอีเมลและรหัสผ่าน / Email and password required"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if user is None or not check_password_hash(user.password_hash, password):
+        return jsonify({"error": _INVALID_CREDENTIALS}), 401
+
+    # เก็บแค่ user_id ใน session ไม่ยัดข้อมูล user ทั้งก้อนลง cookie
+    session["user_id"] = user.id
+
+    return jsonify({
+        "status": "success",
+        "message": "เข้าสู่ระบบสำเร็จ",
+        "user": {"email": user.email, "displayName": user.username},
+    }), 200
+
+
+@auth_bp.route("/logout", methods=["POST"])
+def logout():
+    """POST /api/auth/logout — ออกจากระบบและล้าง Session (Issue #50)"""
+    session.pop("user_id", None)
+    return jsonify({
+        "status": "success",
+        "message": "ออกจากระบบสำเร็จ",
+    }), 200
+
+
+@auth_bp.route("/me", methods=["GET"])
+def get_current_user():
+    """GET /api/auth/me — ตรวจสอบข้อมูลผู้ใช้ที่ล็อกอินอยู่ (Issue #50)"""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "ยังไม่ได้เข้าสู่ระบบ / Unauthorized"}), 401
+
+    user = db.session.get(User, user_id)
+    if user is None:
+        # user_id ใน session ชี้ไป user ที่ถูกลบไปแล้ว — ถือว่า session ใช้ไม่ได้แล้ว
+        session.pop("user_id", None)
+        return jsonify({"error": "ยังไม่ได้เข้าสู่ระบบ / Unauthorized"}), 401
+
+    return jsonify({"email": user.email, "displayName": user.username}), 200
