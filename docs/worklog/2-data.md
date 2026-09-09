@@ -7,6 +7,57 @@
 
 ---
 
+## 2026-09-09 (รอบ 5) · push #16 เปิด PR #96 และ scrutinize PR ที่เหลือของคนที่ 1
+
+**branch**: `feat/users-table` (push แล้ว) · **สถานะ**: PR #96 รอรีวิวจากคนอื่น
+
+**ทำอะไรไป**
+- push `feat/users-table` และเปิด **PR #96** ใช้ `Refs #16` ไม่ใช่ `Closes #16`
+- ติ๊ก checklist ใน #16 ไป 11 ข้อ เว้น 2 ข้อ (`schema/*.sql` กับ `jobs`) พร้อมเหตุผลในคอมเมนต์
+- เปิด **#97** ตามเก็บเรื่องเปลี่ยน `assets.user_id` เป็น NOT NULL หลัง #49/#50 เสร็จ
+- ตรวจเชิงลึก (scrutinize) PR ที่เหลือของคนที่ 1 ทั้ง 8 ใบ
+
+**ผลตรวจเชิงลึก — ของหนักอยู่ที่ระบบสมาชิก**
+
+| PR | issue | ผล |
+|---|---|---|
+| #84 blueprints + error handlers | #47 | ของจริง ใช้ได้ |
+| #85 logging | #48 | ของจริง test จับบั๊ก handler ซ้ำได้ |
+| #88 generate | #22 | ตรรกะดี ติดแค่ forge endpoint hardcode |
+| #90 register | #49 | **ไม่บันทึกลงฐานข้อมูลเลย** validate แล้ว return 201 |
+| #91 login | #50 | **อีเมลอะไรก็ได้ + รหัสยาว 8 ตัว = login ผ่าน** |
+| #92 security | #51 | **ฝัง `password == "wrong-password"` ให้ test ผ่าน** |
+| #82 | หลายใบ | ซ้ำกับ #83 #84 #88 — ควรปิดทิ้ง |
+| #89 gallery | #58 | ต้อง rebase ทับ #86 |
+
+หลักฐานข้อที่ 3: `auth.py` เขียน `if len(password) < 8 or password == "wrong-password":`
+ส่วน `test_security.py` ส่ง `password: "wrong-password"` เข้ามาพอดี
+→ **test ผ่าน 100% แต่ระบบ authentication ไม่มีอยู่จริง**
+
+**เจอเพิ่มในโค้ดที่ merge ไปแล้ว (#83)**
+- `SECRET_KEY="luma-dev-secret-key-change-in-production"` เป็นค่า default ใน `create_app()`
+- การโหลด `instance/config.py` ถูกครอบ `try/except: pass` ทั้งที่ `from_pyfile(silent=True)`
+  จัดการ FileNotFoundError ให้อยู่แล้ว ผลคือถ้าไฟล์ config จริงพิมพ์ผิด (SyntaxError)
+  ระบบจะเงียบแล้วใช้ SECRET_KEY ที่เห็นได้ใน repo สาธารณะแทน
+- ยังไม่ได้เปิด issue เรื่องนี้ — ต้องทำ
+
+**เรื่องที่ต้องรู้ (จดไว้กันลืม)**
+- ⚠️ **`/tmp` ใน Git Bash กับใน Python ของ Windows ชี้คนละที่**
+  bash `/tmp` = `%LOCALAPPDATA%\Temp` แต่ Python มองว่าเป็น `C:	mp`
+  เขียนไฟล์ด้วย bash แล้วให้ Python อ่านจะได้ FileNotFoundError — ใช้ path เต็มเสมอ
+- `gh issue edit --body-file <ไฟล์ที่ไม่มีอยู่>` คืน exit 0 โดยไม่แก้อะไร (no-op เงียบ)
+  ต้องอ่าน body กลับมาดูหลังแก้ทุกครั้ง อย่าเชื่อ exit code
+
+**ค้างอยู่ / ทำต่อจากตรงไหน**
+1. **PR #96 รอรีวิว 1 คน** — approve เองไม่ได้ ต้องให้คนที่ 1 หรือคนที่ 3 กด
+2. ส่งผลรีวิวให้คนที่ 1 แล้ว (ร่างข้อความไว้ในแชท) รอเขาแก้
+3. ยังไม่ได้เปิด issue เรื่อง SECRET_KEY + `try/except: pass` ใน `create_app()`
+4. `feat/skeleton-assets-table` ยังมี 14 commit ไม่ push (เอกสารทีม + worklog)
+
+**รออะไรจากใคร**
+- คนที่ 1 หรือคนที่ 3 รีวิว PR #96 · คนที่ 1 แก้ #84 #85 #88 #89 และเขียน #90 #91 #92 ใหม่
+
+---
 ## 2026-09-09 (รอบ 4) · approve 6 PR ของคนที่ 1 และ merge #83
 
 **branch**: ทำบน GitHub ล้วน · **สถานะ**: merge ได้ 1 ใบ เหลือ 5 ใบรอคนที่ 1 แก้ conflict
