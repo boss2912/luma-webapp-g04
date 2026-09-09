@@ -28,7 +28,7 @@ def test_auth_full_flow():
 
     # 2. เข้าสู่ระบบ
     res_login = client.post("/api/auth/login", json={
-        "email": "test@luma.ai",
+        "email": "test@luma.ai",  # no-secret-check
         "password": "password123",
     })
     assert res_login.status_code == 200
@@ -37,7 +37,7 @@ def test_auth_full_flow():
     # 3. ล็อกอินแล้ว เรียก /me ต้องได้ข้อมูลผู้ใช้
     res_me_after = client.get("/api/auth/me")
     assert res_me_after.status_code == 200
-    assert res_me_after.get_json()["email"] == "test@luma.ai"
+    assert res_me_after.get_json()["email"] == "test@luma.ai"  # no-secret-check
 
     # 4. ออกจากระบบ
     res_logout = client.post("/api/auth/logout")
