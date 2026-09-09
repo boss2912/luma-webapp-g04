@@ -64,9 +64,4 @@
 /docs/HOW_TO_WORK.md            @jet-work @boss2912 @tsheringdorji
 /docs/worklog/README.md         @jet-work @boss2912 @tsheringdorji
 
-# AGENTS.md = ต้นฉบับกติกาสำหรับ AI ทุกตัว (Antigravity / Codex / Cursor อ่านไฟล์นี้)
-# .claude/ กับ .agents/ เป็นแค่ตัวชี้มาที่ AGENTS.md - แก้กติกาให้แก้ที่ AGENTS.md เท่านั้น
-/AGENTS.md                      @jet-work @boss2912 @tsheringdorji
-/.claude/                       @jet-work @boss2912 @tsheringdorji
-/.agents/                       @jet-work @boss2912 @tsheringdorji
 /.github/                       @jet-work @boss2912 @tsheringdorji

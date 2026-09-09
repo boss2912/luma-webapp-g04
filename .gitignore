@@ -92,3 +92,8 @@ services/ai-engine/forge/models/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ── กติกา AI: เก็บไว้ในเครื่องเท่านั้น ไม่ขึ้น repo ─────────────────────────
+AGENTS.md
+.claude/
+.agents/

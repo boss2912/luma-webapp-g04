@@ -256,16 +256,17 @@ docs: อัปเดต API_CONTRACT ข้อ 5 — รูปแบบ auto-ta
 
 **1. ให้ AI อ่านกติกาของ repo ก่อน**
 
-กติกาทั้งหมดอยู่ใน [`../AGENTS.md`](../AGENTS.md) **ไฟล์เดียว**
+กติกาทั้งหมดอยู่ใน `AGENTS.md` **ไฟล์เดียว**
 ในนั้นมีกฎสำคัญของคุณด้วย: **`pipeline/` ห้าม `import flask`** · รับ/คืน NumPy array เท่านั้น ·
 `scope: pipeline` กับ `scope: ai` ห้ามปนกันใน commit
 
+> ⚠️ `AGENTS.md` ไม่ได้อยู่บน repo — ขอไฟล์จากคนที่ 2 (`@boss2912`)
+> แล้วเก็บไว้ที่ root ของ repo ในเครื่องตัวเอง
+
 | เครื่องมือของคุณ | ต้องทำอะไร |
 |---|---|
-| **Claude Code** | ไม่ต้องทำอะไร — อ่าน `.claude/skills/luma-project/` เองอัตโนมัติ |
-| **Google Antigravity** | อ่าน `AGENTS.md` ที่ root เอง · เปิดใช้ `.agents/rules/luma-project.md` โดยตั้งเป็น **Always On** ที่ Settings → Agent → Rules |
-| **Codex · Cursor** | อ่าน `AGENTS.md` ที่ root เองอัตโนมัติ |
-| **ตัวอื่น** | เปิด [`../AGENTS.md`](../AGENTS.md) คัดลอกทั้งไฟล์ วางเป็นข้อความแรกของแชท แล้วพิมพ์ว่า *"ทำตามกติกาในไฟล์นี้ตลอดการสนทนา"* |
+| **Antigravity · Codex · Cursor** | วาง `AGENTS.md` ไว้ที่ root ของ repo ในเครื่อง แล้วมันอ่านเองอัตโนมัติ |
+| **Claude Code · ตัวอื่น** | เปิด `AGENTS.md` คัดลอกทั้งไฟล์ วางเป็นข้อความแรกของแชท แล้วพิมพ์ว่า *"ทำตามกติกาในไฟล์นี้ตลอดการสนทนา"* |
 
 **2. บันทึกก่อนปิดแชททุกครั้ง → [`worklog/3-ai-ip.md`](worklog/3-ai-ip.md)**
 
