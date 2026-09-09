@@ -77,6 +77,25 @@ class Asset(db.Model):
     # หลังจากนั้นจะได้เวลาเดียวกันหมด (เป็นบั๊กที่หายาก เพราะโค้ดดูถูกต้อง)
     created_at = db.Column(db.DateTime, nullable=False, default=utcnow, index=True)
 
+    # เจ้าของภาพ (issue #16)
+    #
+    # nullable=True ตั้งใจ ไม่ใช่ลืม — POST /api/generate ของ walking skeleton
+    # (issue #22) สร้าง asset โดยยังไม่มีระบบ login ถ้าบังคับ NOT NULL ตอนนี้
+    # endpoint นั้นจะ error ทันทีที่ merge ขึ้น develop
+    # เปลี่ยนเป็น NOT NULL ได้เมื่อ #49/#50 เสร็จ และต้องมี migration ที่ย้าย
+    # asset เก่าไปเข้าเจ้าของก่อน ไม่งั้นแถวเดิมจะทำให้ upgrade ล้ม
+    #
+    # ondelete='CASCADE' เป็นกฎฝั่ง **ฐานข้อมูล** ไม่ใช่ฝั่ง SQLAlchemy
+    # จึงทำงานแม้ลบด้วย SQL ดิบ (ADR-008 อนุญาตให้เขียน .sql ได้)
+    # แต่ SQLite จะบังคับให้จริงต่อเมื่อ connection นั้นเปิด PRAGMA foreign_keys
+    # ไว้แล้ว — ดู _enable_sqlite_foreign_keys() ใน app/models/__init__.py
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE", name="fk_assets_user_id_users"),
+        nullable=True,
+        index=True,
+    )
+
     def __repr__(self) -> str:
         # ตัด prompt ให้สั้นตอน debug — prompt จริงยาวเป็นย่อหน้า
         head = (self.prompt or "")[:40]

@@ -20,6 +20,12 @@ _login_failed_attempts: dict[str, list[float]] = defaultdict(list)
 _INVALID_CREDENTIALS = "อีเมลหรือรหัสผ่านไม่ถูกต้อง / Invalid credentials"
 
 
+@auth_bp.route("/ping", methods=["GET"])
+def ping():
+    """GET /api/auth/ping — ตรวจสอบการทำงานของ Blueprint auth (Issue #47)"""
+    return jsonify({"status": "ok", "blueprint": "auth"}), 200
+
+
 def check_rate_limit(ip_address: str, max_attempts: int = 5, window_seconds: int = 60) -> bool:
     """ตรวจสอบว่า IP นี้ถูกบล็อกจาก Rate Limiting หรือไม่"""
     now = time.time()
