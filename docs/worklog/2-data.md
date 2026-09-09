@@ -7,6 +7,71 @@
 
 ---
 
+## 2026-09-09 (รอบ 3) · #16 ตาราง users + assets.user_id
+
+**branch**: `feat/users-table` (แตกจาก `develop` `8546bdc`) · **สถานะ**: เสร็จ เก็บในเครื่อง ยังไม่ push
+
+**ทำอะไรไป**
+- `app/models/user.py` — โมเดล `User` 7 คอลัมน์ตาม schema ในใบงาน #16
+- `app/models/asset.py` — เพิ่ม `user_id` เป็น FK ชี้ `users.id` ON DELETE CASCADE
+- `app/models/__init__.py` — เพิ่ม listener เปิด `PRAGMA foreign_keys=ON` ทุก connection
+- migration `deba60c08f36` — สร้างตาราง users + `batch_alter_table` เพิ่ม user_id เข้า assets
+- `services/database/tests/test_users_table.py` — 5 test ผูกกับ MUST ทีละข้อ
+
+**ขอบเขตที่ตกลงไว้ก่อนเริ่ม**
+- **ทำแค่ `users` ไม่ทำ `jobs`** ตามเหตุผลใน entry 5 ก.ย. (L4 หน้า 55 queue เป็นงานคนที่ 3 ·
+  API_CONTRACT ข้อ 6 ยังไม่ตกลง · v1 เคยสร้างตาราง Job ทิ้งไว้ไม่มีโค้ดใช้)
+- **ไม่เขียน `schema/users.sql`** ทั้งที่ใบงานข้อแรกสั่งไว้ — ใบงานสร้าง 17 ส.ค.
+  ส่วน ADR-008 ลงวันที่ 18 ส.ค. ใหม่กว่า และระบุว่า ORM เป็นคนนิยามตาราง
+  `.sql` ไว้ใช้กับ query ที่มีตรรกะเท่านั้น
+- **`assets.user_id` เป็น nullable=True** เพราะ `POST /api/generate` (#22/#88 ของคนที่ 1)
+  สร้าง asset โดยยังไม่มี login ถ้าบังคับ NOT NULL ตอนนี้ endpoint นั้นพังทันทีที่ merge
+  → ต้องมี issue ตามเก็บเปลี่ยนเป็น NOT NULL หลัง #49/#50 เสร็จ
+- PR ตอนเปิดให้เขียน **`Refs #16` ไม่ใช่ `Closes #16`** เพราะ checklist ในใบงานยังไม่ครบ
+  (jobs กับ schema/*.sql) และยังไม่ติ๊ก checklist จนกว่างานจะ push ขึ้นไปจริง
+  ไม่งั้นคนที่ 1 เปิดใบงานมาเห็นว่าเสร็จแล้วไปเขียนต่อ จะหาของบน develop ไม่เจอ
+
+**พิสูจน์แล้วว่าใช้ได้จริง**
+
+| MUST ของ #16 | วิธีพิสูจน์ | ผล |
+|---|---|---|
+| upgrade บนฐานเปล่าได้ตารางครบ | อ่าน schema จริงด้วย `inspect(db.engine)` ไม่ใช่เช็คจากโมเดล | ผ่าน |
+| downgrade แล้ว upgrade ได้เหมือนเดิม | `downgrade()` แล้ว `upgrade()` ในไฟล์ .db ชั่วคราว | ผ่าน |
+| ใช้ migration จริง ไม่ใช่ `create_all()` | fixture เรียก `upgrade()` เท่านั้น | ผ่าน |
+| ลบ user แล้ว asset หายตาม | `DELETE FROM users` ด้วย SQL ดิบ ไม่ผ่าน ORM | ผ่าน |
+| ทุก connection เปิด PRAGMA | เปิด connection ใหม่แล้วอ่าน `PRAGMA foreign_keys` กลับมา | ผ่าน |
+
+`pytest services/database/tests` → **8 passed** (3 เดิมของ #45 + 5 ใหม่)
+
+**บั๊กที่เจอ + วิธีแก้**
+- Alembic autogenerate ออก `batch_op.create_foreign_key(None, ...)` มาให้
+  รันจริงได้ `ValueError: Constraint must have a name`
+  **สาเหตุ**: SQLite เพิ่ม constraint ด้วย ALTER ตรงๆ ไม่ได้ Alembic จึงใช้ batch mode
+  ซึ่งสร้างตารางใหม่แล้วคัดลอกข้อมูล — มันต้องอ้างชื่อ constraint ได้ ชื่อ `None` จึงพัง
+  **แก้**: ตั้งชื่อ `fk_assets_user_id_users` ทั้งใน `db.ForeignKey(name=...)` และใน migration
+  ทั้ง upgrade และ downgrade ให้ตรงกัน
+
+**เรื่องที่ต้องรู้ (จดไว้กันลืม)**
+- ⚠️ **`check_all.py --with-tests` เคยรายงาน "pytest ทุก service ผ่าน" ทั้งที่ไม่ได้รันเลย**
+  เพราะ `run_all_tests.py` คืน exit 0 ตอนไม่มี pytest ในเครื่อง (ผลเต็มขึ้น `NO-PYTEST`
+  แต่โหมด `--quiet` ที่ check_all เรียกไม่โชว์บรรทัดนั้น)
+  ต้องรันด้วย python ของ env `luma` — หาที่อยู่ด้วย `conda env list`
+  **วิธีดูว่ารันจริงไหม**: บรรทัด pytest ใช้เวลา ~0.1s แปลว่าไม่ได้รัน ของจริงใช้ ~2s
+- `.git/info/exclude` เป็นที่เก็บกฎ ignore เฉพาะเครื่อง มีผลทุก branch และไม่ขึ้น git
+  ใส่ `AGENTS.md` `.claude/` `.agents/` ไว้ที่นั่นแล้ว — ดีกว่าใส่ `.gitignore` เพราะ
+  กฎใน `.gitignore` ผูกกับ branch ที่ commit มันไว้ พอแตกกิ่งใหม่จาก develop จะหายไป
+
+**ค้างอยู่ / ทำต่อจากตรงไหน**
+1. `feat/users-table` มี 2 commit (`39a1afb` `0799fdf`) **ยังไม่ push** ตามที่ตกลง
+2. ตอนเปิด PR: ใช้ `Refs #16` และติ๊ก checklist ในใบงานเฉพาะข้อที่ทำแล้ว
+3. ต้องเปิด issue ใหม่: เปลี่ยน `assets.user_id` เป็น NOT NULL หลัง #49/#50 เสร็จ
+4. jobs กับ `schema/*.sql` ของ #16 ยังไม่ได้ทำ — ถ้าจะไม่ทำถาวรควรแก้ checklist ในใบงาน
+5. `feat/skeleton-assets-table` ยังมี 10 commit ค้างไม่ push (ดู entry รอบ 1)
+
+**รออะไรจากใคร**
+- ไม่มีสำหรับ #16 · ฝั่งคนที่ 1 ยังค้าง #82 #89 #90 #94 (ดู entry รอบ 2)
+
+---
 ## 2026-09-09 (รอบ 2) · ตรวจ PR ของคนที่ 1 หลังแก้ตาม #95
 
 **branch**: `feat/skeleton-assets-table` (ตรวจบน GitHub ไม่ได้แก้โค้ดใคร) · **สถานะ**: รอคนที่ 1 แก้ต่อ
