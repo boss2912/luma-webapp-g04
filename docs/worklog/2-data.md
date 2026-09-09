@@ -7,6 +7,72 @@
 
 ---
 
+## 2026-09-09 (รอบ 6) · เคลียร์ PR ของคนที่ 1 และเจอช่องโหว่ frontend ขึ้นก่อน backend
+
+**branch**: ทำบน GitHub ล้วน · **สถานะ**: เหลือ #92 กับ #80
+
+**merge เข้า develop รอบนี้**
+- #84 blueprints + error handlers · #85 logging · #88 generate endpoint
+- #89 gallery UI (แก้ #94 ให้ในตัว — คืน fallback `""` ใน layout.js)
+- #91 login/register ของจริง · #98 gitignore ของ Claude Code
+- **#96 ของเราเอง jet เป็นคนรีวิวและ merge ให้** ตาราง users อยู่บน develop แล้ว
+- jet ปิด #82 กับ #90 เอง
+
+**คนที่ 1 เขียน auth ใหม่จริง — ผ่านหมด**
+`User.query.filter_by(email=...)` + `check_password_hash` · error เดียวกันทั้งกรณีไม่เจอ user
+และรหัสผิด · เก็บแค่ `session["user_id"]` · `/me` เช็คกรณี user ถูกลบ · อีเมล `.strip().lower()`
+ตรงกันทั้ง register/login · test สมัครจริงแล้ว login ด้วยรหัสที่สมัคร + เคสรหัสผิด/อีเมลไม่เคยสมัคร
+
+**⛔ ช่องโหว่ที่เจอ — merge frontend ขึ้นไปโดย backend ยังไม่มี**
+
+| หน้า (merge แล้ว) | เรียก endpoint | มีบน develop |
+|---|---|---|
+| `gallery.js` (#89) | `GET /api/assets` | ไม่มี |
+| `canvas.js` (#93) | `POST /api/pipeline/palette/extract` | ไม่มี |
+| `canvas.js` (#93) | `POST /api/pipeline/segmentation/remove_bg` | ไม่มี |
+
+หน้า gallery กับ canvas **เปิดแล้ว 404 อยู่ตอนนี้**
+สาเหตุ: ตอนรีวิว #89 #93 ดูแต่ว่าโค้ด frontend ถูกไหม ไม่ได้เช็คว่า endpoint ที่มันยิงมีจริงหรือยัง
+→ **บทเรียน: รีวิว PR frontend ต้อง grep หา `fetch(` แล้วเทียบกับ route ที่มีจริงบน develop เสมอ**
+
+เปิด #100 (assets endpoints) และ #101 (pipeline endpoints) ตามเก็บ แล้วคอมเมนต์ผูกไว้ที่
+#58 #60 #61 ว่ายังปิดไม่ได้ และที่ #80 ว่าเหลืออะไรบ้าง (29/37 ไฟล์ขึ้นไปแล้ว)
+
+**เรื่องที่ต้องรู้ (จดไว้กันลืม)**
+
+- ⚠️ **`Closes #NN` ใน PR ไม่เคยทำงานเลยในโปรเจกต์นี้** GitHub ปิด issue อัตโนมัติเฉพาะตอน
+  merge เข้า **default branch (`main`)** เท่านั้น ของเรา merge เข้า `develop` ทั้งหมด
+  ผลดี: #82 ไม่ได้ปิด #45 ของเราอย่างที่กังวลไว้ · ผลเสีย: **ทุก issue ต้องปิดมือเอง**
+  `AGENTS.md` ข้อ 4 ที่เขียนว่าให้ใส่ `Closes #NN` จึงให้ผลไม่ตรงกับที่เขียนไว้ ควรแก้เป็น
+  `Refs #NN` แล้วปิด issue เองหลัง merge
+
+- ⚠️ **regex สแกนร่องรอย AI ต้องยึดหัวบรรทัด ไม่ใช่หาคำลอยๆ**
+  ผมใช้ `claude|anthropic|co-authored` แล้วรายงานผิดว่า #98 กับ #91 มี attribution ติดมา
+  ความจริงมันไปจับคำว่า claude ใน path `.claude/settings.local.json` กับในประโยคอธิบาย
+  คนที่ 1 ทักกลับมาและเขาถูก เกณฑ์ที่ถูกคือ
+  `git log origin/develop..HEAD --format=%B | grep -E "^(Co-Authored-By:|Claude-Session:)"`
+  บทเรียนซ้อน: ตอนสแกนผมใช้ข้อมูลเก่าค้างในมือด้วย (#91 ถูกล้างไปแล้ว hash เปลี่ยนหมด)
+  → ต้อง `git fetch` แล้วดึง head ใหม่ก่อนสแกนทุกครั้ง
+
+- คนที่ 1 ตั้งค่าปิด attribution ได้แล้วผ่าน `.claude/settings.local.json`
+  (`includeCoAuthoredBy: false`) และเพิ่มบรรทัดนั้นใน `.gitignore` ผ่าน #98
+  ที่ขึ้น develop ไปแล้ว 2 คอมมิต (`b0b0907` `dd56782`) ตกลงกันว่าไม่ rewrite ย้อนหลัง
+
+**ค้างอยู่ / ทำต่อจากตรงไหน**
+1. **#92** โค้ดผ่านแล้ว เหลือ 2 อย่าง: ดึง develop แก้ conflict `auth.py`
+   (ระวัง `def register` หาย เพราะไฟล์ใน #92 ไม่มีตัวนี้ ต้องยึดของ develop เป็นฐาน)
+   และล้าง trailer ใน `d864d5e` กับ `09c4339`
+2. **#80** รอคนที่ 1 ซอย `GET /api/assets` ออกมาเป็น PR ตาม #100 (ด่วนสุด gallery พังอยู่)
+3. **#101** ต้องคุย 3 คน — request/response ของ pipeline endpoints ยังไม่มีใน API_CONTRACT
+4. **ข้อ 2 ของ API_CONTRACT.md ยังเป็น ⬜** (GET /api/assets รับ param อะไร) ต้องเคาะก่อนเขียน #100
+5. `feat/users-table` merge เข้า develop แล้ว ลบ branch ในเครื่องได้
+6. `feat/skeleton-assets-table` ยังมีคอมมิตค้างไม่ push (เอกสารทีม + worklog ทั้งหมด)
+7. `backup/pre-strip-agents` สำรอง ห้าม push
+
+**รออะไรจากใคร**
+- คนที่ 1: #92 · ซอย #80 ตาม #100 · คนที่ 3: ฟังก์ชัน pipeline ตาม #101
+
+---
 ## 2026-09-09 (รอบ 5) · push #16 เปิด PR #96 และ scrutinize PR ที่เหลือของคนที่ 1
 
 **branch**: `feat/users-table` (push แล้ว) · **สถานะ**: PR #96 รอรีวิวจากคนอื่น
