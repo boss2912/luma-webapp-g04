@@ -1,6 +1,7 @@
 """
 LUMA Backend Application Package
 Application Factory `create_app()`
+Issue #46 — create_app() + ระบบจัดการ Config อย่างปลอดภัย
 Issue #22 — POST /api/generate
 """
 
@@ -11,7 +12,14 @@ from app.models import db
 
 
 def create_app(config_overrides: dict | None = None) -> Flask:
-    """Application Factory สำหรับสร้าง Flask Application พร้อม Blueprint และ Flask-Migrate"""
+    """
+    Application Factory สำหรับสร้าง Flask Application
+    - กำหนด instance_path ไปที่ services/backend/instance/
+    - โหลด config พื้นฐาน และโหลด config.py จาก instance/
+    - ผูกระบบฐานข้อมูลและ Flask-Migrate ตาม ADR-008
+    - รองรับ config_overrides สำหรับการรันแบบทดสอบ
+    - ลงทะเบียน Blueprint สำหรับ POST /api/generate (Issue #22)
+    """
     backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     instance_path = os.path.join(backend_dir, "instance")
 
@@ -21,6 +29,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         instance_relative_config=True,
     )
 
+    # 1. กำหนดค่าคอนฟิกเริ่มต้น (Default Configurations)
     app.config.from_mapping(
         SECRET_KEY="luma-dev-secret-key-change-in-production",
         SQLALCHEMY_DATABASE_URI=f"sqlite:///{os.path.join(instance_path, 'luma.db')}",
@@ -29,27 +38,32 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         FORGE_TIMEOUT_SECONDS=120,
     )
 
+    # 2. โหลดค่าคอนฟิกจาก instance/config.py (ถ้ามี)
     try:
         app.config.from_pyfile("config.py", silent=True)
     except Exception:
         pass
 
+    # 3. นำค่า config_overrides มาทับสำหรับการรันเทส (Testing Mode)
     if config_overrides:
         app.config.update(config_overrides)
 
+    # 4. สร้างโฟลเดอร์ instance และ upload directory ถ้ายังไม่มี
     os.makedirs(instance_path, exist_ok=True)
     uploads_dir = os.path.join(instance_path, "uploads", "generated")
     os.makedirs(uploads_dir, exist_ok=True)
 
-    # ผูกระบบฐานข้อมูลและ Flask-Migrate ตาม ADR-008
+    # 5. ผูกระบบฐานข้อมูล SQLAlchemy และ Flask-Migrate ตาม ADR-008
     db.init_app(app)
 
     migrations_dir = os.path.abspath(os.path.join(backend_dir, "..", "database", "migrations"))
     migrate = Migrate(app, db, directory=migrations_dir)
 
+    # ลงทะเบียน Blueprint สำหรับ POST /api/generate (Issue #22)
     from app.routes.api import api_bp
     app.register_blueprint(api_bp)
 
+    # Route ตรวจสอบสถานะ Server
     @app.route("/health", methods=["GET"])
     def health_check():
         return jsonify({"status": "ok", "service": "luma-backend"}), 200
