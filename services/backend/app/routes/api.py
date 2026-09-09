@@ -10,6 +10,12 @@ from app.services.forge_client import generate_image, ForgeClientError
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 
+@api_bp.route("/ping", methods=["GET"])
+def ping():
+    """GET /api/ping — ตรวจสอบการทำงานของ Blueprint api (Issue #47)"""
+    return jsonify({"status": "ok", "blueprint": "api"}), 200
+
+
 @api_bp.route("/generate", methods=["POST"])
 def handle_generate():
     """POST /api/generate — สั่งสร้างภาพใหม่ผ่าน Forge AI หรือ Mock Server (Issue #22)"""
