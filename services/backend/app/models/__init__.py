@@ -32,12 +32,37 @@ create_app() เสร็จ ซึ่งเป็นการบล็อกก
 ไม่ใช่ services/backend/migrations/ ที่เป็นค่าเริ่มต้นของ Flask-Migrate
 """
 
+import sqlite3
+
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 # สร้าง extension ไว้เฉยๆ ยังไม่ผูกกับ app ตัวไหน
 # ตัวที่ผูกคือ db.init_app(app) ใน create_app() — แพตเทิร์นนี้ทำให้ test
 # สร้าง app ใหม่ได้ทุก fixture โดยไม่ต้องสร้าง db ใหม่ตาม
 db = SQLAlchemy()
+
+@event.listens_for(Engine, "connect")
+def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+    """เปิดการบังคับ foreign key ทุกครั้งที่มีการเปิด connection ใหม่
+
+    SQLite **ปิด** การบังคับ FK ไว้เป็นค่าเริ่มต้น (เพื่อความเข้ากันได้ย้อนหลัง)
+    ผลคือ ON DELETE CASCADE ที่เขียนไว้ใน schema จะไม่ทำงานเลย และการ INSERT
+    ที่อ้าง user_id ที่ไม่มีอยู่จริงก็ผ่านฉลุย — พังเงียบทั้งคู่ ไม่มี error ให้เห็น
+
+    และ PRAGMA นี้มีผลเฉพาะ connection ที่สั่งเท่านั้น ไม่ใช่ทั้งไฟล์ฐานข้อมูล
+    SQLAlchemy ใช้ connection pool ที่เปิด-ปิด connection ตลอดเวลา สั่งครั้งเดียว
+    ตอนเปิดแอปจึงไม่พอ ต้องดักที่ event 'connect' แบบนี้เท่านั้น
+
+    เช็คชนิด connection ก่อน เพราะ listener นี้ผูกกับ Engine ทุกตัวในโปรเซส
+    ตอนย้ายไป PostgreSQL (Lecture 4 หน้า 56) จะได้ไม่ยิง PRAGMA ที่ไม่มีอยู่ใส่มัน
+    """
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
 
 # import โมเดลทุกตัวไว้ที่นี่ ไม่ใช่แค่เพื่อความสะดวก
 #
@@ -46,5 +71,6 @@ db = SQLAlchemy()
 # จะ "ไม่เห็น" ตารางนั้น แล้วสร้าง migration เปล่าออกมาแบบไม่มี error
 # ทุกครั้งที่เพิ่มโมเดลใหม่ ต้องมาเพิ่มบรรทัด import ที่นี่ด้วย
 from app.models.asset import Asset  # noqa: E402  (ต้องอยู่หลัง db)
+from app.models.user import User  # noqa: E402
 
-__all__ = ["db", "Asset"]
+__all__ = ["db", "Asset", "User"]

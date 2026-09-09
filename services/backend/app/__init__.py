@@ -2,6 +2,7 @@
 LUMA Backend Application Package
 Application Factory `create_app()`
 Issue #46 — create_app() + ระบบจัดการ Config อย่างปลอดภัย
+Issue #47 — Blueprint Modular Architecture & JSON Error Handlers
 Issue #48 — ระบบ Logging สะอาด ไม่พิมพ์ซ้ำซ้อน
 """
 
@@ -41,6 +42,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     - ผูกระบบฐานข้อมูลและ Flask-Migrate ตาม ADR-008
     - รองรับ config_overrides สำหรับการรันแบบทดสอบ
     - ตั้งค่าระบบ Logging สะอาดไม่ซ้อน (Issue #48)
+    - ลงทะเบียน Blueprint และ JSON Error Handlers (Issue #47)
     """
     backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     instance_path = os.path.join(backend_dir, "instance")
@@ -83,6 +85,39 @@ def create_app(config_overrides: dict | None = None) -> Flask:
 
     migrations_dir = os.path.abspath(os.path.join(backend_dir, "..", "database", "migrations"))
     migrate = Migrate(app, db, directory=migrations_dir)
+
+    # ==========================================================================
+    # ลงทะเบียน JSON Error Handlers (Issue #47)
+    # ==========================================================================
+    @app.errorhandler(400)
+    def bad_request(error):
+        msg = getattr(error, "description", "ข้อมูลไม่ถูกต้อง / Bad request")
+        return jsonify({"error": msg}), 400
+
+    @app.errorhandler(401)
+    def unauthorized(error):
+        return jsonify({"error": "ยังไม่ได้เข้าสู่ระบบ / Unauthorized"}), 401
+
+    @app.errorhandler(403)
+    def forbidden(error):
+        return jsonify({"error": "ไม่มีสิทธิ์เข้าถึง / Forbidden"}), 403
+
+    @app.errorhandler(404)
+    def not_found(error):
+        return jsonify({"error": "ไม่พบหน้าที่ระบุ / Not found"}), 404
+
+    @app.errorhandler(500)
+    def internal_server_error(error):
+        return jsonify({"error": "เกิดข้อผิดพลาดภายในระบบ / Internal server error"}), 500
+
+    # ==========================================================================
+    # ลงทะเบียน Blueprints (Issue #47)
+    # ==========================================================================
+    from app.routes.api import api_bp
+    from app.routes.auth import auth_bp
+
+    app.register_blueprint(api_bp)
+    app.register_blueprint(auth_bp)
 
     # Route ตรวจสอบสถานะ Server
     @app.route("/health", methods=["GET"])
