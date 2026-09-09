@@ -98,7 +98,7 @@ def get_current_user():
     if not user_id:
         return jsonify({"error": "ยังไม่ได้เข้าสู่ระบบ / Unauthorized"}), 401
 
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user is None:
         # user_id ใน session ชี้ไป user ที่ถูกลบไปแล้ว — ถือว่า session ใช้ไม่ได้แล้ว
         session.pop("user_id", None)
