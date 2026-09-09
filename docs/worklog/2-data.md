@@ -34,12 +34,52 @@
 ส่วน `test_security.py` ส่ง `password: "wrong-password"` เข้ามาพอดี
 → **test ผ่าน 100% แต่ระบบ authentication ไม่มีอยู่จริง**
 
-**เจอเพิ่มในโค้ดที่ merge ไปแล้ว (#83)**
-- `SECRET_KEY="luma-dev-secret-key-change-in-production"` เป็นค่า default ใน `create_app()`
-- การโหลด `instance/config.py` ถูกครอบ `try/except: pass` ทั้งที่ `from_pyfile(silent=True)`
-  จัดการ FileNotFoundError ให้อยู่แล้ว ผลคือถ้าไฟล์ config จริงพิมพ์ผิด (SyntaxError)
-  ระบบจะเงียบแล้วใช้ SECRET_KEY ที่เห็นได้ใน repo สาธารณะแทน
-- ยังไม่ได้เปิด issue เรื่องนี้ — ต้องทำ
+**เจอเพิ่มในโค้ดที่ merge ไปแล้ว (#83) — ยังไม่ได้เปิด issue**
+
+`services/backend/app/__init__.py:32`
+```python
+SECRET_KEY="luma-dev-secret-key-change-in-production",
+```
+repo เป็น public ใครก็อ่านบรรทัดนี้ได้ ถ้า deploy แล้วลืมสร้าง `instance/config.py`
+ระบบจะเซ็น session cookie ด้วย key ที่เห็นกันทั้งอินเทอร์เน็ต = ปลอม session เป็นใครก็ได้
+ตรงกับที่ `instance/config.py.example` บรรทัด 12-13 เตือนไว้เองว่า v1 เคยทำ SECRET_KEY
+หลุดขึ้น GitHub มาแล้ว (F09 ใน `archive/SECURITY_FIXES_v1.md`)
+
+`services/backend/app/__init__.py:40-43`
+```python
+try:
+    app.config.from_pyfile("config.py", silent=True)
+except Exception:
+    pass
+```
+`silent=True` จัดการกรณีไฟล์ไม่มีอยู่แล้ว ส่วน try/except ที่ครอบอีกชั้นกลืน error อื่นหมด
+เคสจริง: `instance/config.py` พิมพ์ผิด -> SyntaxError -> ถูกกลืน -> ระบบรันต่อด้วย
+SECRET_KEY ตัว default และชี้ฐานข้อมูล dev กว่าจะรู้ก็ตอนข้อมูลหาย
+
+**ทางแก้ที่เสนอไป** (ส่งให้คนที่ 1 ทางแชทแล้ว ยังไม่ได้เปิด issue):
+```python
+app.config.from_mapping(
+    SECRET_KEY=os.environ.get("LUMA_SECRET_KEY"),
+    ...
+)
+
+# ไม่ครอบ try/except — config พังต้องรู้ทันที
+app.config.from_pyfile("config.py", silent=True)
+
+if config_overrides:
+    app.config.update(config_overrides)
+
+if not app.config.get("SECRET_KEY"):
+    if app.config.get("TESTING"):
+        app.config["SECRET_KEY"] = "testing-only-not-for-production"
+    else:
+        raise RuntimeError("ไม่พบ SECRET_KEY — ตั้ง env LUMA_SECRET_KEY หรือสร้าง instance/config.py")
+```
+ต้องคง fallback ฝั่ง TESTING ไว้ เพราะ `test_config.py` กับ `test_security.py`
+เรียก `create_app({"TESTING": True, ...})` โดยไม่ส่ง SECRET_KEY มาด้วย
+
+เสนอให้คนที่ 1 เอาไปรวมกับ PR ที่กำลังแก้ conflict อยู่แล้ว (#84 หรือ #92)
+ไม่ต้องเปิด PR ใหม่ เพราะทั้งคู่แก้ไฟล์นี้อยู่แล้ว
 
 **เรื่องที่ต้องรู้ (จดไว้กันลืม)**
 - ⚠️ **`/tmp` ใน Git Bash กับใน Python ของ Windows ชี้คนละที่**
