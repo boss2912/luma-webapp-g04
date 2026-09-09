@@ -5,12 +5,13 @@ Issue #51 — OWASP Security Headers, Cookie Hardening & Rate Limiting
 """
 
 import os
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
+from flask_migrate import Migrate
 from app.models import db
 
 
 def create_app(config_overrides: dict | None = None) -> Flask:
-    """Application Factory สำหรับสร้าง Flask Application พร้อมเกราะความปลอดภัย OWASP"""
+    """Application Factory สำหรับสร้าง Flask Application พร้อมเกราะความปลอดภัย OWASP และ Flask-Migrate"""
     backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     instance_path = os.path.join(backend_dir, "instance")
 
@@ -24,7 +25,6 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         SECRET_KEY="luma-dev-secret-key-change-in-production",
         SQLALCHEMY_DATABASE_URI=f"sqlite:///{os.path.join(instance_path, 'luma.db')}",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        # Cookie Hardening (Issue #51)
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
     )
@@ -39,10 +39,11 @@ def create_app(config_overrides: dict | None = None) -> Flask:
 
     os.makedirs(instance_path, exist_ok=True)
 
+    # ผูกระบบฐานข้อมูลและ Flask-Migrate ตาม ADR-008
     db.init_app(app)
 
-    with app.app_context():
-        db.create_all()
+    migrations_dir = os.path.abspath(os.path.join(backend_dir, "..", "database", "migrations"))
+    migrate = Migrate(app, db, directory=migrations_dir)
 
     # ==========================================================================
     # Security Headers (OWASP) แนบในทุก Response (Issue #51)
@@ -61,7 +62,6 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         )
         return response
 
-    # 429 Too Many Requests Error Handler
     @app.errorhandler(429)
     def ratelimit_handler(e):
         return jsonify({"error": "คำขอถี่เกินกำหนด กรุณารอสักครู่ / Too many requests"}), 429
