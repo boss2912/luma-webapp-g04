@@ -6,6 +6,7 @@ Issue #46 — create_app() + ระบบจัดการ Config อย่า�
 
 import os
 from flask import Flask, jsonify
+from flask_migrate import Migrate
 from app.models import db
 
 
@@ -14,6 +15,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     Application Factory สำหรับสร้าง Flask Application
     - กำหนด instance_path ไปที่ services/backend/instance/
     - โหลด config พื้นฐาน และโหลด config.py จาก instance/
+    - ผูกระบบฐานข้อมูลและ Flask-Migrate ตาม ADR-008
     - รองรับ config_overrides สำหรับการรันแบบทดสอบ
     """
     backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -49,11 +51,11 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     uploads_dir = os.path.join(instance_path, "uploads", "generated")
     os.makedirs(uploads_dir, exist_ok=True)
 
-    # 5. ผูกระบบฐานข้อมูล SQLAlchemy
+    # 5. ผูกระบบฐานข้อมูล SQLAlchemy และ Flask-Migrate ตาม ADR-008
     db.init_app(app)
 
-    with app.app_context():
-        db.create_all()
+    migrations_dir = os.path.abspath(os.path.join(backend_dir, "..", "database", "migrations"))
+    migrate = Migrate(app, db, directory=migrations_dir)
 
     # Route ตรวจสอบสถานะ Server
     @app.route("/health", methods=["GET"])
