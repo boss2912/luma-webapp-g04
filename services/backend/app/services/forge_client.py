@@ -51,24 +51,19 @@ def generate_image(
         "height": height,
     }
 
-    endpoints_to_try = [
-        endpoint,
-        "http://127.0.0.1:7860/forge/txt2img",
-        "http://127.0.0.1:7860/sdapi/v1/txt2img",
-    ]
-
-    response = None
-    for ep in endpoints_to_try:
-        try:
-            response = requests.post(ep, json=payload, timeout=5)
-            if response.status_code == 200:
-                break
-        except requests.exceptions.RequestException:
-            continue
-
-    if response is None or response.status_code != 200:
+    try:
+        response = requests.post(endpoint, json=payload, timeout=timeout)
+    except requests.exceptions.RequestException as exc:
         raise ForgeClientError(
-            "ไม่สามารถเชื่อมต่อ AI engine ได้ / Could not connect to AI engine",
+            f"เชื่อมต่อ AI engine ที่ {endpoint} ไม่สำเร็จ: {exc} "
+            f"/ Could not reach AI engine at {endpoint}",
+            status_code=502,
+        ) from exc
+
+    if response.status_code != 200:
+        raise ForgeClientError(
+            f"AI engine ที่ {endpoint} ตอบกลับด้วยสถานะ {response.status_code} "
+            f"/ AI engine returned status {response.status_code}",
             status_code=502,
         )
 
