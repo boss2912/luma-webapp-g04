@@ -187,7 +187,7 @@ backend เรียกผ่าน `AI_ENGINE_URL` ที่อ่านจา�
 | # | ระหว่าง | เรื่อง | สถานะ |
 |---|---|---|---|
 | 1 | คน 1 ↔ คน 2 | ชื่อตาราง/คอลัมน์สุดท้าย | ⬜ |
-| 2 | คน 1 ↔ คน 2 | `GET /api/assets` รับ param อะไร ตอบรูปแบบไหน | ⬜ |
+| 2 | คน 1 ↔ คน 2 | `GET /api/assets` รับ param อะไร ตอบรูปแบบไหน | ✅ (ตรวจแล้วว่าตรงกับที่ `gallery.js` ใช้จริง: `page`/`per_page`/`q` → `{items, page, per_page, total}` — implement ใน #80-split PR A) |
 | 3 | คน 1 ↔ คน 3 | `POST /api/generate` ตอบแบบ sync หรือ queued | ⬜ |
 | 4 | คน 1 ↔ คน 3 | เส้นทาง `/pipeline/<stage>/<operation>` | ⬜ |
 | 5 | **คน 2 ↔ คน 3** | **รูปแบบ auto-tag ที่ `04_features` ส่งให้ Asset Hub** | ⬜ |
