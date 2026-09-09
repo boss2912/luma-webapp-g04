@@ -43,7 +43,7 @@
 
 **เรื่องที่ต้องรู้ (จดไว้กันลืม)**
 - ⚠️ **`/tmp` ใน Git Bash กับใน Python ของ Windows ชี้คนละที่**
-  bash `/tmp` = `%LOCALAPPDATA%\Temp` แต่ Python มองว่าเป็น `C:	mp`
+  bash `/tmp` = `%LOCALAPPDATA%\Temp` แต่ Python มองว่าเป็น `C:\tmp`
   เขียนไฟล์ด้วย bash แล้วให้ Python อ่านจะได้ FileNotFoundError — ใช้ path เต็มเสมอ
 - `gh issue edit --body-file <ไฟล์ที่ไม่มีอยู่>` คืน exit 0 โดยไม่แก้อะไร (no-op เงียบ)
   ต้องอ่าน body กลับมาดูหลังแก้ทุกครั้ง อย่าเชื่อ exit code
