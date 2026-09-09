@@ -7,6 +7,62 @@
 
 ---
 
+## 2026-09-09 · รีวิวและ merge PR ค้างของคนที่ 1 (#82-#93)
+
+**branch**: `feat/skeleton-assets-table` (ทำงานบน GitHub เป็นหลัก ไม่ได้แก้โค้ดใคร) · **สถานะ**: เสร็จรอบนี้
+
+**ทำอะไรไป**
+- ตรวจ PR ที่ขึ้น Review required ของคนที่ 1 ครบ 12 ใบ (#82-#93)
+- merge เข้า `develop` 3 ใบ: #86 layout scaffold · #87 generate UI · #93 canvas studio
+- เปิด #94 (hardcode IP ฝั่ง frontend) และ #95 (`db.create_all()` ฝั่ง backend)
+  แล้วคอมเมนต์ชี้จาก 7 PR ที่เกี่ยว
+- คอมเมนต์ #89 เรื่อง conflict กับ #86 พร้อมวิธี rebase
+
+**ตัดสินใจอะไรไว้**
+- **merge เฉพาะ 3 ใบที่เป็น frontend ล้วน** ไม่แตะ `app/models/` และไม่มี `db.create_all()`
+  ที่เหลือตีกลับ — ถ้า merge ยกล็อตจะพา `create_all()` ขึ้น `develop` ซึ่ง ADR-008
+  บันทึกไว้ว่าเป็นบั๊กที่ v1 เจอมาแล้ว (PR #12 → test ล้ม 3 ข้อ)
+- **approve PR ในนามตัวเอง แทนการใช้ `gh pr merge --admin`** — bypass ได้ก็จริง
+  แต่จะไม่เหลือหลักฐานการรีวิวตาม Definition of Done ข้อ "มีคนอื่นรีวิว PR แล้วอย่างน้อย 1 คน"
+- **รวมข้อท้วง 7 PR ไว้ใน issue เดียว (#95)** แทนการเขียนซ้ำ 7 คอมเมนต์
+  ถ้าข้อมูลเปลี่ยนจะได้แก้ที่เดียว และมีที่ให้เถียงกันเป็นเรื่องเป็นราว
+
+**พิสูจน์แล้วว่าใช้ได้จริง**
+
+| ตรวจอะไร | วิธี | ผล |
+|---|---|---|
+| #86 กับ #89 ชนกันไหม | `git merge-tree --write-tree` ทั้งสองลำดับ | ชนทั้งคู่ 4 ไฟล์ — GitHub ยืนยันตามหลัง merge #86 |
+| PR ไหนต่อ Flask-Migrate บ้าง | `grep -c "Migrate("` ทั้ง 7 PR | ได้ 0 ทุกใบ |
+| `window.LUMA_CONFIG` มีนิยามที่ไหนไหม | `git grep "LUMA_CONFIG *="` | ไม่เจอ → fallback IP ถูกใช้จริงเสมอ |
+| merge commit มีข้อความ AI ติดไปไหม | grep 6 commit ล่าสุดของ `develop` | ไม่มี |
+
+**เรื่องที่ต้องรู้ (จดไว้กันลืม)**
+- 4 PR (#83 #84 #91 #92) เขียนทับ `app/models/__init__.py` จาก 50 บรรทัดเหลือ 8
+  บรรทัดที่หายคือ `from app.models.asset import Asset` → Alembic autogenerate จะมองไม่เห็น
+  ตาราง `assets` แล้วออกไฟล์ migration **เปล่า** แบบไม่มี error ให้เห็น
+  (ตรงกับที่ docstring ในไฟล์นั้นเตือนไว้เองอยู่แล้ว)
+- **`git log origin/develop` ไม่ fetch ก่อน = อ่านของเก่า** รอบนี้พลาดเพราะเรื่องนี้
+  สรุปไปว่า #81 ยังไม่ merge ทั้งที่ merge ไปแล้วตั้งแต่เช้า ต้อง `git fetch` ก่อนเสมอ
+- ใน Git Bash บน Windows คำสั่ง `git show 'origin/develop:.github/CODEOWNERS'`
+  จะพัง เพราะ MSYS แปลง `:` เป็น `;` ต้องนำหน้าด้วย `MSYS_NO_PATHCONV=1`
+
+**ค้างอยู่ / ทำต่อจากตรงไหน**
+1. **PR เอกสารทีมยังไม่ได้เปิด** — `AGENTS.md`, `docs/START_*.md`, `docs/worklog/`,
+   CODEOWNERS ฉบับที่มีคนที่ 3 ยังอยู่แค่บน branch นี้ (คอมมิต `1af35f0` `3d1bd17` `86ad8fd`)
+   ผลคือ `develop` ยังไม่มีกติกาให้ AI ของคนอื่นอ่าน และ CODEOWNERS บน `develop`
+   ยังไม่มี `@tsheringdorji`
+2. **ต้องตัดสินใจก่อนเปิด PR นั้น**: คอมมิต `1af35f0` พ่วง `.claude/skills/luma-project/SKILL.md`
+   กับ `.agents/rules/luma-project.md` ขึ้นไปด้วย จะเอาขึ้นหรือถอดออกก่อน — ยังไม่ฟันธง
+3. รอ #95 ถูกแก้ก่อน แล้วค่อยรีวิว 7 PR ฝั่ง backend รอบสอง
+4. งานของตัวเองถัดไปคือ **#16 ตาราง `users`** — คนที่ 1 รออยู่ (#49 #50)
+   และ **ตาราง `jobs` ยังไม่ควรสร้างใน #16** ตามเหตุผลใน entry 2026-09-05
+
+**รออะไรจากใคร**
+- คนที่ 1 แก้ #94 และ #95 · #89 ต้อง rebase ทับ #86
+- #17 ยังรอข้อ 5 ของ #32 (รูปแบบ auto-tag จากคนที่ 3) เหมือนเดิม
+
+---
+
 ## 2026-09-05 · #45 ปิดส่วนฐานข้อมูลของ Walking Skeleton
 
 **branch**: `feat/skeleton-assets-table` · **สถานะ**: เสร็จ รอเปิด PR
