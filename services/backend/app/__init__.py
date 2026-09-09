@@ -6,11 +6,12 @@ Issue #22 — POST /api/generate
 
 import os
 from flask import Flask, jsonify
+from flask_migrate import Migrate
 from app.models import db
 
 
 def create_app(config_overrides: dict | None = None) -> Flask:
-    """Application Factory สำหรับสร้าง Flask Application"""
+    """Application Factory สำหรับสร้าง Flask Application พร้อม Blueprint และ Flask-Migrate"""
     backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     instance_path = os.path.join(backend_dir, "instance")
 
@@ -40,10 +41,11 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     uploads_dir = os.path.join(instance_path, "uploads", "generated")
     os.makedirs(uploads_dir, exist_ok=True)
 
+    # ผูกระบบฐานข้อมูลและ Flask-Migrate ตาม ADR-008
     db.init_app(app)
 
-    with app.app_context():
-        db.create_all()
+    migrations_dir = os.path.abspath(os.path.join(backend_dir, "..", "database", "migrations"))
+    migrate = Migrate(app, db, directory=migrations_dir)
 
     from app.routes.api import api_bp
     app.register_blueprint(api_bp)
