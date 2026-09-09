@@ -1,6 +1,5 @@
 /* ==========================================================================
    LUMA — Shared Layout Styles
-   อ้างอิง: Lecture 5 หน้า 107-128 (CSS selector, specificity, box model)
    Issue #56 — โครงหน้าเว็บ + ระบบซ่อน/แสดงที่ไม่พัง
    ========================================================================== */
 
@@ -24,10 +23,6 @@ a {
 
 /* ==========================================================================
    [hidden] ต้องซ่อนจริง ห้ามให้กฎอื่นมาทับทีหลังในไฟล์
-   ---------------------------------------------------------------------
-   v1 เจอบั๊ก: [hidden] มี specificity (0,1,0) เท่ากับ .spinner ที่ตั้ง
-   display: inline-block ไว้ — พอ .spinner ถูกประกาศทีหลังในไฟล์ CSS มันชนะ
-   [hidden] ตามลำดับ cascade ทำให้ spinner โผล่มาทั้งที่ควรซ่อน
    แก้ด้วย !important ให้ [hidden] ชนะทุกกรณีไม่ว่าประกาศลำดับไหนก็ตาม
    ========================================================================== */
 [hidden] {
@@ -38,7 +33,6 @@ a {
    Layout หลัก — เมนู (header) + เนื้อหา (main) ใช้ร่วมกันทุกหน้า
    ========================================================================== */
 .app-header {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -77,12 +71,12 @@ a {
 }
 
 .app-main {
-  max-width: 960px;
+  max-width: 1040px;
   margin: 0 auto;
   padding: 1.5rem 1.25rem 3rem;
 }
 
-/* ---- ปุ่ม hamburger สำหรับมือถือ (MAY: responsive) ---- */
+/* ---- ปุ่ม hamburger สำหรับมือถือ ---- */
 .app-header__toggle {
   display: none;
   border: 1px solid #ddd;
@@ -99,9 +93,6 @@ a {
     display: inline-flex;
   }
 
-  /* จอเล็ก: ซ่อนเมนูด้วย display เฉยๆ (ไม่ใช้ [hidden])
-     เพราะ [hidden] ผูกไว้เฉพาะ "ซ่อนจริงถาวร" เช่น spinner/modal
-     ส่วนเมนูมือถือแค่ยุบ/กาง จึงคุมด้วย class .is-open แทน */
   .app-nav {
     display: none;
     position: absolute;
@@ -120,17 +111,6 @@ a {
   }
 }
 
-/* ==========================================================================
-   ปุ่มที่ต้องหน้าตาเหมือนลิงก์ (เช่นปุ่ม Logout ที่จริงๆ เป็น
-   <button type="submit"> อยู่ในฟอร์ม) — ต้องหน้าตาถูกต้องทั้งตอนเป็น
-   และไม่เป็น type="submit"
-   ---------------------------------------------------------------------
-   v1 เจอบั๊ก: .nav-link-btn มี specificity (0,1,0) แต่ถ้ามี reset/base
-   style อ้างถึง button[type="submit"] ที่ไหนสักที่ (0,1,1) ตัวนั้นชนะ
-   ทำให้ปุ่ม Logout หน้าตาเพี้ยนไปเป็นปุ่มธรรมดา แก้ด้วยการเพิ่ม
-   specificity ให้ .nav-link-btn ชนะแน่นอน โดยใช้ class ซ้ำ
-   (double-class trick) แทนที่จะพึ่งลำดับการประกาศใน CSS ซึ่งเปราะบาง
-   ========================================================================== */
 .nav-link-btn.nav-link-btn {
   display: inline-block;
   border: none;
@@ -148,7 +128,6 @@ a {
   color: #2f3ba3;
 }
 
-/* ---- ตัวอย่าง component ที่ใช้ทดสอบ [hidden] (เช่น spinner ระหว่างรอ) ---- */
 .spinner {
   display: inline-block;
   padding: 0.3rem 0.6rem;
@@ -158,16 +137,6 @@ a {
   font-size: 0.85rem;
 }
 
-.status-ok {
-  display: inline-block;
-  padding: 0.3rem 0.6rem;
-  border-radius: 999px;
-  background: #e6f4ea;
-  color: #1e7a34;
-  font-size: 0.85rem;
-}
-
-/* ---- คีย์บอร์ด focus ต้องเห็นชัด (accessibility ขั้นพื้นฐาน) ---- */
 a:focus-visible,
 button:focus-visible {
   outline: 2px solid #2f3ba3;

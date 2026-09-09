@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LUMA — สร้างภาพ</title>
+  <title>LUMA — สร้างภาพ AI</title>
   <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/generate.css" />
 </head>
 <body data-page="generate">
   <header class="app-header">
@@ -12,15 +13,139 @@
   </header>
 
   <main class="app-main">
-    <h1>สร้างภาพ</h1>
-    <p>
-      หน้านี้เป็นโครงเปล่า ใช้ layout กลางเดียวกับหน้าอื่น —
-      ฟอร์มพารามิเตอร์ + สถานะระหว่างรอ จะเพิ่มใน issue #57
-    </p>
+    <h1>🎨 สร้างภาพด้วย AI</h1>
+    <p>ระบุคำบรรยาย (Prompt) และปรับแต่งค่าพารามิเตอร์เพื่อสร้างภาพผ่านระบบ LUMA Engine</p>
+
+    <div class="generate-layout">
+      <!-- ส่วนควบคุมและฟอร์มสร้างภาพ -->
+      <section class="generate-form-card">
+        <div class="generate-error" id="generate-error" hidden role="alert"></div>
+
+        <form id="generate-form" action="javascript:void(0);" novalidate>
+          <div class="form-group">
+            <label for="prompt">Prompt (คำบรรยายภาพ) *</label>
+            <textarea
+              class="form-control"
+              id="prompt"
+              name="prompt"
+              placeholder="เช่น 1girl, kimono, sakura tree, high quality"
+              required
+            ></textarea>
+            <span class="form-hint">คำบรรยายสิ่งที่ต้องการให้ปรากฏในภาพ</span>
+          </div>
+
+          <div class="form-group">
+            <label for="negative_prompt">Negative Prompt (สิ่งที่ไม่ต้องการ)</label>
+            <textarea
+              class="form-control"
+              id="negative_prompt"
+              name="negative_prompt"
+              placeholder="เช่น ugly, low quality, blurry, watermark"
+            ></textarea>
+          </div>
+
+          <div class="params-grid">
+            <div class="form-group">
+              <label for="steps">Sampling Steps</label>
+              <input
+                class="form-control"
+                type="number"
+                id="steps"
+                name="steps"
+                value="20"
+                min="1"
+                max="50"
+              />
+              <span class="form-hint">แนะนำ 20–30</span>
+            </div>
+
+            <div class="form-group">
+              <label for="cfg_scale">CFG Scale</label>
+              <input
+                class="form-control"
+                type="number"
+                id="cfg_scale"
+                name="cfg_scale"
+                value="8"
+                min="1"
+                max="20"
+                step="0.5"
+              />
+              <span class="form-hint">แนะนำ 8–14</span>
+            </div>
+          </div>
+
+          <div class="params-grid">
+            <div class="form-group">
+              <label for="sampler_name">Sampler</label>
+              <select class="form-control" id="sampler_name" name="sampler_name">
+                <option value="DPM++ 2M Karras" selected>DPM++ 2M Karras</option>
+                <option value="Euler a">Euler a</option>
+                <option value="Euler">Euler</option>
+                <option value="DDIM">DDIM</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="seed">Seed</label>
+              <input
+                class="form-control"
+                type="number"
+                id="seed"
+                name="seed"
+                value="-1"
+              />
+              <span class="form-hint">-1 = สุ่ม</span>
+            </div>
+          </div>
+
+          <div class="params-grid">
+            <div class="form-group">
+              <label for="width">Width</label>
+              <select class="form-control" id="width" name="width">
+                <option value="512" selected>512 px</option>
+                <option value="768">768 px</option>
+                <option value="1024">1024 px</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="height">Height</label>
+              <select class="form-control" id="height" name="height">
+                <option value="512" selected>512 px</option>
+                <option value="768">768 px</option>
+                <option value="1024">1024 px</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn-generate" type="submit" id="generate-submit">
+            สร้างภาพ (Generate)
+          </button>
+        </form>
+      </section>
+
+      <!-- ส่วนแสดงผลภาพที่สร้างได้ -->
+      <section class="generate-preview-card">
+        <div class="preview-container" id="preview-container">
+          <p class="preview-placeholder" id="preview-placeholder">
+            ภาพที่สร้างจะปรากฏที่นี่
+          </p>
+          <img class="preview-image" id="preview-image" alt="ภาพผลลัพธ์จาก AI" hidden />
+          <div class="spinner" id="generate-spinner" hidden>กำลังประมวลผลภาพจาก AI…</div>
+        </div>
+
+        <div class="preview-meta" id="preview-meta" hidden>
+          <p><strong>Asset ID:</strong> <span id="meta-asset-id"></span></p>
+          <p><strong>Prompt:</strong> <span id="meta-prompt"></span></p>
+        </div>
+      </section>
+    </div>
   </main>
 
   <form id="logout-form" action="#" method="post" hidden></form>
 
   <script src="../js/layout.js"></script>
+  <script src="../js/generate.js"></script>
 </body>
 </html>
