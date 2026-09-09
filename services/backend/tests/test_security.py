@@ -52,7 +52,7 @@ def test_login_rate_limiting():
     for i in range(5):
         res = client.post(
             "/api/auth/login",
-            json={"email": "victim@luma.ai", "password": "wrong-password"},
+            json={"email": "victim@luma.ai", "password": "wrong-password"},  # no-secret-check
             environ_base={"REMOTE_ADDR": test_ip},
         )
         assert res.status_code == 401, f"ครั้งที่ {i+1} ต้องได้ 401"
@@ -60,7 +60,7 @@ def test_login_rate_limiting():
     # ครั้งที่ 6 ต้องถูกบล็อกด้วย 429 Too Many Requests
     res_blocked = client.post(
         "/api/auth/login",
-        json={"email": "victim@luma.ai", "password": "wrong-password"},
+        json={"email": "victim@luma.ai", "password": "wrong-password"},  # no-secret-check
         environ_base={"REMOTE_ADDR": test_ip},
     )
     assert res_blocked.status_code == 429, f"ครั้งที่ 6 ต้องถูกบล็อกด้วย 429 แต่ได้ {res_blocked.status_code}"
