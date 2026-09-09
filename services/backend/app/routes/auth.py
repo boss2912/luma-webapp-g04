@@ -13,6 +13,11 @@ from app.models import User, db
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 # ระบบบันทึกการพยายาม Login ล้มเหลวแบบ In-memory (IP -> [timestamp1, timestamp2, ...])
+#
+# ข้อจำกัดที่รู้อยู่: dict นี้อยู่ในโปรเซสเดียว — รีสตาร์ทแอปแล้วรีเซ็ตทันที
+# และถ้ารันหลาย worker/instance พร้อมกัน แต่ละตัวจะนับแยกกันเอง (ไม่ share state)
+# พอใช้สำหรับเดโม/รันเครื่องเดียว แต่ deploy จริงหลายเครื่องต้องย้ายไป Redis
+# หรือที่เก็บกลางแบบอื่นถึงจะกันการเดารหัสผ่านได้จริง
 _login_failed_attempts: dict[str, list[float]] = defaultdict(list)
 
 # ข้อความ error เดียวกันทั้งสองกรณี (ไม่มี user / รหัสผิด) กันคนเดา
