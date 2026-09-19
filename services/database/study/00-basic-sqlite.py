@@ -14,16 +14,19 @@
 
 # cnt.close()
 
+# import the sqlite3 package
 import sqlite3
 import os
 
 # จุดสำคัญ: หาตำแหน่งโฟลเดอร์ของไฟล์ .py นี้เอง (ไม่สนใจว่าจะรันจากที่ไหน)
 script_dir = os.path.dirname(os.path.abspath(__file__))
+# create a database named backup
 db_path = os.path.join(script_dir, "backup.db")
 
 print("จะสร้าง/เปิดไฟล์ที่:", db_path)
 
 cnt = sqlite3.connect(db_path)  # ใช้ path เต็ม แทน "backup.db" เฉยๆ
+# create a table named Boss
 cnt.execute('''CREATE TABLE IF NOT EXISTS Oyd(
 NAME TEXT,
 POINTS INTEGER,

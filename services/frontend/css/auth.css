@@ -1,0 +1,106 @@
+/* ==========================================================================
+   LUMA — Auth pages (login / register)
+   หน้าเหล่านี้ไม่ใช้ .app-header/.app-nav เพราะผู้ใช้ยังไม่ล็อกอิน
+   จึงแยกสไตล์ไว้ต่างหากจาก main.css แทนที่จะยัดเข้า layout เดียวกัน
+   ========================================================================== */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 360px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.auth-card__brand {
+  display: block;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+  text-decoration: none;
+  margin-bottom: 1.5rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.auth-field__label {
+  font-size: 0.85rem;
+  color: #444;
+}
+
+.auth-field__input {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.auth-field__input:focus-visible {
+  outline: 2px solid #2f3ba3;
+  outline-offset: 1px;
+  border-color: #2f3ba3;
+}
+
+.auth-submit {
+  margin-top: 0.25rem;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: #2f3ba3;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-submit:hover {
+  background: #26308a;
+}
+
+.auth-submit:disabled {
+  background: #9aa0d6;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: #fdecea;
+  color: #b3261e;
+  font-size: 0.9rem;
+}
+
+.auth-footer {
+  margin-top: 1.25rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.auth-footer a {
+  color: #2f3ba3;
+  text-decoration: none;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}

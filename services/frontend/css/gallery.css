@@ -1,0 +1,141 @@
+/* ==========================================================================
+   LUMA — Personal Gallery Styles
+   Issue #58 — หน้ารวมภาพคลังผลงานส่วนตัว (Personal Gallery)
+   ========================================================================== */
+
+.gallery-header {
+  margin-bottom: 2rem;
+}
+
+.gallery-search-bar {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  max-width: 500px;
+}
+
+.gallery-search-bar input {
+  flex: 1;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.gallery-search-bar button {
+  padding: 0.65rem 1.25rem;
+  background: #2f3ba3;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gallery-search-bar button:hover {
+  background: #26308a;
+}
+
+/* Card Grid Layout */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.asset-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.asset-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.asset-card__image-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #000;
+  overflow: hidden;
+}
+
+.asset-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.asset-card__body {
+  padding: 1rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.asset-card__prompt {
+  font-size: 0.9rem;
+  color: #333;
+  margin: 0 0 0.75rem 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.asset-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #888;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 0.5rem;
+}
+
+/* Pagination */
+.gallery-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2.5rem;
+}
+
+.gallery-pagination button {
+  padding: 0.5rem 1rem;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.gallery-pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gallery-empty,
+.gallery-error {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #666;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px dashed #ccc;
+  margin-top: 1.5rem;
+}

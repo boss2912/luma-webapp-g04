@@ -1,0 +1,144 @@
+/* ==========================================================================
+   LUMA — Generate Page Styles
+   Issue #57 — หน้าสร้างภาพ (Generate UI)
+   ========================================================================== */
+
+.generate-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .generate-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.generate-form-card,
+.generate-preview-card {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.form-group label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #222;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.form-control:focus-visible {
+  outline: 2px solid #2f3ba3;
+  outline-offset: 1px;
+  border-color: #2f3ba3;
+}
+
+textarea.form-control {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.form-hint {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.params-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.btn-generate {
+  width: 100%;
+  padding: 0.85rem 1.25rem;
+  background: #2f3ba3;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  margin-top: 0.5rem;
+}
+
+.btn-generate:hover:not(:disabled) {
+  background: #26308a;
+}
+
+.btn-generate:disabled {
+  background: #9aa0d6;
+  cursor: not-allowed;
+}
+
+.preview-container {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #f8f9fa;
+  border: 2px dashed #d0d7de;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.preview-container.has-image {
+  border-style: solid;
+  background: #000000;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.preview-placeholder {
+  color: #888;
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+.preview-meta {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: #555;
+  line-height: 1.6;
+}
+
+.generate-error {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #fdecea;
+  color: #b3261e;
+  font-size: 0.9rem;
+  border: 1px solid #f5c2c7;
+  margin-bottom: 1.25rem;
+}
