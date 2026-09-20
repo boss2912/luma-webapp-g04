@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-09-20 (รอบ 2) · เคลียร์ของค้างในเครื่อง + รีวิว #99 รอบ 3 + เปิด PR #110
+
+**branch**: `feat/skeleton-assets-table`, `feat/db-backup-restore` · **สถานะ**: PR #110 เปิดแล้ว · #99 รอบอสตัดสิน
+
+**ทำอะไรไป**
+- ตัด path ที่มีชื่อผู้ใช้ Windows ออกจาก worklog บรรทัด env (`check_no_secrets.py --all` เคยฟ้อง [FAIL] จุดนี้จุดเดียว) แล้ว commit + push worklog 19-20 ก.ย. ที่ค้างในเครื่อง 171 บรรทัด
+- merge `origin/develop` เข้า `feat/db-backup-restore` (ตามหลัง 10 commit, ไม่มี conflict) → push → เปิด **PR #110** เข้า develop
+  · ไม่ใส่ `Closes #31` เพราะ MUST 2 ข้อแรก (seed data) ยังไม่ทำ ปิด issue ไม่ได้
+- รีวิว PR #99 รอบ 3 ที่ head `b8ec014` — jet push แก้ตั้งแต่ 19 ก.ย. 09:20 น. แล้ว PR ค้างอยู่ที่ฝั่งเราเอง ไม่ได้รอ jet
+
+**ผลรีวิว #99 รอบ 3 (ไล่โค้ดจริง ไม่ได้ดูแค่ diff)**
+- ข้อ 3 ที่ขอไว้ทำครบทั้ง 2 จุด: `test_list_assets_ordered_by_newest` เทียบ `prompts` ทั้ง list แล้ว
+  และเพิ่ม `test_list_assets_tiebreaker_uses_id_when_created_at_equal`
+- รัน `pytest` ใน worktree `pr99` ผ่าน 27 test
+- **แต่ probe ด้วยการแก้โค้ดจริงแล้วพบว่า test tiebreaker ยังพิสูจน์ไม่ได้**:
+  ลบ `Asset.id.desc()` ออกจาก `api.py:122` ให้เหลือ `order_by(created_at.desc())` → test **ยังผ่านทั้ง 11 ข้อ**
+  (SQLite บังเอิญคืนแถวเรียง id มาก→น้อยเมื่อ created_at เท่ากัน)
+  · สลับเป็น `Asset.id.asc()` → test fail จริง แปลว่า test จับ "ลำดับผิดทิศ" ได้ แต่จับ "tiebreaker หายไป" ไม่ได้
+  · คืนไฟล์ด้วย `git checkout --` แล้ว worktree สะอาด
+- โค้ดจริงถูกต้องอยู่แล้ว (`order_by(Asset.created_at.desc(), Asset.id.desc())`) — ที่อ่อนคือ test ไม่ใช่ behavior
+
+**ค้างอยู่ / ทำต่อจากตรงไหน**
+1. บอสตัดสินว่า #99 จะ approve พร้อมหมายเหตุเรื่อง test sensitivity หรือขอแก้รอบ 3 (ผมยังไม่กดอะไรบน GitHub)
+2. seed data ของ #31 — MUST 2 ข้อ ยังไม่เริ่ม (asset อย่างน้อย 20 ใบพร้อม tag, รันซ้ำได้ไม่ซ้ำข้อมูล)
+3. `develop` ในเครื่องยังตามหลัง origin (ตอนเริ่ม session behind 50)
+4. #17 tags many-to-many (priority:high) และ #24 Asset Hub queries ยังไม่เริ่ม
+
+**รออะไรจากใคร**
+- คนที่ 1: รายละเอียด callback contract ของ #32 (ยังบล็อกตาราง `jobs` ของ #16)
+
+---
+
 ## 2026-09-20 · #32 วิเคราะห์ ownership ของ queue และ callback contract
 
 **branch**: ไม่ได้แตะโค้ด · **สถานะ**: รอ backend owner ยืนยันรายละเอียด contract
