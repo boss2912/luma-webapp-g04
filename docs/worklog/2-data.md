@@ -7,6 +7,177 @@
 
 ---
 
+## 2026-09-20 · #32 วิเคราะห์ ownership ของ queue และ callback contract
+
+**branch**: ไม่ได้แตะโค้ด · **สถานะ**: รอ backend owner ยืนยันรายละเอียด contract
+
+**ทำอะไรไป**
+- ตรวจ `docs/worklog/2-data.md`, `docs/API_CONTRACT.md` และ `docs/ARCHITECTURE.md` เทียบกับข้อความของ Dorij
+- ยืนยันจากเอกสารว่า API ปัจจุบันกำหนดผลลัพธ์ AI เป็น `{ "images": ["<base64>"], "seed_used": ... }` แต่ยังไม่มี callback endpoint, token format, response code หรือ retry limit
+- ร่างข้อความภาษาอังกฤษให้ Dorij โดยแยกข้อเท็จจริงออกจากข้อเสนอ: AI engine ถือ queue/worker, backend ถือการอ่านเขียน `jobs`, และ callback failure ต้อง retry โดยไม่ generate ภาพซ้ำ
+
+**ตัดสินใจอะไรไว้**
+- ยังไม่แก้ `API_CONTRACT.md` และยังไม่สร้าง migration `jobs` เพราะ callback URL, authentication, response codes, retry limit และที่เก็บภาพเมื่อ callback ล้มเหลวยังไม่ได้รับการยืนยันจาก backend owner
+- ใช้รูปแบบ `images` array ให้สอดคล้องกับ contract ปัจจุบัน แทนการเพิ่ม `image_base64` เดี่ยวโดยไม่มีหลักฐานรองรับ
+
+**ลองแล้วไม่ได้ผล**
+- ค้นหา callback endpoint และ policy ใน repo แล้วไม่พบ; จึงไม่สามารถอ้างค่าเหล่านี้เป็นข้อตกลงเดิมได้
+
+**ค้างอยู่ / ทำต่อจากตรงไหน**
+- ให้คนที่ 1 ยืนยัน callback URL, token format, callback success status, retry limit และ storage/recovery policy ใน `API_CONTRACT.md`
+- หลังยืนยันแล้ว ค่อยสร้าง/แก้ schema `jobs` และแจ้งคนที่ 3 ให้เริ่ม implementation queue/worker ตาม contract เดียวกัน
+
+**รออะไรจากใคร**
+- คนที่ 1: callback endpoint, authentication, response codes, retry limit และนโยบายเก็บภาพเมื่อ callback ล้มเหลว
+- คนที่ 3 / Dorij: ยืนยันว่าจะ implement ตาม contract หลังรายละเอียดถูกบันทึก
+
+---
+
+## 2026-09-19 · ตอบคำถามพอร์ตของคนที่ 3 + ตรวจ Forge share (ไม่ได้แก้โค้ด)
+
+**branch**: ไม่ได้แตะโค้ด · **สถานะ**: ย้ายไปทำต่อใน Codex (รายละเอียดส่งต่ออยู่นอก git)
+
+**ทำอะไรไป**
+- คนที่ 3 ถามว่า backend → ai-engine :8000 → Forge :7860 ใช่ไหม → ตอบว่าใช่ตามดีไซน์ (`ARCHITECTURE.md` §8)
+  แต่โค้ดบน develop ขัดกับดีไซน์ 3 จุด: `config.py.example` ตั้ง `FORGE_AI_ENDPOINT` ซึ่งทำให้ backend ข้าม ai-engine ·
+  `app/__init__.py:63` ตั้งค่าเริ่มต้น `AI_ENGINE_URL` เป็น :7860 · mock ให้บริการทั้งสอง API บนพอร์ตเดียว
+- Forge (reForge ผ่าน StabilityMatrix) `--share` สร้าง link ไม่ได้ เพราะ Defender ลบ `gradio\frpc_windows_amd64_v0.2`
+  ทุกครั้งที่เปิด (เห็นใน `Get-MpThreatDetection`) · `/sdapi/v1/*` ตอบ 404 เพราะไม่มี `--api`
+
+**ค้างอยู่ / ทำต่อจากตรงไหน**
+1. ตัดสินว่าจะเอา `FORGE_AI_ENDPOINT` ออกจาก backend ไหม → ถ้าเอาออก ให้เปิด issue ให้คนที่ 1 · บันทึกพอร์ต 8000 ลง API_CONTRACT (#32 ข้อ 7)
+2. Forge: บอสเลือก `--share` แล้วและตั้งข้อยกเว้น Defender เฉพาะไฟล์ frpc สำเร็จ
+   · ค้างเพิ่ม `--api` แล้วตรวจ `/sdapi/v1/samplers` ผ่านลิงก์ `gradio.live` และตัดสินเรื่อง `--gradio-auth`/`--api-auth`
+3. คิวเดิมจากรอบ 2 ของวันที่ 18 ยังไม่ได้ขยับเลย
+
+**รออะไรจากใคร**
+- คนที่ 1 + 3: ตกลงพอร์ตและชื่อ env var
+
+**อัปเดตต่อ — รีวิว PR #99 รอบ 2**
+- ตรวจ head `5aff042` เทียบกับ review รอบแรกและไล่โค้ดจริงครบ 5 ข้อ:
+  ข้อ 2 (tiebreaker `created_at DESC, id DESC`), ข้อ 4 (escape `%`/`_`) และข้อ 5 (เพดาน `per_page=100`) แก้แล้ว
+  · ข้อ 1 แก้แล้วเฉพาะกรณี **ไม่ login ต้องได้ 401** แต่ ownership ยังไม่มี — ผู้ใช้ที่ login แล้วยังเห็น
+  `Asset.query` ทั้งตาราง ตั้งใจรอ #97 และ `/api/generate` บันทึก `user_id` ก่อน
+- ข้อ 3 ยังไม่ครบ: `test_list_assets_ordered_by_newest` ตรวจแค่ `items[0]` จึงยังผ่านได้แม้ลำดับเป็น
+  `[Newest, Oldest, Middle]` และยังไม่มี test กรณี `created_at` เท่ากันที่ต้องเรียง `id` มากก่อน
+- รัน `python tools/check_all.py --with-tests` ผ่านทั้งหมด 34 test (backend 26 + database 8)
+  และ probe พฤติกรรมเวลาเท่ากัน, wildcard `%`, เพดาน `per_page` ผ่านตามโค้ด
+- ส่ง review แบบ `CHANGES_REQUESTED` แล้วเวลา 14:36 น. ที่ commit `5aff042` — ขอแก้เฉพาะ test การเรียง 2 จุดข้างบน
+  · PR อยู่สถานะ `BLOCKED` · ร่าง review เก็บที่ `.agents/review-pr99.txt`
+
+**ค้างจากรีวิว #99**
+- รอ jet push แล้วรีวิวรอบ 3 เฉพาะ test ลำดับทั้งชุด + test เวลาเท่ากัน และตรวจว่าไม่มี regression เพิ่ม
+- ห้ามติ๊ก `API_CONTRACT.md` ข้อ 2 จนกว่า ownership จะเสร็จ
+
+**อัปเดตต่อ — ทำความเข้าใจ diff #31**
+- ไล่เหตุผลของ `restore()` ที่ต้องเรียก `_check_ok(backup_file)` ก่อน `_copy()`:
+  ถ้า copy ไฟล์เสียทับฐานข้อมูลจริงก่อน ฐานข้อมูลดีเดิมจะหาย แล้วตรวจเจอภายหลังก็ย้อนกลับไม่ได้
+- อธิบายเหตุผลที่ `backup()` ใช้ `sqlite3.Connection.backup()` แทนการ copy ไฟล์ `.db` ตรง ๆ:
+  SQLite เป็นคนสร้าง snapshot ที่สอดคล้องกัน แม้ Flask อาจกำลังเขียนอยู่ จึงไม่เสี่ยงได้ไฟล์ครึ่งเก่า–ครึ่งใหม่
+- ยังไม่ได้ push branch `feat/db-backup-restore` และยังไม่ได้เปิด PR — commit ยังคงเป็น `45bc4cf`
+
+**อัปเดตต่อ — ออกแบบ API_CONTRACT #32 ข้อ 3 (ยังรอทีมยืนยัน)**
+- บอสเลือก `POST /api/generate` แบบ queued: ตอบ HTTP `202` พร้อม `{ "status": "queued", "job_id": 17 }`
+  แล้ว frontend polling `GET /api/jobs/<job_id>` เพื่อตรวจ `pending → running → done/failed`
+- แนวทาง implementation ที่เลือกคือ Python `queue.Queue` + worker 1 ตัว
+  · ไม่ใช้ Redis, Celery หรือ WebSocket · service ดับกลางงานให้ job เป็น `failed` แล้วผู้ใช้กดใหม่ ไม่ทำ automatic resume
+- ใช้ตัวอย่าง `Image-processing-workshop_V1` เทียบแล้ว: workshop เป็น synchronous และถ้า backend ดับกลาง request
+  frontend จะ error/timeout แล้วต้องกดใหม่ จึงเก็บพฤติกรรม fail-and-retry แต่ไม่ลอกการรอแบบ synchronous มาใช้กับ LUMA
+- ร่างข้อความภาษาไทยสำหรับ Jet (`@jet-work`) และภาษาอังกฤษสำหรับ Dorji (`@tsheringdorji`) แล้ว
+  แต่ **ยังไม่ได้ส่งและยังไม่ถือว่าเป็นข้อตกลงทีม**
+
+**ค้างจาก API_CONTRACT #32**
+- ส่งข้อเสนอข้อ 3 ให้ Jet และ Dorji ยืนยันก่อน แล้วจึงบันทึกลง `docs/API_CONTRACT.md`
+- ข้อ 6 ยังไม่ตัดสินว่า queue worker อยู่ service ไหน และใครเขียน/อ่านตาราง `jobs`
+- ห้ามติ๊กข้อ 3 และห้ามสร้าง migration `jobs` จนกว่าคนที่ 1 และ 3 จะเห็นชอบ
+
+---
+
+## 2026-09-18 (รอบ 2) · #31 backup/restore + รีวิว PR ของคนที่ 1
+
+**branch**: `feat/db-backup-restore` (worktree แยกที่ `Project_LUMA/luma-wt-backup/`) · commit `45bc4cf`
+**สถานะ**: commit ในเครื่องแล้ว **ยังไม่ push / ยังไม่เปิด PR**
+
+**ทำอะไรไป**
+- `services/database/backup/db_backup.py` — `backup` / `restore` ผ่าน `sqlite3.Connection.backup()`
+  ชื่อไฟล์ `luma-<UTC ถึงไมโครวินาที>.db` ไม่เขียนทับ · restore ตรวจ `PRAGMA integrity_check` ก่อนเขียนทับเสมอ
+  · หา path ของ .db จาก `migrate_app` (ไฟล์เดียวกับ app จริง) · วิธีใช้อยู่หัวไฟล์
+- `services/database/tests/test_backup_restore.py` — 5 test (round-trip นับแถวเท่าเดิม, ชื่อไม่ชน, ไม่มีไฟล์ต้นทาง,
+  ไฟล์ขยะ, ไฟล์ SQLite เสียบางหน้า) · ทดลองทำโค้ดพังโดยตั้งใจ 4 แบบ test จับได้ครบ
+- `services/database/README.md` ติ๊ก "สคริปต์ backup + คู่มือ restore"
+- `check_all.py --with-tests` ผ่าน · database 12 + backend 12 test ผ่าน · รันคำสั่งจริง backup → ลบ → restore บน DB ชั่วคราวได้แถวครบ
+
+**เจอระหว่างทำ (สำคัญ)**
+- ⚠️ **backup API คัดลอกไฟล์ SQLite ที่เสียบางหน้าทับปลายทางได้เงียบๆ ไม่มี error** — ถ้า restore ไม่ตรวจก่อน DB ดีจะหาย
+- test ที่ลบไฟล์ .db บน Windows ต้อง `db.engine.dispose()` หลัง `upgrade()` ไม่งั้น `WinError 32` (engine ถือไฟล์ค้าง)
+- `print()` ภาษาไทยพังเมื่อ console/pipe เป็น cp1252 → ใช้ `_force_utf8_stdout()` แบบเดียวกับ `tools/check_all.py`
+- **ตาราง `jobs` ยังไม่ควรทำ** — API_CONTRACT ข้อ 3 (sync/queued) และข้อ 6 (jobs ใครเขียน/อ่าน) ยังเป็น ⬜
+  และ `ARCHITECTURE.md` วางคิวไว้ที่ ai-engine ขณะที่ข้อเสนอจากติวเตอร์วางที่ backend — ทำก่อนตกลง = migration ซ้ำ
+- env ที่ใช้รัน test: `conda activate luma` (env อยู่ใน `.conda/envs/luma` ของเครื่องตัวเอง) มี flask/flask_migrate/pytest ครบ
+
+**PR ของคนที่ 1**
+- **#92 approve + merge แล้ว** (`faadcc7`) — ตรวจจากโค้ดจริง: เลิกเทียบ `"wrong-password"`, ใช้ `check_password_hash`,
+  `register` ไม่หาย, ไม่มี trailer, check_all ผ่าน · ฝากไว้ใน review: ตอน V5 ต้องใส่ `ProxyFix`
+  ไม่งั้น rate limit นับ IP ของ Nginx → คนหนึ่งกรอกผิด 5 ครั้ง ทุกคนโดนล็อก
+- **#99 ขอแก้** — `GET /api/assets` ไม่ต้อง login ก็ได้ 200 (IDOR) · เรียงไม่มี `id` ตัดสินเวลาเท่ากัน ·
+  test เรียงลำดับไม่ได้ทดสอบจริง · `ilike` ไม่ escape, `per_page` ไม่มีเพดาน · API_CONTRACT ข้อ 2 ติ๊ก ✅ เร็วไป
+- #80 ไม่ได้แตะ — ไม่มี commit ใหม่หลังขอแก้ 5 ก.ย. (ถูกซอยเป็น #99 แล้ว)
+- ⚠️ ยังไม่ได้ปิด issue #51 ของ #92 — ต้องปิดมือ (Closes ไม่ทำงานบน develop) แต่ยังไม่ได้ไล่ MUST ของ #51
+
+**ค้างอยู่ / ทำต่อจากตรงไหน**
+1. อ่าน diff `45bc4cf` ให้เข้าใจเอง (โดยเฉพาะลำดับ `_check_ok` ก่อน `_copy` ใน `restore`) แล้วค่อย push + เปิด PR เข้า develop ใส่ `Refs #31` (seed ยังไม่เสร็จ)
+2. ไล่ MUST ของ #51 แล้วปิด issue ถ้าครบ
+3. ตกลง API_CONTRACT ข้อ 3, 5, 6 กับคนที่ 1 และ 3 → ปลดล็อก `jobs`, `tags`, seed
+4. worktree รีวิว `pr92`, `merge99` ลบแล้ว · ยังมี worktree เก่า `wt2` (detached, prunable) จาก session ก่อน — ลบได้ด้วย `git worktree prune`
+
+**รออะไรจากใคร**
+- คนที่ 1: แก้ #99
+- คนที่ 1 + 3: API_CONTRACT ข้อ 3, 5, 6
+
+---
+
+## 2026-09-18 · ตรวจโปรเจกต์เทียบสเปกอาจารย์ (ไม่ได้แก้โค้ด)
+
+**branch**: ไม่ได้แตะ · **สถานะ**: ได้รายการงาน + คำถามที่ต้องถามอาจารย์
+
+**ทำอะไรไป**
+- โหลดรูป LUMA 1-3 จากโพสต์อาจารย์ (7 ก.ค.) → ตรงกับ Lecture 4 หน้า 54–56 ที่ repo สรุปไว้แล้ว
+  รูป LUMA 2 คือ "แบ่งหน้าที่**ในกลุ่ม**" → ทุกกลุ่มสร้างระบบของตัวเองครบ โครง repo ไม่หลุด
+- คุยกับติวเตอร์ Iris 8 รอบ, C 8 รอบ, Sena 3 รอบ · สรุปเต็มอยู่นอก repo:
+  `Project_LUMA/{iris,c,sena}_chat_2026-09-18/00_สรุป.md`
+  ⚠️ ติวเตอร์ทั้ง 3 ไม่มีสไลด์วิชาเลย และยอมทุกข้อที่โดนแย้ง → ใช้เป็นความรู้ทั่วไป ไม่ใช่ข้อยืนยัน
+  ตัวเลขคะแนน/เวลา/ผลทดลองที่ติวเตอร์ให้ = แต่งขึ้นทั้งหมด ห้ามใช้
+- Sena (ตรวจอิสระ ไม่เห็นข้อสรุปคนอื่น) ได้ข้อสรุปตรงกันว่า รันข้าม 3 เครื่องจริง = หัวใจ · Queue จำเป็น
+  · ต้องดึงงานกลุ่ม Lecture 10 เข้า repo · แผน 17 วันของ Sena ให้คนที่ 2 ทำ migration tags + jobs (สัปดาห์นี้)
+  และ dashboard + backup (สัปดาห์หน้า) — ยังไม่ได้ตกลงทีม
+- อ่านสไลด์ Lecture 8–11 เอง เจอว่า **Lecture 10 Workshop = segmentation ≥50 ภาพ + ground truth + morphology
+  วัดด้วย Confusion Matrix + ROC** → คือวิธีที่อาจารย์ใช้วัดผล segmentation และทีมทำไว้แล้วใน
+  `310-3311_Image_Processing/Image-processing-workshop_V2/` (ยังไม่ได้เปิดโค้ด) · Lecture 11 สอน K-Means, watershed
+  · Lecture 9 สอน region labeling/contour + Workshop REST server
+
+**เจอว่าหลุดจากสเปก / ยังไม่มี**
+- `COURSE_REQUIREMENTS.md` สรุปถึง Lecture 7 แต่อาจารย์สอนถึง Lecture 11 แล้ว (Mediapipe, Edge/Corner, Morphological, Segmentation)
+- สเปก LUMA 2 ที่ยังไม่มีเลย: **Queue** (ตอนนี้ `/api/generate` บล็อกได้ 120 วิ), Image Editing/img2img, Model/LoRA, คู่มือ, Dashboard, Backup
+- สเปก Lecture 4 หน้า 52 ที่ยังไม่มี: Smart Canvas จัด Layout + เลือกวัตถุอัตโนมัติ, Asset Hub ปรับ style ต่อผู้ใช้
+- 🐛 `frontend/js/register.js` ยังคอมเมนต์ fetch ไว้ และ path เป็น `/api/register` (ของจริง `/api/auth/register`) — ของคนที่ 1
+
+**ตัดสินใจอะไรไว้** (ข้อเสนอ ยังไม่ได้ตกลงทีม)
+- remove_bg ใช้ HSV จากการบ้าน 5.2 ไม่ใช้ `rembg` · ไม่ใช้ API ภาพภายนอกแทน Forge
+- 05_evaluation วัด segmentation ด้วย Confusion Matrix + ROC ตาม Lecture 10 (+ Precision/Recall/F1/IoU) กับชุดภาพที่มี ground truth · histogram stats ย้ายไป 04_features
+- เก็บไฟล์ภาพที่ .20 ที่เดียว · ภาพจาก Forge มาเป็น base64 ใน response อยู่แล้ว
+
+**ค้างอยู่ / ทำต่อจากตรงไหน**
+1. ถามอาจารย์: วันส่ง (ก่อน/หลังสอบ 5–16 ต.ค.) · แยก 3 เครื่องจริงหรือจำลองได้ · เกณฑ์คะแนน
+2. คิวของผมยาวขึ้น: migration `jobs` (Queue รอตัวนี้ · ⛔ รอ API_CONTRACT ข้อ 3, 6 — ดูรอบ 2) → `tags` + `asset_tags` (ยังรอข้อ 5 API_CONTRACT) → คอลัมน์ `assets.source` → query Asset Hub (#24) → seed + backup (#31 ส่วน backup ทำแล้วในรอบ 2)
+3. ไล่ Lecture 8–11 หาข้อกำหนดใหม่ แล้วเปิด PR แก้ `COURSE_REQUIREMENTS.md`
+
+**รออะไรจากใคร**
+- อาจารย์: 3 ข้อข้างบน
+- คนที่ 3: พร้อมทำ ai-engine ไหม มี GPU ไหม · ข้อ 5 API_CONTRACT (รูปแบบ auto-tag)
+- คนที่ 1: register.js · #100 #101
+
+---
+
 ## 2026-09-09 (รอบ 6) · เคลียร์ PR ของคนที่ 1 และเจอช่องโหว่ frontend ขึ้นก่อน backend
 
 **branch**: ทำบน GitHub ล้วน · **สถานะ**: เหลือ #92 กับ #80
