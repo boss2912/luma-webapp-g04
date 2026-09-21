@@ -136,8 +136,41 @@ SQLite เอา collation ของคอลัมน์มาใช้กั�
 - `auth.py:59` ทำ `.lower()` ให้แค่ `email` ส่วน `username` ไม่ถูก normalize → MUST ข้อ 4 ของ #49
   ปิดไม่ได้จนกว่า #119 merge
 
+**อัปเดตต่อ — #111 ของคนที่ 1 ซ้อนกับ #112 + อัปเดตคิวที่ล้าสมัย**
+- คนที่ 1 เปิด **#111** `docs: bring START_*.md and worklog/ onto develop` เวลา 09:53 น.
+  (ก่อน #112 ราวหนึ่งชั่วโมง) เจตนาเดียวกัน แต่ดึงไฟล์มา as-is ทั้ง 7 ไฟล์
+  · grep แยกต่อไฟล์แล้ว: `START_*` มีร่องรอย AI 5 บรรทัด/ไฟล์ · `worklog/2-data.md` 15 บรรทัด
+    · `worklog/README.md` 3 บรรทัด · **`1-web.md` ของเขาสะอาด 0 บรรทัด**
+  · PR body มี `🤖 Generated with Claude Code` + ลิงก์ session
+- ส่ง review `CHANGES_REQUESTED` ขอให้เหลือเฉพาะ `1-web.md` ของเขา · เอา `2-data.md`/`3-ai-ip.md` ออก
+  (worklog เป็นไฟล์รายคน) · `README.md` ให้ตัด 3 บรรทัดนั้นแล้วให้ทีมรีวิวร่วม
+  · เรื่อง AI attribution เขียนแบบ **ขอ ไม่ใช่อ้างว่าทีมตกลงแล้ว** เพราะยังไม่เคยเข้าที่ประชุม
+    และเสนอว่าถ้าเห็นด้วยจะเปิด PR บันทึกเป็น ADR ใน `DECISIONS.md`
+- **อัปเดตคิวที่ล้าสมัยใน #112 ก่อน merge** ตามที่ถูกท้วง — ถ้า merge as-is ทีมจะได้ไฟล์นำทางที่ผิด
+  · `START_2_DATA.md` เขียนสถานะและคิวใหม่ทั้งหมด + วิธีเช็ค migration revision + กับดัก 2 แบบ
+  · `START_1`/`START_3` ไม่แก้เนื้อคิวของเจ้าของ ใส่แค่กล่องเตือนที่หัวไฟล์ (กติกาข้อ 1)
+  · แก้จุดที่เผลออ้าง `AGENTS.md` ในไฟล์ที่จะขึ้น repo → ชี้ `HOW_TO_WORK.md` แทน
+  · merge `origin/develop` เข้า branch · test 35 ผ่าน · ลิงก์ 72 ตัวตาย 0
+
+**ของที่เจอเพิ่ม — CODEOWNERS บน develop ล้าสมัย**
+- `.github/CODEOWNERS` บน `develop` **ไม่มี `@tsheringdorji` เลย** แม้แต่บรรทัด `/services/ai-engine/`
+  → PR ของคนที่ 3 ทั้ง 8+ ตัวไม่ถูกดึงใครมารีวิวอัตโนมัติ
+- rule รายไฟล์ (`START_*`, `worklog/*`) และการเพิ่มคนที่ 3 อยู่แค่บน branch นี้ (commit `6fcb272`)
+- **และ GitHub login จริงของคนที่ 3 คือ `6710301001-dorji` ไม่ใช่ `@tsheringdorji`**
+  → ถ้าเอา CODEOWNERS ฉบับ branch นี้ขึ้นตรงๆ rule จะยังไม่ทำงาน ต้องแก้ชื่อก่อน
+  → `.github/` เป็นของที่ทุกคนต้องเห็นชอบ จึงควรแยก PR
+
+**สถานะ PR ของทีมเปลี่ยนไปมากในวันเดียว**
+- #110 ของเรา **approved แล้ว** รอ merge
+- draft 8 ตัวของคนที่ 3 ไม่เป็น draft แล้วทั้งหมด · #104-109 approved โดยคนที่ 1 · #103 ยัง
+  CHANGES_REQUESTED แต่ Dorji แก้ `IMREAD_COLOR` + เพิ่ม test alpha/grayscale PNG + `samples/output` แล้ว
+- PR ใหม่ที่ยังไม่มีใครรีวิว: #113 (palette route ของคนที่ 1) · #114 (03_segmentation + remove_bg)
+  · #116 (PSNR/SSIM) · #117 (IoU + ภาพ ground_truth/predictions 10 ไฟล์) · #118 (feature vector)
+- **pipeline ครบทั้ง 5 ส่วนในระดับ PR แล้ว** ต่างจากเช้านี้ที่ 03 กับ 05 ยังว่างเปล่า
+
 **ค้างอยู่ / ทำต่อจากตรงไหน**
-1. **#119 UNIQUE COLLATE NOCASE** — คิวบนสุดจริง ไม่ใช่ #97 และไม่ต้องรอ #32
+1. merge #110 ที่ approved แล้ว
+2. **#119 UNIQUE COLLATE NOCASE** — คิวบนสุดจริง ไม่ใช่ #97 และไม่ต้องรอ #32
    · ก่อนเริ่ม ต้องถามในกลุ่มว่าเครื่องใครมี `users` ชนกันแบบ case-insensitive กี่แถว (ห้ามสมมติว่าว่าง)
    · ให้ PR ของ #49 merge ก่อน PR นี้
 2. #17 (tags) รอ #32 ข้อ 5 จากคนที่ 3
