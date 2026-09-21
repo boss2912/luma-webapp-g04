@@ -7,6 +7,62 @@
 
 ---
 
+## 2026-09-21 · ตรวจ PR ทั้ง 11 ตัว + เปิด PR #112 เอาไฟล์ "เริ่มตรงนี้" ขึ้น develop
+
+**branch**: `docs/start-here-per-person` (ใหม่ ตัดจาก develop) · **สถานะ**: PR #112 เปิดแล้ว รอรีวิว
+
+**ตรวจ PR ทั้งหมดที่เปิดค้าง 11 ตัว (ไล่ diff จริง ไม่ได้ดูแค่สถานะ)**
+- #110 ของเราเอง merge ได้ แต่ 0 review รอคนอื่นกด · #99 ยังค้างที่ฝั่งเราตัดสิน head ไม่ขยับตั้งแต่ 19 ก.ย.
+- #80 `CONFLICTING` + 3,386 บรรทัด นิ่ง 12 วัน งานถูกซอยไป #83-#93 ที่ merge แล้ว → ควรปิดทิ้ง
+- draft ของคนที่ 3 ทั้ง 8 ตัว (#102-109) ยังเป็น draft ทุกตัว 0 review 0 comment ไม่มีใครรีวิวได้
+
+**ผลตรวจเนื้อ draft 8 ตัว — ที่ผ่านจริง**
+- ไม่มี `import flask` ใน `pipeline/` เลยแม้แต่ไฟล์เดียว (AGENTS ข้อ 8.2)
+- docstring อ้างเลขหน้าสไลด์จริง เช่น `Lecture 3, pp. 55-56`, `Lecture 4, p. 27` (ข้อ 8.3)
+- test เป็นแบบรู้คำตอบล่วงหน้าตามข้อ 7: `gamma(img, 1.0)` ได้ภาพเดิม · `filter_separable` เท่ากับ 2D ·
+  วงกลมกลมกว่าสี่เหลี่ยม · `skimage`/`Pillow`/`scipy` ที่ test ใช้ มีใน requirements.txt อยู่แล้ว ไม่ต้องแก้
+
+**ผลตรวจ draft 8 ตัว — 4 ข้อที่ต้องแก้ก่อน merge**
+1. `scope` commit ผิดทุกตัว: #103/#104 ใช้ `ip` (ไม่มีในรายการที่อนุญาต) · #105-109 ใช้ `ai` ทั้งที่เป็นงาน
+   pipeline ล้วน → `git log --grep pipeline` จะได้ศูนย์ ทั้งที่ pipeline คือเกณฑ์ 40%
+2. `samples/output/` ยังว่างทั้ง 8 PR (ใส่แค่ `samples/input/`) → ข้อ 8.4 ไม่ผ่าน
+3. #103 รับ path ตรงๆ (`load(path)`, `read_exif(path)`) ขัดข้อ 8.1 — แต่ 01_acquisition คืองานอ่านไฟล์
+   โดยธรรมชาติ ต้องตัดสินว่าจะยกเว้นแล้วเขียนลง DECISIONS.md หรือแยกชั้น io ออก
+4. #102 ตัด branch จาก `main` ไม่ใช่ `develop` → พา merge commit ฝั่ง release 10 ตัวที่ยังไม่อยู่ใน develop
+   เข้ามาด้วย (`f49f5ee`, `e951470`, `3ef769e` เช็คแล้ว `--is-ancestor` = NO ทั้งหมด) diff จริง +260/-0 ปลอดภัย
+- และที่สำคัญกว่า 4 ข้อข้างบน: merge ทั้ง 8 ตัวแล้ว **#101 ยังไม่ถูกแก้** เพราะ #102 เปิดแค่
+  `POST /forge/txt2img` ไม่มี `/pipeline/*` เลย โค้ด palette ใน #108 จึงไม่มีทางถูกเรียกจากเว็บ
+
+**เปิด PR #112**
+- `docs/START_1_WEB.md`, `START_2_DATA.md`, `START_3_AI_IP.md` ไม่เคยอยู่บน develop หรือ main เลย
+  อยู่แค่บน `feat/skeleton-assets-table` → คนที่ 1 กับ 3 ที่ clone develop ไม่เคยเห็นคิวงานตัวเอง
+- ตัดหัวข้อ "ทำงานกับ AI" ออกจากทั้ง 3 ไฟล์ (25/24/27 บรรทัด) และไม่เอา worklog ขึ้น develop
+  เพราะ `2-data.md` มี 17 บรรทัดที่อ้าง `.agents/`, Codex และคำสั่ง grep หา `Co-Authored-By`
+  ซึ่งขัดกับที่ตัดสินไว้เองใน entry วันที่ 18 ก.ย.
+- PR 795 บรรทัด เกินเพดาน ~400 ของทีม — เขียนเหตุผลไว้ในคำอธิบาย PR ว่าซอยไม่ได้เพราะ
+  `HOW_TO_WORK.md` ชี้ไป `START_*.md` ทั้ง 3 ไฟล์ แยก PR แล้ว `check_doc_links` จะแดงระหว่างรอ merge
+
+**บั๊กที่เจอใน `tools/` — ยังไม่แก้ เพราะเป็นของที่ทุกคนต้องเห็นชอบ**
+- `tools/run_all_tests.py:142` ถือ pytest exit code 0 และ 5 เป็น `PASS`
+  และเมื่อเครื่องไม่มี pytest จะขึ้นสถานะ `NO-PYTEST` แต่ยัง **exit 0**
+- ผล: `check_all.py --with-tests` พิมพ์ "ผ่านทุกรายการ" ทั้งที่รัน test 0 ข้อ
+  (พิสูจน์แล้ว: python 3.12 ที่ไม่มี pytest → `[ผ่าน] pytest ทุก service 0.21s`)
+- รันด้วย `C:\ProgramData\miniconda3\Scripts\conda.exe run -n luma` จึงได้ของจริง: ผ่าน 24 test
+  (backend 16 + database 8) — `conda` ไม่อยู่ใน PATH ของ git bash และ PowerShell ต้องเรียก path เต็ม
+- repo ไม่มี `.github/workflows/` เลย ด่าน `check_all` จึงเป็นด่านเดียวที่กัน test พัง
+
+**ค้างอยู่ / ทำต่อจากตรงไหน**
+1. ตัดสิน #99 — approve พร้อมหมายเหตุเรื่อง test sensitivity หรือขอแก้ (ยังไม่กดอะไรบน GitHub)
+2. บอกคนที่ 3 เรื่อง 4 ข้อของ draft 8 ตัว และให้กด Ready for review
+3. ตัดสินว่าจะเปิด issue เรื่องบั๊ก `run_all_tests.py` และเรื่อง CI ไหม
+4. seed data ของ #31 — MUST 2 ข้อยังไม่เริ่ม · #17 tags many-to-many · #24 Asset Hub queries
+
+**รออะไรจากใคร**
+- คนที่ 1: รีวิว #110 และ #112 · รายละเอียด callback contract ของ #32 (ยังบล็อกตาราง `jobs`)
+- คนที่ 3: กด Ready for review ทั้ง 8 ตัว
+
+---
+
 ## 2026-09-20 (รอบ 2) · เคลียร์ของค้างในเครื่อง + รีวิว #99 รอบ 3 + เปิด PR #110
 
 **branch**: `feat/skeleton-assets-table`, `feat/db-backup-restore` · **สถานะ**: PR #110 เปิดแล้ว · #99 รอบอสตัดสิน
