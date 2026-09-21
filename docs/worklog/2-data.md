@@ -67,8 +67,28 @@
   และต้องตัดสินใจเรื่อง asset เก่าที่ `user_id` เป็น NULL ซึ่งบล็อก #97 ของเราอยู่
   · test tiebreaker ใส่เป็น MAY ใน #115 เพราะต้องแตะไฟล์ test ชุดเดียวกันอยู่แล้ว
 
+**อัปเดตต่อ — แก้ขอบเขต #115/#97 + ฐานข้อมูลในเครื่องที่ค้าง 1 migration**
+- เช็คฐานจริง `services/backend/instance/luma.db` พบว่าค้างที่ `18566175f613` (migration ตัวแรก)
+  ทั้งที่ `deba60c08f36` merge ไปแล้วตั้งแต่ PR #96 → ไม่มีตาราง `users` ไม่มีคอลัมน์ `user_id`
+  แปลว่าถ้ารันเว็บทดสอบ login จะพัง และทดสอบ #97 ไม่ได้เลยเพราะคอลัมน์ที่จะเปลี่ยนยังไม่มี
+- ตอนรัน `flask db upgrade` ครั้งแรกไม่มีอะไรเกิดขึ้น **ต้นเหตุคือ working tree อยู่บน
+  `feat/skeleton-assets-table` ที่ตามหลัง develop** ไฟล์ `deba60c08f36` จึงไม่มีอยู่ในดิสก์
+  alembic เห็นแค่ migration ตัวเดียวจึงรายงานว่า `18566175f613 (head)` — ไม่ใช่บั๊ก alembic
+  · checkout develop แล้วรันอีกครั้งจึงขึ้นเป็น `deba60c08f36` สำเร็จ (assets 0 แถว users 0)
+  · **บทเรียน: งาน db ต้องทำจาก branch ที่ตัดจาก develop เท่านั้น ไม่ใช่จาก branch นี้**
+- `PRAGMA foreign_keys` อ่านได้ 0 ตอนต่อด้วย `sqlite3` ตรงๆ — ตรวจแล้วไม่ใช่ปัญหา
+  `app/models/__init__.py:63` มี event listener เปิด `PRAGMA foreign_keys=ON` ทุก connection
+  และมี `test_every_connection_has_foreign_keys_pragma_on` คุมอยู่
+- แก้ #115: ตัด MUST ข้อ "ตัดสินใจเรื่อง asset เก่าที่ user_id เป็น NULL" ออก เพราะวางผิดเจ้าของ
+  `.github/CODEOWNERS` ระบุ `/services/database/ @boss2912` คนเดียว คนที่ 1 แตะ migration ไม่ได้
+- คอมเมนต์ใน #97: ย้าย MUST ข้อนั้นมา · แก้ "รออะไรก่อน" ที่ล้าสมัย (#49/#50 merge แล้ว ตัวที่บล็อก
+  จริงคือ #115 ข้อแรก) · เสนอ 3 ทางสำหรับแถวเก่าพร้อมผลต่าง **ยังไม่เคาะ รอตัดสิน**
+  · ทาง A ที่แนะนำ: migration สร้างบัญชี demo แล้ว UPDATE แถว NULL ไปที่บัญชีนั้น
+    เพราะ #31 ต้องมีเจ้าของให้ asset 20 ใบอยู่แล้ว และ downgrade กลับได้โดยข้อมูลไม่หาย
+
 **ค้างอยู่ / ทำต่อจากตรงไหน**
-1. #97 ของเรารอ #115 ข้อสุดท้าย (ตัดสินใจเรื่อง asset เก่า `user_id = NULL`) ก่อนทำ `NOT NULL` ได้
+1. เคาะว่าจะใช้ทาง A/B/C กับแถวเก่าของ #97 แล้วเขียน test 3 ข้อก่อนเขียน migration
+   (test เขียนได้เลยไม่ต้องรอ #115 — ตัวที่รอคือการเปลี่ยน `NOT NULL` จริง)
 2. บอกคนที่ 3 เรื่อง 4 ข้อของ draft 8 ตัว และให้กด Ready for review
 3. ตัดสินว่าจะเปิด issue เรื่องบั๊ก `run_all_tests.py` และเรื่อง CI ไหม
 4. seed data ของ #31 — MUST 2 ข้อยังไม่เริ่ม · #17 tags many-to-many · #24 Asset Hub queries
