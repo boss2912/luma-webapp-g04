@@ -51,8 +51,24 @@
   (backend 16 + database 8) — `conda` ไม่อยู่ใน PATH ของ git bash และ PowerShell ต้องเรียก path เต็ม
 - repo ไม่มี `.github/workflows/` เลย ด่าน `check_all` จึงเป็นด่านเดียวที่กัน test พัง
 
+**อัปเดตต่อ — รีวิวรอบ 4 แล้ว approve + merge #99**
+- ตรวจที่ head `b8ec014` ใน worktree `pr99` (สะอาด · 0 behind develop) รัน test เองได้ 35 ข้อผ่าน ล้ม 0
+- ตรวจเพิ่มที่รอบก่อนยังไม่ได้ดู: ไล่ `send_file(full_path)` ย้อนไปถึง `forge_client.save_base64_image()`
+  พบว่าชื่อไฟล์เป็น `uuid4().hex + ".png"` ไม่มี input ของผู้ใช้ใน path เลย → **ไม่มีช่อง path traversal**
+  · `max_per_page=100` · `icontains(q, autoescape=True)` · `page`/`per_page` เป็น `type=int` ส่งค่าขยะไม่ 500
+- ยืนยันเหตุผลเรื่อง ownership ของ jet ด้วยของจริง ไม่ใช่เชื่อคำอธิบาย: `/api/generate` บน develop
+  สร้าง `Asset(prompt=, file_path=)` ไม่ผูก `user_id` และ migration `deba60c08f36:34` ตั้ง `nullable=True`
+  → เปิด filter ตอนนี้จะคืน 0 แถวเสมอ แกลเลอรีว่างทั้งระบบ **เปิดไม่ได้จริง**
+- approve พร้อมบันทึก probe เรื่อง test tiebreaker ลงในรีวิว แล้ว merge เข้า develop สำเร็จ commit `331075c`
+- develop หลัง merge รัน test ครบ: ผ่าน 35 (backend 27 + database 8) ล้ม 0 — DoD ข้อ "ระบบยังรันได้" ผ่าน
+- PR body ไม่มี `Closes #100` GitHub จึงไม่ปิดเอง → ปิด #100 ด้วยมือพร้อมอ้าง commit
+- เปิด **issue #115** ให้คนที่ 1 (`owner:1` `security` `priority:high`): `/api/generate` ผูก `user_id`
+  → เปิด ownership filter → แล้วค่อย #97 `NOT NULL` · MUST ระบุว่าต้องตอบ 404 ไม่ใช่ 403 เมื่อไม่ใช่เจ้าของ
+  และต้องตัดสินใจเรื่อง asset เก่าที่ `user_id` เป็น NULL ซึ่งบล็อก #97 ของเราอยู่
+  · test tiebreaker ใส่เป็น MAY ใน #115 เพราะต้องแตะไฟล์ test ชุดเดียวกันอยู่แล้ว
+
 **ค้างอยู่ / ทำต่อจากตรงไหน**
-1. ตัดสิน #99 — approve พร้อมหมายเหตุเรื่อง test sensitivity หรือขอแก้ (ยังไม่กดอะไรบน GitHub)
+1. #97 ของเรารอ #115 ข้อสุดท้าย (ตัดสินใจเรื่อง asset เก่า `user_id = NULL`) ก่อนทำ `NOT NULL` ได้
 2. บอกคนที่ 3 เรื่อง 4 ข้อของ draft 8 ตัว และให้กด Ready for review
 3. ตัดสินว่าจะเปิด issue เรื่องบั๊ก `run_all_tests.py` และเรื่อง CI ไหม
 4. seed data ของ #31 — MUST 2 ข้อยังไม่เริ่ม · #17 tags many-to-many · #24 Asset Hub queries
