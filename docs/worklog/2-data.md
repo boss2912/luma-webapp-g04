@@ -168,9 +168,18 @@ SQLite เอา collation ของคอลัมน์มาใช้กั�
   · #116 (PSNR/SSIM) · #117 (IoU + ภาพ ground_truth/predictions 10 ไฟล์) · #118 (feature vector)
 - **pipeline ครบทั้ง 5 ส่วนในระดับ PR แล้ว** ต่างจากเช้านี้ที่ 03 กับ 05 ยังว่างเปล่า
 
+**merge #110 แล้ว — commit `6459e19`**
+- ตรวจก่อนกด: diff แตะแค่ 3 ไฟล์ใน `services/database/` (README, `backup/db_backup.py`,
+  `tests/test_backup_restore.py`) · grep ร่องรอย AI ใน diff = 0 · query `mergeable` 3 ครั้งได้
+  `MERGEABLE` + `CLEAN` + `APPROVED` ตรงกันทุกครั้งก่อนกด ไม่ได้ฝืนสถานะ `UNKNOWN`
+- body ไม่มี `Closes` → **#31 ยังเปิดอยู่ตามที่ควร** เพราะ MUST เรื่อง seed data ยังไม่ทำ
+- หลัง merge: `check_all.py --with-tests` ผ่าน 7/7 (ขั้น pytest ใช้เวลา 9.83s = รันจริง)
+  · **ผ่าน 40 test** (backend 27 + database 13 — database เพิ่มจาก 8 เพราะ test backup/restore 5 ข้อ)
+- ตรวจ develop หลัง merge: ไม่มีไฟล์ `.claude` / `.agents` / `AGENTS.md` tracked
+  และ `git grep` ไม่เจอ `Co-Authored-By` หรือชื่อเครื่องมือ AI ในเนื้อไฟล์ใดเลยทั้ง repo
+
 **ค้างอยู่ / ทำต่อจากตรงไหน**
-1. merge #110 ที่ approved แล้ว
-2. **#119 UNIQUE COLLATE NOCASE** — คิวบนสุดจริง ไม่ใช่ #97 และไม่ต้องรอ #32
+1. **#119 UNIQUE COLLATE NOCASE** — คิวบนสุดจริง ไม่ใช่ #97 และไม่ต้องรอ #32
    · ก่อนเริ่ม ต้องถามในกลุ่มว่าเครื่องใครมี `users` ชนกันแบบ case-insensitive กี่แถว (ห้ามสมมติว่าว่าง)
    · ให้ PR ของ #49 merge ก่อน PR นี้
 2. #17 (tags) รอ #32 ข้อ 5 จากคนที่ 3
