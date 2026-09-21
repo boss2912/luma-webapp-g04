@@ -103,8 +103,44 @@
 - ถอนข้ออ้างที่เดาไว้ใน #97: "เครื่องคนที่ 1 มี dev data ที่ user_id เป็น NULL" ยืนยันไม่ได้จาก
   repo หรือ GitHub → แก้คอมเมนต์ใน #97 แล้ว และต้องถามในกลุ่มว่าเครื่องใครมีแถว NULL กี่แถว
 
+**อัปเดตต่อ — แยก #17 ออกเป็นสอง issue หลังถูกท้วง**
+- #17 เดิมรวมงานอิสระสองก้อนที่ dependency ต่างกัน: `tags`/`asset_tags` ต้องรอ #32 ข้อ 5 จริง
+  (เพราะ `score` กระทบ schema ของ `asset_tags`) แต่ `users` NOCASE ไม่เกี่ยวกับ auto-tag เลย
+  และบล็อก #49 อยู่ → ถ้าไม่แยก ช่องโหว่บัญชีต้องรอคนที่ 3 โดยไม่จำเป็น
+- **เปิด #119** `[DB] users.username / email เป็น UNIQUE COLLATE NOCASE` (`owner:2` `security` `priority:high`)
+  · MUST กำหนดให้ migration **fail-fast** ถ้าเจอแถวชนกันแบบ case-insensitive และ **ห้ามรวม/ลบบัญชีเอง**
+    เพราะเป็นการตัดสินใจแทนเจ้าของข้อมูล · ห้ามแก้ schema ค้างครึ่งทาง
+  · MUST ข้อ "โมเดล + migration commit เดียวกัน"
+- **แก้ #17** เหลือเฉพาะ `tags`/`asset_tags` + หมายเหตุว่าส่วน NOCASE ย้ายไป #119
+- **คอมเมนต์ #49** เพิ่มงาน race-safe registration (จับ `IntegrityError` + `rollback()` + ตอบรูปแบบ
+  เดียวกับ pre-check) — งานนี้เกือบถูกยัดเข้า #115 ซึ่งผิด เพราะ #115 เป็นเรื่อง ownership ของ `assets`
+  ส่วน #49 มี MUST เรื่อง duplicate registration อยู่แล้ว
+
+**ผลทดลอง SQLite ที่ใช้ตัดสิน (ทำเอง ไม่ได้อ่านจากเอกสาร)**
+```
+คอลัมน์ COLLATE NOCASE : SELECT WHERE username='boss' -> เจอแถว 'Boss'
+                         ถ้า pre-check พลาด: INSERT 'boss' -> IntegrityError
+คอลัมน์ไม่มี NOCASE     : SELECT ไม่เจอ · INSERT ผ่าน -> ['Boss', 'boss']
+```
+SQLite เอา collation ของคอลัมน์มาใช้กับ `=` เมื่อ query ไม่มี `COLLATE` กำกับ
+→ **แก้คำพูดตัวเอง**: ที่เคยบอกว่า "merge NOCASE เดี่ยวๆ แล้ว register จะตอบ 500" ผิด
+  กรณีสมัครตามลำดับ `auth.py:70` จับได้เอง ไม่ถึง `commit()` · 500 เกิดเฉพาะกรณี race 2 request พร้อมกัน
+→ **อ้างกฎผิดข้อด้วย**: ยกกฎ "security + client ต้องอยู่ commit เดียวกัน" มาใช้ ทั้งที่กรณีนี้ไม่มี
+  client change เลย กฎที่ตรงคือ "โมเดล + migration commit เดียวกัน" + ลำดับ merge ระหว่าง service
+
+**ของที่เจอเพิ่มระหว่างตรวจ**
+- contract ของ duplicate registration ไม่ตรงกัน 3 แหล่ง: `API_CONTRACT.md` และ MUST ข้อ 3 ของ #49
+  บอก **400** + `{"errors": {"general": ...}}` แต่ `auth.py:74` ตอบ **409** + `{"error": ...}`
+  · `services/frontend/js/register.js` ยังเป็น mock ทั้งไฟล์ (โค้ดเรียก API comment ไว้บรรทัด 52-55)
+    → แก้ให้ตรง contract ตอนนี้ต้นทุนเป็นศูนย์ ยังไม่มีหน้าเว็บอ่านอยู่
+- `auth.py:59` ทำ `.lower()` ให้แค่ `email` ส่วน `username` ไม่ถูก normalize → MUST ข้อ 4 ของ #49
+  ปิดไม่ได้จนกว่า #119 merge
+
 **ค้างอยู่ / ทำต่อจากตรงไหน**
-1. **#17 tags many-to-many + UNIQUE COLLATE NOCASE** — คิวบนสุดจริง ไม่ใช่ #97
+1. **#119 UNIQUE COLLATE NOCASE** — คิวบนสุดจริง ไม่ใช่ #97 และไม่ต้องรอ #32
+   · ก่อนเริ่ม ต้องถามในกลุ่มว่าเครื่องใครมี `users` ชนกันแบบ case-insensitive กี่แถว (ห้ามสมมติว่าว่าง)
+   · ให้ PR ของ #49 merge ก่อน PR นี้
+2. #17 (tags) รอ #32 ข้อ 5 จากคนที่ 3
    · ยังต้องปิดข้อ 5 ของ #32 (รูปแบบ auto-tag มี score หรือไม่) ก่อนออกแบบ `asset_tags`
 2. #97 รอ PR ของ #115 merge (1 task = 1 PR) แล้วค่อยทำ — ตอนเริ่มให้เคาะ policy แถวเก่าก่อน
    (legacy user หรือลบ · ห้ามผูกให้ user คนแรก)
