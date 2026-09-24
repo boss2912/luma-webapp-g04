@@ -232,9 +232,12 @@ def handle_txt2img(body: dict) -> tuple[int, dict]:
 
 
 def handle_img2img(body: dict) -> tuple[int, dict]:
-    init = body.get("init_image")
+    # Forge จริงรับภาพต้นฉบับเป็น init_images ซึ่งเป็น list — ai-engine จึงส่งแบบนั้น
+    # init_image เดี่ยวยังรับไว้ เผื่อใครยิง mock ตรงๆ ด้วยมือ (issue #156)
+    images = body.get("init_images")
+    init = images[0] if isinstance(images, list) and images else body.get("init_image")
     if not isinstance(init, str) or not init:
-        return bad_request("img2img ต้องมี init_image เป็น base64")
+        return bad_request("img2img ต้องมี init_images (list) หรือ init_image เป็น base64")
     try:
         base64.b64decode(init, validate=True)
     except (binascii.Error, ValueError):
