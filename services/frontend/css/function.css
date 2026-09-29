@@ -1,6 +1,6 @@
 /* ==========================================================================
    LUMA — หน้า Function (Issue #163)
-   เบลอเฉพาะจุด + จับหน้า + เลือกสีแล้วตีกรอบ
+   เบลอเฉพาะจุด + จับหน้า
    ========================================================================== */
 
 /* ขั้นตอน 1-2-3 — แสดงทีละขั้น ไม่เปิดทุกอย่างพร้อมกัน
@@ -169,28 +169,6 @@
   border: 1px solid #ddd;
   border-radius: 6px;
   font: inherit;
-}
-
-/* ปุ่มเลือกสี — กดเลย ไม่ต้องพิมพ์องศาเอง */
-.fn-color-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.fn-swatch {
-  padding: 0.45rem 0.9rem;
-  font: inherit;
-  font-weight: 600;
-  color: #fff;
-  border: 2px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.fn-swatch.is-active {
-  border-color: #1a1a1a;
-  box-shadow: 0 0 0 2px #fff inset;
 }
 
 .fn-selection,

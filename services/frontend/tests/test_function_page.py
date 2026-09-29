@@ -98,34 +98,6 @@ def test_server_error_is_shown_and_button_recovers():
     assert result["buttonDisabled"] is False
 
 
-# --------------------------------------------- ฟังก์ชันที่ 3: เลือกสีแล้วตีกรอบ
-
-def test_clicking_a_swatch_marks_it_active_and_only_it():
-    """[กรณีทดสอบ]: กดสวอทช์สี -> ต้อง is-active แค่อันที่กด ไม่ใช่ค้างอันเดิมด้วย"""
-    result = _run("choose_swatch")
-    assert result["activeHues"] == ["120"]
-
-
-def test_find_by_color_sends_hue_and_form_params_and_draws_boxes():
-    """[กรณีทดสอบ]: กดหาวัตถุตามสี -> ส่งองศาที่เลือกจากสวอทช์ และค่าจากฟอร์ม"""
-    result = _run("color_request")
-    assert result["url"].endswith("/api/pipeline/find-by-color")
-    assert result["body"]["center_degrees"] == 120
-    assert result["body"]["tolerance_degrees"] == 25
-    assert result["body"]["minimum_area"] == 300
-    assert "1" in result["result"]
-    assert {"x": 1, "y": 2, "width": 3, "height": 4} in result["strokes"]
-    assert result["sentImage"] == "data:image/png;base64,Q0xFQU4="
-
-
-def test_no_objects_found_by_color_tells_the_user_what_to_do():
-    """[กรณีทดสอบ]: ไม่เจอวัตถุที่ตรงสีไม่ใช่ error — ต้องบอกผู้ใช้และปุ่มกลับมากดได้"""
-    result = _run("color_empty")
-    assert "ไม่พบวัตถุที่ตรงกับสี" in result["result"]
-    assert result["hidden"] is False
-    assert result["buttonDisabled"] is False
-
-
 # ------------------------------------------------- ลำดับขั้น 1-2-3 (ปรับตามที่ผู้ใช้ขอ)
 
 def test_only_the_function_step_shows_at_the_start():
@@ -149,10 +121,6 @@ def test_choosing_a_function_opens_the_image_step_with_only_that_tool():
     assert s["toolObjects"] is True and s["toolBlur"] is False
     assert s["chosenName"] == "จับหน้า"
 
-    s = _run("after_choose_color")
-    assert s["toolColor"] is True and s["toolBlur"] is False and s["toolObjects"] is False
-    assert s["chosenName"] == "เลือกสีแล้วตีกรอบ"
-
 
 def test_picking_an_image_opens_the_work_step():
     """[กรณีทดสอบ]: เลือกภาพแล้วถึงจะเห็นพื้นที่ทำงาน"""
@@ -175,7 +143,7 @@ def test_change_function_goes_back_to_step_one_and_clears_everything():
     assert s["resetDisabled"] is True
     assert "ยังไม่ได้เลือกภาพ" in s["hint"]
     # เครื่องมือกับชื่อฟังก์ชันต้องถูกล้างด้วย ไม่ใช่แค่ซ่อนขั้นที่ครอบมันอยู่
-    assert s["toolBlur"] is False and s["toolObjects"] is False and s["toolColor"] is False
+    assert s["toolBlur"] is False and s["toolObjects"] is False
     assert s["chosenName"] == ""
 
 

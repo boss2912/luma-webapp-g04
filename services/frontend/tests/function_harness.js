@@ -8,12 +8,6 @@ function el(extra = {}) {
   const handlers = {};
   return {
     textContent: "", value: "", disabled: false, hidden: false, files: null, dataset: {},
-    classList: {
-      classes: new Set(),
-      add(c) { this.classes.add(c); },
-      remove(c) { this.classes.delete(c); },
-      contains(c) { return this.classes.has(c); },
-    },
     addEventListener(type, fn) { handlers[type] = fn; },
     fire(type, event = {}) { return handlers[type] ? handlers[type](event) : undefined; },
     has(type) { return Boolean(handlers[type]); },
@@ -48,33 +42,21 @@ const IDS = ["fn-canvas", "fn-file", "fn-reset", "fn-hint", "fn-error", "fn-sele
   "fn-min-size",
   // ขั้นตอน 1-2-3 (เลือกฟังก์ชัน -> เลือกภาพ -> ทำงาน)
   "fn-change-image", "fn-change-function", "fn-step-function", "fn-step-image",
-  "fn-step-work", "fn-chosen-name", "fn-work-title", "fn-tool-blur", "fn-tool-objects",
-  // ฟังก์ชันที่ 3: เลือกสีแล้วตีกรอบ
-  "fn-tool-color", "fn-color-btn", "fn-color-result", "fn-color-tolerance", "fn-color-min-area"];
+  "fn-step-work", "fn-chosen-name", "fn-work-title", "fn-tool-blur", "fn-tool-objects"];
 
 function load({ displayWidth, fetchImpl, imageSize = [800, 600] }) {
   const nodes = {};
   IDS.forEach((id) => { nodes[id] = el(); });
-  const choices = [
-    el({ dataset: { function: "blur" } }),
-    el({ dataset: { function: "objects" } }),
-    el({ dataset: { function: "color" } }),
-  ];
-  // สวอทช์สี — เริ่มต้นก้อนแรก (สีแดง) is-active ตรงกับ function.html
-  const swatches = [0, 30, 60, 120, 180, 240, 270, 330].map((hue) =>
-    el({ dataset: { hue: String(hue) } }));
-  swatches[0].classList.add("is-active");
+  const choices = [el({ dataset: { function: "blur" } }), el({ dataset: { function: "objects" } })];
   // ตั้งสถานะเริ่มต้นให้ตรงกับ function.html ที่ใส่ hidden ไว้ตั้งแต่ต้น
   // (el() ตั้ง hidden=false ให้ทุกตัว ถ้าไม่ตั้งตรงนี้ mock จะไม่ตรงกับของจริง)
-  ["fn-step-image", "fn-step-work", "fn-tool-blur", "fn-tool-objects", "fn-tool-color",
-   "fn-objects-result", "fn-color-result"].forEach((id) => { nodes[id].hidden = true; });
+  ["fn-step-image", "fn-step-work", "fn-tool-blur", "fn-tool-objects",
+   "fn-objects-result"].forEach((id) => { nodes[id].hidden = true; });
   const canvas = makeCanvas(displayWidth);
   nodes["fn-canvas"] = canvas;
   nodes["fn-blur-size"].value = "15";
   nodes["fn-confidence"].value = "0.6";
   nodes["fn-min-size"].value = "20";
-  nodes["fn-color-tolerance"].value = "20";
-  nodes["fn-color-min-area"].value = "200";
 
   const loaded = [];
   const offscreens = [];
@@ -113,25 +95,17 @@ function load({ displayWidth, fetchImpl, imageSize = [800, 600] }) {
         offscreens.push(offscreen);
         return offscreen;
       },
-      // ปุ่มเลือกฟังก์ชันสามอัน / สวอทช์สี — gallery ของ DOM จริงใช้ .fn-choice / .fn-swatch
-      querySelectorAll: (sel) => {
-        if (sel === ".fn-choice") return choices;
-        if (sel === ".fn-swatch") return swatches;
-        return [];
-      },
+      // ปุ่มเลือกฟังก์ชันสองอัน — gallery ของ DOM จริงใช้ .fn-choice
+      querySelectorAll: (sel) => (sel === ".fn-choice" ? choices : []),
     },
   };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(scriptPath, "utf8"), ctx);
-  return { nodes, canvas, loaded, choices, swatches, offscreens };
+  return { nodes, canvas, loaded, choices, offscreens };
 }
 
 function chooseFunction(env, key) {
   env.choices.find((c) => c.dataset.function === key).fire("click");
-}
-
-function chooseSwatch(env, hue) {
-  env.swatches.find((s) => s.dataset.hue === String(hue)).fire("click");
 }
 
 function pickImage(env, key = "blur") {
@@ -156,7 +130,6 @@ async function main() {
     step3: !env.nodes["fn-step-work"].hidden,
     toolBlur: !env.nodes["fn-tool-blur"].hidden,
     toolObjects: !env.nodes["fn-tool-objects"].hidden,
-    toolColor: !env.nodes["fn-tool-color"].hidden,
     chosenName: env.nodes["fn-chosen-name"].textContent,
     objectsDisabled: env.nodes["fn-objects-btn"].disabled,
     resetDisabled: env.nodes["fn-reset"].disabled,
@@ -177,12 +150,6 @@ async function main() {
   if (scenario === "after_choose_objects") {
     const env = load({ displayWidth: 400 });
     chooseFunction(env, "objects");
-    return console.log(JSON.stringify(steps(env)));
-  }
-
-  if (scenario === "after_choose_color") {
-    const env = load({ displayWidth: 400 });
-    chooseFunction(env, "color");
     return console.log(JSON.stringify(steps(env)));
   }
 
@@ -304,59 +271,6 @@ async function main() {
       result: env.nodes["fn-objects-result"].textContent,
       hidden: env.nodes["fn-objects-result"].hidden,
       buttonDisabled: env.nodes["fn-objects-btn"].disabled,
-    }));
-    return;
-  }
-
-  if (scenario === "choose_swatch") {
-    const env = load({ displayWidth: 800 });
-    pickImage(env, "color");
-    chooseSwatch(env, 120);
-    console.log(JSON.stringify({
-      activeHues: env.swatches.filter((s) => s.classList.contains("is-active")).map((s) => s.dataset.hue),
-    }));
-    return;
-  }
-
-  if (scenario === "color_request") {
-    let sent = null;
-    const env = load({
-      displayWidth: 800,
-      fetchImpl: async (url, opts) => {
-        sent = { url, body: JSON.parse(opts.body) };
-        return {
-          ok: true, status: 200,
-          json: async () => ({ objects: [{ x: 1, y: 2, width: 3, height: 4 }], count: 1 }),
-        };
-      },
-    });
-    pickImage(env, "color");
-    chooseSwatch(env, 120);
-    env.nodes["fn-color-tolerance"].value = "25";
-    env.nodes["fn-color-min-area"].value = "300";
-    await env.nodes["fn-color-btn"].fire("click");
-    await sleep();
-    console.log(JSON.stringify({
-      url: sent.url, body: sent.body,
-      result: env.nodes["fn-color-result"].textContent,
-      strokes: env.canvas.strokes,
-      sentImage: sent.body.image,
-    }));
-    return;
-  }
-
-  if (scenario === "color_empty") {
-    const env = load({
-      displayWidth: 800,
-      fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ objects: [], count: 0 }) }),
-    });
-    pickImage(env, "color");
-    await env.nodes["fn-color-btn"].fire("click");
-    await sleep();
-    console.log(JSON.stringify({
-      result: env.nodes["fn-color-result"].textContent,
-      hidden: env.nodes["fn-color-result"].hidden,
-      buttonDisabled: env.nodes["fn-color-btn"].disabled,
     }));
     return;
   }
