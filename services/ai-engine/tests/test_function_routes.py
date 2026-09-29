@@ -96,27 +96,35 @@ def test_blur_route_rejects_invalid_parameters(params):
     assert "error" in response.json
 
 
-def _object_image():
-    image = np.zeros((100, 120, 3), dtype=np.uint8)
-    cv2.rectangle(image, (10, 20), (39, 59), (0, 0, 255), -1)
-    cv2.rectangle(image, (70, 10), (109, 79), (0, 0, 255), -1)
-    return image
+def _blank_image():
+    return np.zeros((100, 120, 3), dtype=np.uint8)
 
 
 def _contours_body(**params):
-    body_params = {
-        "center_degrees": 0,
-        "tolerance_degrees": 10,
-        "saturation_min": 60,
-        "value_min": 40,
-        "kernel_size": 3,
-        "minimum_area": 100,
-    }
+    body_params = {"confidence_min": 0.6, "min_size": 20}
     body_params.update(params)
-    return {"image": _encode_png(_object_image()), "params": body_params}
+    return {"image": _encode_png(_blank_image()), "params": body_params}
 
 
-def test_contours_route_returns_sorted_json_boxes_without_contour_arrays():
+class _StubFaceDetector:
+    """Same shape as cv2.FaceDetectorYN — see test_segmentation.py for the row format."""
+
+    def __init__(self, rows):
+        self._rows = None if rows is None else np.array(rows, dtype=np.float32)
+
+    def setInputSize(self, size):
+        pass
+
+    def detect(self, image):
+        return None, self._rows
+
+
+def test_contours_route_returns_sorted_json_boxes_with_confidence(monkeypatch):
+    rows = [
+        [10, 20, 30, 40, *([0] * 10), 0.7],   # area 1200, smaller
+        [70, 10, 40, 70, *([0] * 10), 0.9],   # area 2800, larger
+    ]
+    monkeypatch.setattr(cv2, "FaceDetectorYN_create", lambda *a, **k: _StubFaceDetector(rows))
     client = create_app({"TESTING": True}).test_client()
 
     response = client.post(
@@ -135,10 +143,13 @@ def test_contours_route_returns_sorted_json_boxes_without_contour_arrays():
         {"x": 10, "y": 20, "width": 30, "height": 40},
     ]
     assert response.json["objects"][0]["area"] > response.json["objects"][1]["area"]
+    assert response.json["objects"][0]["confidence"] == pytest.approx(0.9)
 
 
-def test_contours_route_returns_200_and_empty_list_when_nothing_matches():
-    body = _contours_body(center_degrees=120)
+def test_contours_route_returns_200_and_empty_list_when_no_face_found():
+    # the real YuNet model genuinely finds nothing in a blank synthetic image —
+    # no monkeypatch needed, this exercises the real detector
+    body = _contours_body()
     response = create_app({"TESTING": True}).test_client().post(
         "/pipeline/03_segmentation/contours", json=body
     )
@@ -149,30 +160,17 @@ def test_contours_route_returns_200_and_empty_list_when_nothing_matches():
 
 @pytest.mark.parametrize("params", [
     [],
-    {"center_degrees": True},
-    {"center_degrees": -1},
-    {"center_degrees": 360},
-    {"tolerance_degrees": True},
-    {"tolerance_degrees": -1},
-    {"tolerance_degrees": 181},
-    {"saturation_min": True},
-    {"saturation_min": -1},
-    {"saturation_min": 256},
-    {"value_min": True},
-    {"value_min": -1},
-    {"value_min": 256},
-    {"kernel_size": True},
-    {"kernel_size": 2},
-    {"kernel_size": 4},
-    {"kernel_size": 33},
-    {"minimum_area": True},
-    {"minimum_area": -1},
+    {"confidence_min": True},
+    {"confidence_min": -0.01},
+    {"confidence_min": 1.01},
+    {"min_size": True},
+    {"min_size": -1},
 ])
 def test_contours_route_rejects_invalid_parameters(params):
     if isinstance(params, dict):
         body = _contours_body(**params)
     else:
-        body = {"image": _encode_png(_object_image()), "params": params}
+        body = {"image": _encode_png(_blank_image()), "params": params}
     response = create_app({"TESTING": True}).test_client().post(
         "/pipeline/03_segmentation/contours", json=body
     )

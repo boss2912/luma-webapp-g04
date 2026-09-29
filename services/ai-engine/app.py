@@ -158,6 +158,11 @@ def create_app(config=None):
 
     @app.post("/pipeline/03_segmentation/contours")
     def find_contours():
+        # Route/operation name kept as "contours" on purpose — 05_evaluation's
+        # benchmark_baseline.py already measures this exact URL with generic
+        # defaults and only checks the objects/count shape, not the algorithm.
+        # Renaming would touch already-shipped, hash-pinned benchmark evidence
+        # for no real benefit. Was HSV color segmentation; now face detection.
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             return jsonify({"error": "Expected a JSON object"}), 400
@@ -169,40 +174,25 @@ def create_app(config=None):
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
 
-        center = params.get("center_degrees", 50)
-        tolerance = params.get("tolerance_degrees", 20)
-        saturation = params.get("saturation_min", 60)
-        value = params.get("value_min", 40)
-        kernel = params.get("kernel_size", 3)
-        minimum_area = params.get("minimum_area", 200)
+        confidence_min = params.get("confidence_min", 0.6)
+        min_size = params.get("min_size", 20)
 
-        for name, number, low, high in (
-            ("center_degrees", center, 0, 360),
-            ("tolerance_degrees", tolerance, 0, 180),
-        ):
-            if (isinstance(number, bool) or not isinstance(number, (int, float))
-                    or not math.isfinite(number) or number < low
-                    or (number >= high if name == "center_degrees" else number > high)):
-                return jsonify({"error": f"{name} is out of range"}), 400
-        for name, number in (("saturation_min", saturation), ("value_min", value)):
-            if isinstance(number, bool) or not isinstance(number, int) or not 0 <= number <= 255:
-                return jsonify({"error": f"{name} must be an integer from 0 to 255"}), 400
-        if (isinstance(kernel, bool) or not isinstance(kernel, int)
-                or not 3 <= kernel <= 31 or kernel % 2 == 0):
-            return jsonify({"error": "kernel_size must be an odd integer from 3 to 31"}), 400
-        if (isinstance(minimum_area, bool)
-                or not isinstance(minimum_area, (int, float))
-                or not math.isfinite(minimum_area) or minimum_area < 0):
-            return jsonify({"error": "minimum_area must be a finite nonnegative number"}), 400
+        if (isinstance(confidence_min, bool)
+                or not isinstance(confidence_min, (int, float))
+                or not math.isfinite(confidence_min) or not 0 <= confidence_min <= 1):
+            return jsonify({"error": "confidence_min must be a number from 0 to 1"}), 400
+        if isinstance(min_size, bool) or not isinstance(min_size, int) or min_size < 0:
+            return jsonify({"error": "min_size must be a nonnegative integer"}), 400
 
         try:
-            mask = segmentation.selective_color_mask(
-                pixels, center, tolerance, saturation, value
+            detected = segmentation.find_faces(
+                pixels, confidence_min=confidence_min, min_size=min_size
             )
-            mask = segmentation.clean_mask(mask, kernel_size=kernel)
-            detected = segmentation.find_objects(mask, minimum_area=minimum_area)
         except (ValueError, cv2.error) as exc:
             return jsonify({"error": str(exc)}), 400
+        except RuntimeError as exc:
+            # model file missing from disk — an ops/setup problem, not a bad request
+            return jsonify({"error": str(exc)}), 503
 
         objects = []
         for item in detected:
@@ -213,6 +203,7 @@ def create_app(config=None):
                 "width": int(box["width"]),
                 "height": int(box["height"]),
                 "area": float(item["area"]),
+                "confidence": item["confidence"],
             })
         return jsonify({
             "objects": objects,
