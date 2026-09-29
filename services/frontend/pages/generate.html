@@ -44,6 +44,18 @@
             ></textarea>
           </div>
 
+          <div class="form-group">
+            <label for="checkpoint">Checkpoint (โมเดล)</label>
+            <select class="form-control" id="checkpoint" name="checkpoint">
+              <option value="default" selected>ค่าเริ่มต้นของระบบ</option>
+            </select>
+            <span class="form-hint">
+              ยังเป็น UI ตั้งต้นเท่านั้น — รายชื่อ checkpoint จริงจาก Forge รอทีม AI Engine
+              เชื่อมต่อ (เช่นผ่าน GET /sdapi/v1/sd-models) ตอนนี้ค่าที่เลือกจะถูกส่งไปกับ
+              คำขอ generate แต่ backend ยังไม่ได้อ่านค่านี้
+            </span>
+          </div>
+
           <div class="params-grid">
             <div class="form-group">
               <label for="steps">Sampling Steps</label>
