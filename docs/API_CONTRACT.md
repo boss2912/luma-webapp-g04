@@ -300,7 +300,7 @@ sorted(r.rule for r in create_app().url_map.iter_rules() if "pipeline" in r.rule
 | stage/operation | ฟังก์ชันที่เรียก |
 |---|---|
 | `02_enhancement/blur` | `pipeline/02_enhancement/spatial_filters.py` |
-| `03_segmentation/contours` | `pipeline/03_segmentation/segmentation.py` (`find_objects`) |
+| `03_segmentation/contours` | `pipeline/03_segmentation/segmentation.py` (`find_faces`) — เดิมเป็นตีกรอบสี ตอนนี้เป็นจับหน้าจริงด้วย YuNet (DNN) |
 | `04_features/color_palette` | `pipeline/04_features/color_palette.py` |
 | `04_features/auto_tag` | `pipeline/04_features/auto_tag.py` |
 
@@ -347,26 +347,36 @@ sorted(r.rule for r in create_app().url_map.iter_rules() if "pipeline" in r.rule
 ที่ไม่ใช่ bool และกรอบต้องอยู่ภายในภาพ · `size` ต้องเป็นเลขคี่ตั้งแต่ 3 ขึ้นไป
 และไม่เกิน 99
 
-`POST /pipeline/03_segmentation/contours` คืนพิกัดกรอบวัตถุโดยไม่วาดทับภาพ:
+`POST /pipeline/03_segmentation/contours` หาใบหน้าในภาพด้วยโมเดล YuNet (DNN)
+คืนพิกัดกรอบโดยไม่วาดทับภาพ — **route/operation ชื่อ "contours" คงไว้ตามเดิม
+ตั้งใจ** (05_evaluation/benchmark_baseline.py วัด URL นี้อยู่แล้วด้วยค่า
+default และเช็คแค่รูปร่าง response ไม่ผูกกับอัลกอริทึมข้างใน):
 
 ```json
 {
   "image": "<base64>",
   "params": {
-    "center_degrees": 50,
-    "tolerance_degrees": 20,
-    "saturation_min": 60,
-    "value_min": 40,
-    "kernel_size": 3,
-    "minimum_area": 200
+    "confidence_min": 0.6,
+    "min_size": 20
   }
 }
 ```
 
-ตอบ `objects` เป็น array ของ `{x, y, width, height, area}` เรียงพื้นที่มากไปน้อย
-พร้อม `metrics.object_count`, `stage: "03_segmentation"` และ
-`operation: "contours"` · ไม่พบวัตถุให้ตอบ 200 กับ `objects: []` · ค่า input
-ผิด รวมถึง bool ในช่องตัวเลข ให้ตอบ 400 · `kernel_size` ต้องเป็นเลขคี่ 3–31
+`confidence_min` (0-1) คือคะแนนความมั่นใจขั้นต่ำของโมเดล ยิ่งต่ำยิ่งจับได้ง่าย
+แต่เสี่ยงจับผิด · `min_size` (พิกเซล) กรองกรอบที่เล็กกว่านี้ทิ้งหลังตรวจพบแล้ว
+
+ตอบ `objects` เป็น array ของ `{x, y, width, height, area, confidence}`
+เรียงพื้นที่มากไปน้อย พร้อม `metrics.object_count`, `stage: "03_segmentation"`
+และ `operation: "contours"` · ไม่พบใบหน้าให้ตอบ 200 กับ `objects: []` (ไม่ใช่
+error) · ค่า input ผิด รวมถึง bool ในช่องตัวเลข ให้ตอบ 400 · โมเดลหาย/โหลดไม่ได้
+ให้ตอบ 503
+
+> ⚠️ **โมเดลนี้เป็น learned model ตัวแรกใน pipeline** (`face_detection_yunet_2023mar.onnx`,
+> 232 KB, ไม่ใช้ torch/pytorch — รันผ่าน `cv2.dnn` ที่ติดมากับ opencv-python เอง)
+> ต่างจากโมดูลอื่นทุกตัวที่เป็นกฎ/สูตรคำนวณล้วนๆ · `cv2.CascadeClassifier`
+> (Haar cascade) **ไม่มีอยู่จริง** ใน `opencv-python==5.0.0.93` ที่โปรเจกต์นี้ล็อกไว้
+> เช็คด้วย `hasattr(cv2, "CascadeClassifier")` ได้ `False` — จึงไม่มีทางเลือกที่
+> เป็น classical CV ล้วนสำหรับงานนี้
 
 ---
 
