@@ -154,5 +154,10 @@ def find_objects(image_b64: str, params: dict) -> list[dict]:
             # แถวที่รูปแบบไม่ครบข้ามไป ดีกว่าทิ้งผลทั้งก้อนเพราะวัตถุเดียวเพี้ยน
             continue
         box["area"] = float(item.get("area", box["width"] * box["height"]))
+        # confidence มีเฉพาะตอนเป็นใบหน้า (find_faces) — ไม่มีก็ไม่ใส่คีย์นี้เลย
+        # แทนที่จะยัด None เพราะฝั่งหน้าเว็บเช็คด้วย "confidence" in box
+        confidence = item.get("confidence")
+        if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
+            box["confidence"] = float(confidence)
         boxes.append(box)
     return boxes

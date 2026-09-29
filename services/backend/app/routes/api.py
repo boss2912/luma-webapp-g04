@@ -502,9 +502,12 @@ def handle_blur_region():
 
 @api_bp.route("/pipeline/find-objects", methods=["POST"])
 def handle_find_objects():
-    """POST /api/pipeline/find-objects — หาพิกัดกรอบของวัตถุในภาพ (#163)
+    """POST /api/pipeline/find-objects — หาพิกัดกรอบใบหน้าในภาพ (#163, จับหน้าแทนสี)
 
     ส่งต่อให้ ai-engine ที่ POST /pipeline/03_segmentation/contours
+    ชื่อ route/operation คงไว้ตามเดิมตั้งใจ — 05_evaluation/benchmark_baseline.py
+    วัด URL นี้อยู่แล้วด้วยค่า default ล้วนๆ และเช็คแค่รูปร่าง objects/count
+    ไม่ผูกกับอัลกอริทึมข้างใน เปลี่ยนได้โดยไม่กระทบ evidence ที่ commit ไปแล้ว
 
     คืนแค่พิกัด ไม่วาดลงภาพ — หน้าเว็บวาดกรอบเอง ผู้ใช้จึงยังเห็นภาพต้นฉบับชัดๆ
     """
@@ -513,25 +516,17 @@ def handle_find_objects():
     if error:
         return jsonify({"error": error}), 400
 
-    # ช่วงค่าตามที่ selective_color_mask / clean_mask ของ pipeline รับได้
-    limits = {
-        "center_degrees": (0, 359, 50),
-        "tolerance_degrees": (1, 180, 20),
-        "saturation_min": (0, 255, 60),
-        "value_min": (0, 255, 40),
-        # ขั้นต่ำ 3 ให้ตรงกับ clean_mask() ของ pipeline (segmentation.py:68)
-        # ถ้ารับ 1 ผ่านไป ai-engine จะ raise ValueError -> ผู้ใช้เห็น 502 ทั้งที่ค่าตัวเองผิด
-        "kernel_size": (3, 31, 3),
-        "minimum_area": (0, 10_000_000, 200),
-    }
-    params = {}
-    for name, (minimum, maximum, default) in limits.items():
-        value, error = _whole_number(data.get(name, default), name, minimum, maximum)
-        if error:
-            return jsonify({"error": error}), 400
-        params[name] = value
-    if params["kernel_size"] % 2 == 0:
-        return jsonify({"error": "kernel_size ต้องเป็นเลขคี่ / kernel_size must be an odd number"}), 400
+    confidence_min = data.get("confidence_min", 0.6)
+    if isinstance(confidence_min, bool) or not isinstance(confidence_min, (int, float)):
+        return jsonify({"error": "confidence_min ต้องเป็นตัวเลข / confidence_min must be a number"}), 400
+    if not 0 <= confidence_min <= 1:
+        return jsonify({"error": "confidence_min ต้องอยู่ระหว่าง 0-1 / confidence_min must be 0-1"}), 400
+
+    min_size, error = _whole_number(data.get("min_size", 20), "min_size", 0, 10_000)
+    if error:
+        return jsonify({"error": error}), 400
+
+    params = {"confidence_min": float(confidence_min), "min_size": min_size}
 
     try:
         objects = find_objects(image_b64, params)

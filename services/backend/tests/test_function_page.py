@@ -163,9 +163,20 @@ def test_find_objects_sends_default_params():
         client.post(OBJECTS_URL, json={"image": "aGVsbG8="})
 
     assert post.call_args[1]["json"]["params"] == {
-        "center_degrees": 50, "tolerance_degrees": 20, "saturation_min": 60,
-        "value_min": 40, "kernel_size": 3, "minimum_area": 200,
+        "confidence_min": 0.6, "min_size": 20,
     }
+
+
+def test_find_objects_passes_through_confidence_when_present():
+    """[กรณีทดสอบ]: ใบหน้ามี confidence ติดมาด้วย -> ต้องส่งต่อให้หน้าเว็บ ไม่ทิ้ง"""
+    client = _client()
+    payload = {"objects": [
+        {"x": 5, "y": 6, "width": 70, "height": 80, "area": 5600.0, "confidence": 0.87},
+    ]}
+    with patch("app.services.ai_engine_client.requests.post", return_value=_ok(payload)):
+        res = client.post(OBJECTS_URL, json={"image": "aGVsbG8="})
+
+    assert res.get_json()["objects"][0]["confidence"] == pytest.approx(0.87)
 
 
 def test_find_objects_empty_list_is_200_not_404():
@@ -196,13 +207,11 @@ def test_find_objects_skips_malformed_entries_instead_of_failing():
 @pytest.mark.parametrize("body", [
     {},
     {"image": ""},
-    {"image": "aGVsbG8=", "center_degrees": 400},
-    {"image": "aGVsbG8=", "center_degrees": True},
-    {"image": "aGVsbG8=", "tolerance_degrees": 0},
-    {"image": "aGVsbG8=", "kernel_size": 4},        # เลขคู่
-    {"image": "aGVsbG8=", "kernel_size": 1},        # ต่ำกว่าที่ clean_mask() รับ (>=3)
-    {"image": "aGVsbG8=", "minimum_area": -1},
-    {"image": "aGVsbG8=", "saturation_min": 256},
+    {"image": "aGVsbG8=", "confidence_min": True},
+    {"image": "aGVsbG8=", "confidence_min": -0.01},
+    {"image": "aGVsbG8=", "confidence_min": 1.01},
+    {"image": "aGVsbG8=", "min_size": True},
+    {"image": "aGVsbG8=", "min_size": -1},
 ])
 def test_find_objects_rejects_bad_params_without_calling_ai_engine(body):
     client = _client()
