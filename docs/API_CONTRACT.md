@@ -301,6 +301,7 @@ sorted(r.rule for r in create_app().url_map.iter_rules() if "pipeline" in r.rule
 |---|---|
 | `02_enhancement/blur` | `pipeline/02_enhancement/spatial_filters.py` |
 | `03_segmentation/contours` | `pipeline/03_segmentation/segmentation.py` (`find_faces`) — เดิมเป็นตีกรอบสี ตอนนี้เป็นจับหน้าจริงด้วย YuNet (DNN) |
+| `03_segmentation/color-box` | `pipeline/03_segmentation/segmentation.py` (`find_color_boxes` เรียก `selective_color_mask`/`clean_mask`/`find_objects` เดิม) — ฟังก์ชันที่ 3 ของหน้า Function: เลือกสีแล้วตีกรอบ |
 | `04_features/color_palette` | `pipeline/04_features/color_palette.py` |
 | `04_features/auto_tag` | `pipeline/04_features/auto_tag.py` |
 
@@ -311,7 +312,7 @@ sorted(r.rule for r in create_app().url_map.iter_rules() if "pipeline" in r.rule
 |---|---|
 | `01_acquisition` | `image_metadata` · `validate_image_file` · `field_of_view` (`acquisition.py`) |
 | `02_enhancement` | `histogram` · `statistics` · `assess_quality` (`histogram.py`) · `gamma` · `log_transform` · `contrast_stretch` (`point_operations.py`) · `median` (`spatial_filters.py`) · `equalize` · `match_histogram` (`histogram_mapping.py`) |
-| `03_segmentation` | `remove_background` · `selective_color_mask` (`segmentation.py`) |
+| `03_segmentation` | `remove_background` (`segmentation.py`) |
 | `04_features` | `extract` (`feature_vector.py`) — เวกเตอร์คุณลักษณะ ไม่ใช่ statistics ตัวเดียว |
 | `05_evaluation` | `image_quality` (PSNR/SSIM, `quality_metrics.py`) · `segmentation_quality` (IoU, `segmentation_metrics.py`) |
 
@@ -377,6 +378,36 @@ error) · ค่า input ผิด รวมถึง bool ในช่อง�
 > (Haar cascade) **ไม่มีอยู่จริง** ใน `opencv-python==5.0.0.93` ที่โปรเจกต์นี้ล็อกไว้
 > เช็คด้วย `hasattr(cv2, "CascadeClassifier")` ได้ `False` — จึงไม่มีทางเลือกที่
 > เป็น classical CV ล้วนสำหรับงานนี้
+
+`POST /pipeline/03_segmentation/color-box` หาวัตถุที่มีสีใกล้เคียงองศาที่เลือก
+แล้วตีกรอบ — ฟังก์ชันที่ 3 ของหน้า Function (เพิ่มกลับมาหลังเปลี่ยนฟังก์ชันที่ 2
+เป็นจับหน้า) ใช้ `selective_color_mask`/`clean_mask`/`find_objects` เดิมของ
+`segmentation.py` ทั้งหมด ไม่ได้แก้อัลกอริทึมใดๆ:
+
+```json
+{
+  "image": "<base64>",
+  "params": {
+    "center_degrees": 120,
+    "tolerance_degrees": 20,
+    "saturation_min": 60,
+    "value_min": 40,
+    "kernel_size": 5,
+    "minimum_area": 200
+  }
+}
+```
+
+`center_degrees` (0-360) คือองศาสีกลางที่ต้องการ (hue ใน HSV) · `tolerance_degrees`
+คือระยะองศาที่ยอมให้เพี้ยนจากศูนย์กลาง (ใช้ circular distance คำนวณรอบ 0/360)
+· `saturation_min`/`value_min` (0-255) กรองพิกเซลที่จางหรือมืดเกินไปทิ้งก่อนหา
+วัตถุ · `kernel_size` ใช้ทำความสะอาด mask (morphology) · `minimum_area` (พิกเซล²)
+กรองวัตถุที่เล็กกว่านี้ทิ้ง
+
+ตอบ `objects` เป็น array ของ `{x, y, width, height, area}` เรียงพื้นที่มากไปน้อย
+พร้อม `metrics.object_count`, `stage: "03_segmentation"` และ `operation:
+"color-box"` · ไม่พบวัตถุให้ตอบ 200 กับ `objects: []` (ไม่ใช่ error) · ค่า input
+ผิด รวมถึง bool ในช่องตัวเลข ให้ตอบ 400
 
 ---
 
