@@ -73,20 +73,19 @@ def test_blur_sends_region_size_and_csrf_then_shows_result():
 
 
 def test_find_objects_sends_params_and_draws_boxes():
-    """[กรณีทดสอบ]: กดหาวัตถุ -> ส่งค่าจากฟอร์ม และวาดกรอบตามพิกัดที่ได้กลับมา"""
+    """[กรณีทดสอบ]: กดหาใบหน้า -> ส่งค่าจากฟอร์ม และวาดกรอบตามพิกัดที่ได้กลับมา"""
     result = _run("objects_request")
     assert result["url"].endswith("/api/pipeline/find-objects")
-    assert result["body"]["center_degrees"] == 120
-    assert result["body"]["tolerance_degrees"] == 30
-    assert result["body"]["minimum_area"] == 500
+    assert result["body"]["confidence_min"] == 0.75
+    assert result["body"]["min_size"] == 40
     assert "1" in result["result"]
     assert {"x": 1, "y": 2, "width": 3, "height": 4} in result["strokes"]
 
 
 def test_no_objects_found_tells_the_user_what_to_do():
-    """[กรณีทดสอบ]: ไม่เจอวัตถุไม่ใช่ error — ต้องบอกผู้ใช้และปุ่มกลับมากดได้"""
+    """[กรณีทดสอบ]: ไม่เจอใบหน้าไม่ใช่ error — ต้องบอกผู้ใช้และปุ่มกลับมากดได้"""
     result = _run("objects_empty")
-    assert "ไม่พบวัตถุ" in result["result"]
+    assert "ไม่พบใบหน้า" in result["result"]
     assert result["hidden"] is False
     assert result["buttonDisabled"] is False
 
@@ -120,7 +119,7 @@ def test_choosing_a_function_opens_the_image_step_with_only_that_tool():
 
     s = _run("after_choose_objects")
     assert s["toolObjects"] is True and s["toolBlur"] is False
-    assert s["chosenName"] == "ตีกรอบวัตถุ"
+    assert s["chosenName"] == "จับหน้า"
 
 
 def test_picking_an_image_opens_the_work_step():
@@ -152,7 +151,7 @@ def test_change_image_keeps_the_same_function():
     """[กรณีทดสอบ]: กดเปลี่ยนภาพต้องถอยแค่ขั้นที่ 2 ไม่ต้องเลือกฟังก์ชันใหม่"""
     s = _run("change_image")
     assert s["step2"] is True and s["step1"] is False
-    assert s["chosenName"] == "ตีกรอบวัตถุ"
+    assert s["chosenName"] == "จับหน้า"
     assert s["toolObjects"] is True
 
 

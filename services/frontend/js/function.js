@@ -34,7 +34,7 @@
 
   const FUNCTIONS = {
     blur: { name: "เบลอเฉพาะจุด", work: "ลากกรอบแล้วกดเบลอ", tool: toolBlur },
-    objects: { name: "ตีกรอบวัตถุ", work: "ตั้งค่าแล้วกดหาวัตถุ", tool: toolObjects },
+    objects: { name: "จับหน้า", work: "ตั้งค่าแล้วกดหาใบหน้า", tool: toolObjects },
   };
   let chosen = null;
   const hint = document.getElementById("fn-hint");
@@ -281,18 +281,17 @@
     clearError();
     objectsBtn.disabled = true;
     const label = objectsBtn.textContent;
-    objectsBtn.textContent = "กำลังหาวัตถุ...";
+    objectsBtn.textContent = "กำลังหาใบหน้า...";
     try {
       const data = await postJson("/api/pipeline/find-objects", {
         image: cleanImageDataUrl(),
-        center_degrees: Number(document.getElementById("fn-hue").value),
-        tolerance_degrees: Number(document.getElementById("fn-tolerance").value),
-        minimum_area: Number(document.getElementById("fn-min-area").value),
+        confidence_min: Number(document.getElementById("fn-confidence").value),
+        min_size: Number(document.getElementById("fn-min-size").value),
       });
       boxes = data.objects || [];
       objectsResult.textContent = boxes.length
-        ? `ตีกรอบให้ ${boxes.length} วัตถุ`
-        : "ไม่พบวัตถุที่ตรงกับสีที่เลือก ลองเพิ่มค่าองศาที่ยอมให้เพี้ยน";
+        ? `เจอ ${boxes.length} ใบหน้า`
+        : "ไม่พบใบหน้าในภาพ ลองลดค่าความมั่นใจขั้นต่ำ";
       objectsResult.hidden = false;
       redraw();
     } catch (err) {

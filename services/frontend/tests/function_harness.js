@@ -38,8 +38,8 @@ function makeCanvas(displayWidth) {
 }
 
 const IDS = ["fn-canvas", "fn-file", "fn-reset", "fn-hint", "fn-error", "fn-selection",
-  "fn-blur-btn", "fn-objects-btn", "fn-objects-result", "fn-blur-size", "fn-hue",
-  "fn-tolerance", "fn-min-area",
+  "fn-blur-btn", "fn-objects-btn", "fn-objects-result", "fn-blur-size", "fn-confidence",
+  "fn-min-size",
   // ขั้นตอน 1-2-3 (เลือกฟังก์ชัน -> เลือกภาพ -> ทำงาน)
   "fn-change-image", "fn-change-function", "fn-step-function", "fn-step-image",
   "fn-step-work", "fn-chosen-name", "fn-work-title", "fn-tool-blur", "fn-tool-objects"];
@@ -55,9 +55,8 @@ function load({ displayWidth, fetchImpl, imageSize = [800, 600] }) {
   const canvas = makeCanvas(displayWidth);
   nodes["fn-canvas"] = canvas;
   nodes["fn-blur-size"].value = "15";
-  nodes["fn-hue"].value = "50";
-  nodes["fn-tolerance"].value = "20";
-  nodes["fn-min-area"].value = "200";
+  nodes["fn-confidence"].value = "0.6";
+  nodes["fn-min-size"].value = "20";
 
   const loaded = [];
   const offscreens = [];
@@ -247,9 +246,8 @@ async function main() {
       },
     });
     pickImage(env, "objects");
-    env.nodes["fn-hue"].value = "120";
-    env.nodes["fn-tolerance"].value = "30";
-    env.nodes["fn-min-area"].value = "500";
+    env.nodes["fn-confidence"].value = "0.75";
+    env.nodes["fn-min-size"].value = "40";
     await env.nodes["fn-objects-btn"].fire("click");
     await sleep();
     console.log(JSON.stringify({
