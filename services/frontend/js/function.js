@@ -1,11 +1,11 @@
 /**
  * LUMA — หน้า Function (Issue #163)
  * -------------------------------------------------------------------------
- * สองเครื่องมือ: เบลอเฉพาะกรอบที่ลากเลือก · ตีกรอบวัตถุในภาพ
+ * สามเครื่องมือ: เบลอเฉพาะกรอบที่ลากเลือก · จับหน้าด้วย AI · เลือกสีแล้วตีกรอบ
  *
  * ไล่เป็นขั้น: เลือกฟังก์ชัน -> เลือกภาพ -> ทำงาน
- * สองฟังก์ชันนี้ทำงานแยกกัน ไม่ได้ทำต่อจากกัน จึงแสดงทีละอันตามที่ผู้ใช้เลือก
- * แสดงพร้อมกันทั้งคู่ทำให้เข้าใจผิดว่าต้องทำเรียงกัน
+ * สามฟังก์ชันนี้ทำงานแยกกัน ไม่ได้ทำต่อจากกัน จึงแสดงทีละอันตามที่ผู้ใช้เลือก
+ * แสดงพร้อมกันทั้งหมดทำให้เข้าใจผิดว่าต้องทำเรียงกัน
  *
  * หน้าเว็บไม่ประมวลผลภาพเอง — ส่งไป backend ซึ่งส่งต่อ ai-engine อีกที
  * ที่นี่ทำแค่ เลือกบริเวณ · ยิง fetch · วาดผลลงบน canvas
@@ -31,10 +31,12 @@
   const workTitle = document.getElementById("fn-work-title");
   const toolBlur = document.getElementById("fn-tool-blur");
   const toolObjects = document.getElementById("fn-tool-objects");
+  const toolColor = document.getElementById("fn-tool-color");
 
   const FUNCTIONS = {
     blur: { name: "เบลอเฉพาะจุด", work: "ลากกรอบแล้วกดเบลอ", tool: toolBlur },
     objects: { name: "จับหน้า", work: "ตั้งค่าแล้วกดหาใบหน้า", tool: toolObjects },
+    color: { name: "เลือกสีแล้วตีกรอบ", work: "เลือกสีแล้วกดหาวัตถุ", tool: toolColor },
   };
   let chosen = null;
   const hint = document.getElementById("fn-hint");
@@ -43,6 +45,9 @@
   const blurBtn = document.getElementById("fn-blur-btn");
   const objectsBtn = document.getElementById("fn-objects-btn");
   const objectsResult = document.getElementById("fn-objects-result");
+  const colorBtn = document.getElementById("fn-color-btn");
+  const colorResult = document.getElementById("fn-color-result");
+  let selectedHue = 0; // ค่าเริ่มต้นตรงกับปุ่ม "แดง" ที่ตั้ง is-active ไว้ใน HTML
 
   let originalDataUrl = null; // ภาพที่ผู้ใช้เลือกตอนแรก ใช้ตอนกดคืนค่า
   let currentImage = null;    // Image object ที่กำลังแสดงอยู่
@@ -91,9 +96,11 @@
       boxes = [];
       selectionText.textContent = "ยังไม่ได้เลือกกรอบ";
       objectsResult.hidden = true;
+      colorResult.hidden = true;
       hint.textContent = `ภาพขนาด ${image.naturalWidth} x ${image.naturalHeight} — ลากเมาส์บนภาพเพื่อเลือกกรอบ`;
       blurBtn.disabled = true;
       objectsBtn.disabled = chosen !== "objects";
+      colorBtn.disabled = chosen !== "color";
       resetBtn.disabled = false;
       stepWork.hidden = false;
       redraw();
@@ -127,10 +134,12 @@
     boxes = [];
     fileInput.value = "";
     objectsResult.hidden = true;
+    colorResult.hidden = true;
     selectionText.textContent = "ยังไม่ได้เลือกกรอบ";
     hint.textContent = "ยังไม่ได้เลือกภาพ";
     blurBtn.disabled = true;
     objectsBtn.disabled = true;
+    colorBtn.disabled = true;
     resetBtn.disabled = true;
     clearError();
     stepFunction.hidden = false;
@@ -299,6 +308,42 @@
     } finally {
       objectsBtn.disabled = false;
       objectsBtn.textContent = label;
+    }
+  });
+
+  // ปุ่มเลือกสี — กดแล้วจำองศาที่ผูกกับสีนั้นไว้ใน selectedHue ไม่ต้องพิมพ์เอง
+  document.querySelectorAll(".fn-swatch").forEach((swatch) => {
+    swatch.addEventListener("click", () => {
+      selectedHue = Number(swatch.dataset.hue);
+      document.querySelectorAll(".fn-swatch").forEach((s) => s.classList.remove("is-active"));
+      swatch.classList.add("is-active");
+    });
+  });
+
+  colorBtn.addEventListener("click", async () => {
+    if (!currentImage) return;
+    clearError();
+    colorBtn.disabled = true;
+    const label = colorBtn.textContent;
+    colorBtn.textContent = "กำลังหาวัตถุ...";
+    try {
+      const data = await postJson("/api/pipeline/find-by-color", {
+        image: cleanImageDataUrl(),
+        center_degrees: selectedHue,
+        tolerance_degrees: Number(document.getElementById("fn-color-tolerance").value),
+        minimum_area: Number(document.getElementById("fn-color-min-area").value),
+      });
+      boxes = data.objects || [];
+      colorResult.textContent = boxes.length
+        ? `ตีกรอบให้ ${boxes.length} วัตถุ`
+        : "ไม่พบวัตถุที่ตรงกับสีที่เลือก ลองเพิ่มค่าองศาที่ยอมให้เพี้ยน";
+      colorResult.hidden = false;
+      redraw();
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      colorBtn.disabled = false;
+      colorBtn.textContent = label;
     }
   });
 })();

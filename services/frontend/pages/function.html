@@ -20,7 +20,7 @@
 
     <!-- ขั้นที่ 1 — เลือกฟังก์ชันก่อน แต่ละฟังก์ชันทำงานแยกกัน ไม่ได้ทำต่อจากกัน -->
     <section class="fn-step" id="fn-step-function">
-      <h2 class="fn-step__title"><span class="fn-step__num">1</span> เลือกฟังก์ชัน</h2>
+      <h2 class="fn-step__title">เลือกฟังก์ชัน</h2>
 
       <div class="fn-choices">
         <button type="button" class="fn-choice" id="fn-choose-blur" data-function="blur">
@@ -32,13 +32,18 @@
           <span class="fn-choice__name">จับหน้า</span>
           <span class="fn-choice__desc">หาใบหน้าในภาพด้วยโมเดล AI แล้วตีกรอบให้</span>
         </button>
+
+        <button type="button" class="fn-choice" id="fn-choose-color" data-function="color">
+          <span class="fn-choice__name">เลือกสีแล้วตีกรอบ</span>
+          <span class="fn-choice__desc">กดเลือกสีที่ต้องการหา แล้วตีกรอบวัตถุที่มีสีนั้น</span>
+        </button>
       </div>
     </section>
 
     <!-- ขั้นที่ 2 — เลือกภาพ (โผล่หลังเลือกฟังก์ชันแล้ว) -->
     <section class="fn-step" id="fn-step-image" hidden>
       <h2 class="fn-step__title">
-        <span class="fn-step__num">2</span> เลือกภาพสำหรับ<span id="fn-chosen-name"></span>
+        เลือกภาพสำหรับ<span id="fn-chosen-name"></span>
       </h2>
 
       <div class="fn-step__body">
@@ -52,7 +57,7 @@
 
     <!-- ขั้นที่ 3 — ทำงาน (โผล่หลังมีภาพแล้ว) -->
     <section class="fn-step" id="fn-step-work" hidden>
-      <h2 class="fn-step__title"><span class="fn-step__num">3</span> <span id="fn-work-title"></span></h2>
+      <h2 class="fn-step__title"><span id="fn-work-title"></span></h2>
 
       <div class="fn-layout">
         <div class="fn-canvas-card">
@@ -90,6 +95,37 @@
 
             <button type="button" id="fn-objects-btn" disabled>หาใบหน้าในภาพ</button>
             <p class="fn-result" id="fn-objects-result" hidden></p>
+          </article>
+
+          <article class="fn-tool" id="fn-tool-color" hidden>
+            <p>กดเลือกสีที่ต้องการหา แล้วกดปุ่มด้านล่าง</p>
+
+            <div class="form-group">
+              <label>สีที่ต้องการหา</label>
+              <div class="fn-color-swatches" id="fn-color-swatches" role="group" aria-label="เลือกสีที่ต้องการหา">
+                <button type="button" class="fn-swatch is-active" data-hue="0" style="background: hsl(0, 75%, 55%)">แดง</button>
+                <button type="button" class="fn-swatch" data-hue="30" style="background: hsl(30, 85%, 55%)">ส้ม</button>
+                <button type="button" class="fn-swatch" data-hue="60" style="background: hsl(60, 85%, 50%); color:#1a1a1a" >เหลือง</button>
+                <button type="button" class="fn-swatch" data-hue="120" style="background: hsl(120, 60%, 40%)">เขียว</button>
+                <button type="button" class="fn-swatch" data-hue="180" style="background: hsl(180, 60%, 40%)">ฟ้า</button>
+                <button type="button" class="fn-swatch" data-hue="240" style="background: hsl(240, 60%, 55%)">น้ำเงิน</button>
+                <button type="button" class="fn-swatch" data-hue="270" style="background: hsl(270, 55%, 55%)">ม่วง</button>
+                <button type="button" class="fn-swatch" data-hue="330" style="background: hsl(330, 70%, 55%)">ชมพู</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="fn-color-tolerance">ยอมให้เพี้ยนได้กี่องศา</label>
+              <input type="number" id="fn-color-tolerance" value="20" min="1" max="180" />
+            </div>
+
+            <div class="form-group">
+              <label for="fn-color-min-area">ข้ามวัตถุที่เล็กกว่า (พิกเซล)</label>
+              <input type="number" id="fn-color-min-area" value="200" min="0" />
+            </div>
+
+            <button type="button" id="fn-color-btn" disabled>หาวัตถุในภาพ</button>
+            <p class="fn-result" id="fn-color-result" hidden></p>
           </article>
 
           <div class="fn-tool__footer">
