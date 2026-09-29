@@ -25,6 +25,7 @@ from app import create_app
 
 BLUR_URL = "/api/pipeline/blur-region"
 OBJECTS_URL = "/api/pipeline/find-objects"
+COLOR_URL = "/api/pipeline/find-by-color"
 REGION = {"x": 10, "y": 20, "width": 100, "height": 50}
 
 
@@ -226,5 +227,90 @@ def test_find_objects_response_without_list_is_502():
     client = _client()
     with patch("app.services.ai_engine_client.requests.post", return_value=_ok({"metrics": {}})):
         res = client.post(OBJECTS_URL, json={"image": "aGVsbG8="})
+
+    assert res.status_code == 502
+
+
+# ------------------------------------------------------------- find-by-color
+# ตัวเดิมที่เคยอยู่ที่ /api/pipeline/find-objects ก่อนย้ายไปเป็นจับหน้า (#163)
+
+def test_find_by_color_returns_boxes_and_count():
+    client = _client()
+    payload = {"objects": [
+        {"x": 5, "y": 6, "width": 70, "height": 80, "area": 5600.0},
+        {"x": 1, "y": 2, "width": 3, "height": 4, "area": 12.0},
+    ]}
+    with patch("app.services.ai_engine_client.requests.post", return_value=_ok(payload)) as post:
+        res = client.post(COLOR_URL, json={"image": "aGVsbG8="})
+
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["count"] == 2
+    assert body["objects"][0] == {"x": 5, "y": 6, "width": 70, "height": 80, "area": 5600.0}
+    assert post.call_args[0][0].endswith("/pipeline/03_segmentation/color-box")
+
+
+def test_find_by_color_sends_default_params():
+    """[กรณีทดสอบ]: ไม่ส่งพารามิเตอร์มา -> ต้องเติมค่าเริ่มต้นให้ครบก่อนส่งต่อ"""
+    client = _client()
+    with patch("app.services.ai_engine_client.requests.post",
+               return_value=_ok({"objects": []})) as post:
+        client.post(COLOR_URL, json={"image": "aGVsbG8="})
+
+    assert post.call_args[1]["json"]["params"] == {
+        "center_degrees": 50, "tolerance_degrees": 20, "saturation_min": 60,
+        "value_min": 40, "kernel_size": 3, "minimum_area": 200,
+    }
+
+
+def test_find_by_color_empty_list_is_200_not_404():
+    """[กรณีทดสอบ]: ไม่เจอวัตถุเลยเป็นเรื่องปกติ ไม่ใช่ error"""
+    client = _client()
+    with patch("app.services.ai_engine_client.requests.post", return_value=_ok({"objects": []})):
+        res = client.post(COLOR_URL, json={"image": "aGVsbG8="})
+
+    assert res.status_code == 200
+    assert res.get_json() == {"objects": [], "count": 0}
+
+
+def test_find_by_color_skips_malformed_entries_instead_of_failing():
+    """[กรณีทดสอบ]: วัตถุหนึ่งตัวรูปแบบเพี้ยน ต้องไม่ทำให้ผลทั้งก้อนหาย"""
+    client = _client()
+    payload = {"objects": [
+        {"x": 1, "y": 2, "width": 3, "height": 4},
+        {"x": 1, "y": 2},            # ขาดฟิลด์
+        "ไม่ใช่ object",
+    ]}
+    with patch("app.services.ai_engine_client.requests.post", return_value=_ok(payload)):
+        res = client.post(COLOR_URL, json={"image": "aGVsbG8="})
+
+    assert res.status_code == 200
+    assert res.get_json()["count"] == 1
+
+
+@pytest.mark.parametrize("body", [
+    {},
+    {"image": ""},
+    {"image": "aGVsbG8=", "center_degrees": 400},
+    {"image": "aGVsbG8=", "center_degrees": True},
+    {"image": "aGVsbG8=", "tolerance_degrees": 0},
+    {"image": "aGVsbG8=", "kernel_size": 4},        # เลขคู่
+    {"image": "aGVsbG8=", "kernel_size": 1},        # ต่ำกว่าที่ clean_mask() รับ (>=3)
+    {"image": "aGVsbG8=", "minimum_area": -1},
+    {"image": "aGVsbG8=", "saturation_min": 256},
+])
+def test_find_by_color_rejects_bad_params_without_calling_ai_engine(body):
+    client = _client()
+    with patch("app.services.ai_engine_client.requests.post") as post:
+        res = client.post(COLOR_URL, json=body)
+
+    assert res.status_code == 400, body
+    post.assert_not_called()
+
+
+def test_find_by_color_response_without_list_is_502():
+    client = _client()
+    with patch("app.services.ai_engine_client.requests.post", return_value=_ok({"metrics": {}})):
+        res = client.post(COLOR_URL, json={"image": "aGVsbG8="})
 
     assert res.status_code == 502
