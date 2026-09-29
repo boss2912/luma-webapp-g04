@@ -14,7 +14,7 @@ from app.services.job_queue import enqueue
 from app.services.image_input import ALLOWED_SIZES, ImageInputError, decode_image, nearest_size
 from app.services.ai_engine_client import (
     blur_region, extract_color_palette, find_objects, find_objects_by_color,
-    PipelineClientError)
+    read_png_info, PipelineClientError)
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -586,3 +586,31 @@ def handle_find_by_color():
 
     # ไม่เจอวัตถุเลยไม่ใช่ error — คืน list ว่างพร้อม 200
     return jsonify({"objects": objects, "count": len(objects)}), 200
+
+
+@api_bp.route("/pipeline/png-info", methods=["POST"])
+def handle_png_info():
+    """POST /api/pipeline/png-info — อ่าน prompt/ค่าที่ใช้สร้างภาพที่ฝังในไฟล์ PNG
+
+    ฟังก์ชันเพิ่มเติม แยกจากหน้า img2img (คนละหน้ากัน ไม่ได้แทนที่กัน) — ใส่รูป PNG
+    แล้วดูว่าใครสร้างด้วย prompt อะไร ใช้ได้กับ PNG จากที่ไหนก็ได้ ไม่ใช่แค่ภาพใน
+    คลังผลงานของแอปนี้ เพราะอ่าน chunk มาตรฐานของ Stable Diffusion WebUI/Forge
+    ตรงจากไฟล์ ไม่ผ่าน asset id
+
+    ไม่บังคับ login เหมือน /api/pipeline/blur-region — เป็นแค่อ่านไฟล์ที่ส่งมาใน
+    คำขอเอง ไม่แตะข้อมูลที่เก็บไว้ของผู้ใช้คนไหน
+    """
+    data = request.get_json(silent=True)
+    image_b64, error = _image_from_request(data)
+    if error:
+        return jsonify({"error": error}), 400
+
+    try:
+        result = read_png_info(image_b64)
+    except PipelineClientError as e:
+        return jsonify({"error": e.message}), e.status_code
+    except Exception as e:
+        current_app.logger.error(f"เกิดข้อผิดพลาดในการอ่าน PNG info: {e}", exc_info=True)
+        return jsonify({"error": "เกิดข้อผิดพลาดในการติดต่อ AI Engine / Internal Server Error"}), 500
+
+    return jsonify(result), 200

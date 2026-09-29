@@ -177,3 +177,21 @@ def find_objects_by_color(image_b64: str, params: dict) -> list[dict]:
     ไม่เจอวัตถุที่ตรงกับสีเลยเป็นเรื่องปกติ ไม่ใช่ error — คืน list ว่าง
     """
     return _parse_boxes(_post_pipeline("03_segmentation", "color-box", image_b64, params))
+
+
+def read_png_info(image_b64: str) -> dict:
+    """เรียก ai-engine (01_acquisition/png_info) เพื่ออ่านข้อความ "parameters" ที่ฝัง
+    อยู่ในไฟล์ PNG — ฟังก์ชันเพิ่มเติม แยกจากหน้า img2img (คนละหน้ากัน ไม่ได้แทนที่กัน)
+
+    ใช้ได้กับ PNG จากที่ไหนก็ได้ ไม่ใช่แค่ภาพที่แอปนี้สร้างเอง เพราะเป็นการอ่าน
+    chunk มาตรฐานของ Stable Diffusion WebUI/Forge ไม่ใช่ query จาก asset id
+
+    ไม่มีข้อมูลฝังอยู่เป็นเรื่องปกติ (PNG ทั่วไปที่ไม่ได้มาจากเครื่องมือแบบนี้)
+    ไม่ใช่ error — คืน parameters: None, found: False
+    """
+    data = _post_pipeline("01_acquisition", "png_info", image_b64, {})
+    parameters = data.get("parameters")
+    return {
+        "parameters": parameters if isinstance(parameters, str) else None,
+        "found": bool(data.get("found")),
+    }

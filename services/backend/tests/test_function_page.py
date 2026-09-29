@@ -26,6 +26,7 @@ from app import create_app
 BLUR_URL = "/api/pipeline/blur-region"
 OBJECTS_URL = "/api/pipeline/find-objects"
 COLOR_URL = "/api/pipeline/find-by-color"
+PNG_INFO_URL = "/api/pipeline/png-info"
 REGION = {"x": 10, "y": 20, "width": 100, "height": 50}
 
 
@@ -314,3 +315,50 @@ def test_find_by_color_response_without_list_is_502():
         res = client.post(COLOR_URL, json={"image": "aGVsbG8="})
 
     assert res.status_code == 502
+
+
+# ---------------------------------------------------- png-info (ฟังก์ชันเพิ่มเติม แยกจาก img2img)
+
+def test_png_info_returns_parameters_when_found():
+    client = _client()
+    with patch("app.services.ai_engine_client.requests.post",
+               return_value=_ok({"parameters": "a fox", "found": True})) as post:
+        res = client.post(PNG_INFO_URL, json={"image": "aGVsbG8="})
+
+    assert res.status_code == 200
+    assert res.get_json() == {"parameters": "a fox", "found": True}
+    assert post.call_args[0][0].endswith("/pipeline/01_acquisition/png_info")
+
+
+def test_png_info_not_found_is_200_not_error():
+    """[กรณีทดสอบ]: PNG ทั่วไปไม่มี chunk ฝังอยู่เป็นเรื่องปกติ ไม่ใช่ error"""
+    client = _client()
+    with patch("app.services.ai_engine_client.requests.post",
+               return_value=_ok({"parameters": None, "found": False})):
+        res = client.post(PNG_INFO_URL, json={"image": "aGVsbG8="})
+
+    assert res.status_code == 200
+    assert res.get_json() == {"parameters": None, "found": False}
+
+
+@pytest.mark.parametrize("body", [{}, {"image": ""}, {"image": None}])
+def test_png_info_rejects_missing_image_without_calling_ai_engine(body):
+    client = _client()
+    with patch("app.services.ai_engine_client.requests.post") as post:
+        res = client.post(PNG_INFO_URL, json=body)
+
+    assert res.status_code == 400, body
+    post.assert_not_called()
+
+
+def test_png_info_forwards_ai_engine_400_as_400_not_502():
+    """[กรณีทดสอบ]: อัปโหลด JPEG -> ai-engine ตอบ 400 ("File is not a PNG image")
+    ต้องส่งต่อเป็น 400 ของผู้ใช้ ไม่ใช่ 502 ของ server"""
+    client = _client()
+    reply = Mock(status_code=400)
+    reply.json.return_value = {"error": "File is not a PNG image"}
+    with patch("app.services.ai_engine_client.requests.post", return_value=reply):
+        res = client.post(PNG_INFO_URL, json={"image": "aGVsbG8="})
+
+    assert res.status_code == 400
+    assert "PNG" in res.get_json()["error"]
