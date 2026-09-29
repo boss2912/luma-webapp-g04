@@ -133,6 +133,30 @@ textarea.form-control {
   line-height: 1.6;
 }
 
+.btn-download {
+  margin-top: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: #ffffff;
+  color: #2f3ba3;
+  border: 1px solid #2f3ba3;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-download:hover:not(:disabled) {
+  background: #eef1ff;
+}
+
+.btn-download:disabled {
+  color: #9aa0d6;
+  border-color: #9aa0d6;
+  cursor: not-allowed;
+}
+
 .generate-error {
   padding: 0.75rem 1rem;
   border-radius: 8px;
