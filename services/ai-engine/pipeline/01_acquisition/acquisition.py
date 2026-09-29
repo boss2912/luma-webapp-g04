@@ -93,6 +93,33 @@ def read_exif(path):
     return result
 
 
+def read_generation_parameters(source):
+    """Read the "parameters" text chunk that Stable Diffusion WebUI/Forge-style
+    tools embed in generated PNGs (Lecture 3, pp. 23-29 — metadata carried in
+    the file itself, the same idea as read_exif() above but for AI-generation
+    settings instead of camera settings).
+
+    `source` accepts a path or a file-like object (e.g. BytesIO from an
+    in-memory upload) — Pillow's Image.open() supports both directly, so this
+    works both for on-disk unit tests and for the base64 uploads the "PNG
+    Info" page sends without ever touching disk.
+
+    Returns None when the file carries no such chunk — an ordinary PNG that
+    was never generated this way, not an error.
+    """
+    # ImageValidationError ก็เป็น ValueError ด้วย — เปิดไฟล์กับเช็ค format ต้องแยกเป็น
+    # สอง try กัน except ด้านล่างจับ ImageValidationError ของ "not PNG" ทับข้อความเดิม
+    try:
+        image = Image.open(source)
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise ImageValidationError("File is not a readable image") from exc
+    with image:
+        if image.format != "PNG":
+            raise ImageValidationError("File is not a PNG image")
+        image.load()  # Pillow only finishes parsing text chunks after load()
+        return image.info.get("parameters")
+
+
 def field_of_view(sensor_width_mm, focal_length_mm, distance_m):
     """Return horizontal angle in degrees and scene width in metres (Lecture 3, pp. 55-56)."""
     values = (sensor_width_mm, focal_length_mm, distance_m)

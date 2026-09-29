@@ -86,3 +86,45 @@ def test_fov_matches_manual_result():
     assert result["scene_width_m"] == pytest.approx(3.5)
     with pytest.raises(ValueError):
         acquisition.field_of_view(35, 0, 5)
+
+
+def test_read_generation_parameters_returns_the_embedded_text(tmp_path):
+    """[test case]: PNG saved with a "parameters" tEXt chunk -> read it back exactly"""
+    from PIL.PngImagePlugin import PngInfo
+
+    path = tmp_path / "generated.png"
+    text = "a cat\nNegative prompt: blurry\nSteps: 20, Sampler: Euler a, CFG scale: 8, Seed: 42, Size: 512x512"
+    info = PngInfo()
+    info.add_text("parameters", text)
+    Image.new("RGB", (8, 8), (0, 0, 0)).save(path, pnginfo=info)
+
+    assert acquisition.read_generation_parameters(path) == text
+
+
+def test_read_generation_parameters_returns_none_for_an_ordinary_png(tmp_path):
+    """[test case]: PNG with no such chunk is the normal case, not an error -> None"""
+    path = tmp_path / "plain.png"
+    Image.new("RGB", (8, 8), (0, 0, 0)).save(path)
+    assert acquisition.read_generation_parameters(path) is None
+
+
+def test_read_generation_parameters_rejects_non_png(tmp_path):
+    """[test case]: JPEG doesn't carry tEXt chunks the same way -> reject, don't silently return None"""
+    path = tmp_path / "photo.jpg"
+    Image.new("RGB", (8, 8), (0, 0, 0)).save(path, format="JPEG")
+    with pytest.raises(acquisition.ImageValidationError, match="PNG"):
+        acquisition.read_generation_parameters(path)
+
+
+def test_read_generation_parameters_accepts_a_file_like_object():
+    """[test case]: in-memory BytesIO (no disk file) works the same as a path — used by the HTTP route"""
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+
+    buf = BytesIO()
+    info = PngInfo()
+    info.add_text("parameters", "a fox")
+    Image.new("RGB", (8, 8), (0, 0, 0)).save(buf, format="PNG", pnginfo=info)
+    buf.seek(0)
+
+    assert acquisition.read_generation_parameters(buf) == "a fox"
