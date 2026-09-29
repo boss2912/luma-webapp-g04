@@ -7,11 +7,8 @@ import base64
 import os
 import uuid
 from datetime import datetime, timezone
-from io import BytesIO
 import requests
 from flask import current_app
-from PIL import Image
-from PIL.PngImagePlugin import PngInfo
 
 
 class ForgeClientError(Exception):
@@ -131,25 +128,8 @@ def _call_ai_engine(path: str, payload: dict, seed: int) -> tuple[str, int]:
     img_b64 = images[0]
     seed_used = data.get("seed_used", seed)
 
-    relative_path = save_base64_image(img_b64, _build_parameters_text(payload, seed_used))
+    relative_path = save_base64_image(img_b64)
     return relative_path, seed_used
-
-
-def _build_parameters_text(payload: dict, seed_used: int) -> str:
-    """สร้างข้อความ "parameters" แบบเดียวกับที่ Stable Diffusion WebUI/Forge ตัวจริง
-    ฝังไว้ในไฟล์ PNG ที่สร้าง (prompt บรรทัดแรก, negative prompt บรรทัดสอง, ค่าที่ตั้ง
-    บรรทัดสาม) — ทำให้หน้า "PNG Info" อ่านภาพที่แอปนี้สร้างเองได้เหมือนภาพจาก Forge จริง
-
-    ใช้ seed_used (เลขจริงที่ Forge ใช้) ไม่ใช่ payload["seed"] (อาจเป็น -1 = สุ่ม)
-    ด้วยเหตุผลเดียวกับที่ generate.js describeSettings() ทำ (#174)
-    """
-    return (
-        f"{payload.get('prompt', '')}\n"
-        f"Negative prompt: {payload.get('negative_prompt', '') or ''}\n"
-        f"Steps: {payload.get('steps')}, Sampler: {payload.get('sampler_name')}, "
-        f"CFG scale: {payload.get('cfg_scale')}, Seed: {seed_used}, "
-        f"Size: {payload.get('width')}x{payload.get('height')}"
-    )
 
 
 def _describe_engine_failure(response) -> str:
@@ -197,26 +177,12 @@ def _describe_engine_failure(response) -> str:
             f"/ AI engine rejected the request: {detail}")
 
 
-def save_base64_image(b64_str: str, parameters_text: str | None = None) -> str:
-    """บันทึก base64 image เป็นไฟล์ PNG และคืนค่า relative path
-
-    ฝัง parameters_text ไว้ในไฟล์เป็น PNG tEXt chunk ชื่อ "parameters" (มาตรฐาน
-    เดียวกับ Stable Diffusion WebUI/Forge) เมื่อมีค่าส่งมา เพื่อให้หน้า "PNG Info"
-    อ่านกลับมาได้ทีหลัง — ไม่ส่งมาก็บันทึกตรงๆ เหมือนเดิม (เช่นตอน mock ai-engine
-    ตอบภาพที่ decode ไม่ได้จริงในเทส)
-    """
+def save_base64_image(b64_str: str) -> str:
+    """บันทึก base64 image เป็นไฟล์ PNG และคืนค่า relative path"""
     if "," in b64_str:
         b64_str = b64_str.split(",", 1)[1]
 
     img_bytes = base64.b64decode(b64_str)
-
-    if parameters_text:
-        image = Image.open(BytesIO(img_bytes))
-        pnginfo = PngInfo()
-        pnginfo.add_text("parameters", parameters_text)
-        out = BytesIO()
-        image.save(out, format="PNG", pnginfo=pnginfo)
-        img_bytes = out.getvalue()
 
     now = datetime.now(timezone.utc)
     year_str = now.strftime("%Y")
