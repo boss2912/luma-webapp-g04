@@ -128,10 +128,15 @@ def blur_region(image_b64: str, region: dict, size: int) -> str:
     return image
 
 
-def _parse_boxes(data: dict) -> list[dict]:
-    """แปลง response ของ ai-engine ({"objects": [...]}) เป็น list ของกรอบที่ใช้ร่วมกัน
-    ระหว่าง find_objects() (จับหน้า) และ find_objects_by_color() (เลือกสี)
+def find_objects(image_b64: str, params: dict) -> list[dict]:
+    """เรียก ai-engine (03_segmentation/contours) เพื่อหาพิกัดกรอบของวัตถุในภาพ (#163)
+
+    ai-engine คืนแค่พิกัด ไม่ได้วาดลงภาพ — หน้าเว็บวาดเอง ผู้ใช้จึงยังเห็นภาพต้นฉบับ
+
+    ไม่เจอวัตถุเลยเป็นเรื่องปกติ ไม่ใช่ error — คืน list ว่าง
     """
+    data = _post_pipeline("03_segmentation", "contours", image_b64, params)
+
     objects = data.get("objects")
     if not isinstance(objects, list):
         raise PipelineClientError(
@@ -156,24 +161,3 @@ def _parse_boxes(data: dict) -> list[dict]:
             box["confidence"] = float(confidence)
         boxes.append(box)
     return boxes
-
-
-def find_objects(image_b64: str, params: dict) -> list[dict]:
-    """เรียก ai-engine (03_segmentation/contours) เพื่อหาพิกัดกรอบใบหน้าในภาพ (#163)
-
-    ai-engine คืนแค่พิกัด ไม่ได้วาดลงภาพ — หน้าเว็บวาดเอง ผู้ใช้จึงยังเห็นภาพต้นฉบับ
-
-    ไม่เจอใบหน้าเลยเป็นเรื่องปกติ ไม่ใช่ error — คืน list ว่าง
-    """
-    return _parse_boxes(_post_pipeline("03_segmentation", "contours", image_b64, params))
-
-
-def find_objects_by_color(image_b64: str, params: dict) -> list[dict]:
-    """เรียก ai-engine (03_segmentation/color-box) เพื่อหาพิกัดกรอบวัตถุตามสีที่เลือก
-
-    ใช้ selective_color_mask/clean_mask/find_objects ของ pipeline เดิมที่ไม่ได้
-    ถูกแก้เลยตอนเปลี่ยนตัวเริ่มต้นของ Function page ไปเป็นจับหน้า (#163)
-
-    ไม่เจอวัตถุที่ตรงกับสีเลยเป็นเรื่องปกติ ไม่ใช่ error — คืน list ว่าง
-    """
-    return _parse_boxes(_post_pipeline("03_segmentation", "color-box", image_b64, params))

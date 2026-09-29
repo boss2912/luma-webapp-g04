@@ -13,8 +13,7 @@ from app.services.forge_client import edit_image, ForgeClientError
 from app.services.job_queue import enqueue
 from app.services.image_input import ALLOWED_SIZES, ImageInputError, decode_image, nearest_size
 from app.services.ai_engine_client import (
-    blur_region, extract_color_palette, find_objects, find_objects_by_color,
-    PipelineClientError)
+    blur_region, extract_color_palette, find_objects, PipelineClientError)
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -535,53 +534,6 @@ def handle_find_objects():
         return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         current_app.logger.error(f"เกิดข้อผิดพลาดในการหาวัตถุ: {e}", exc_info=True)
-        return jsonify({"error": "เกิดข้อผิดพลาดในการติดต่อ AI Engine / Internal Server Error"}), 500
-
-    # ไม่เจอวัตถุเลยไม่ใช่ error — คืน list ว่างพร้อม 200
-    return jsonify({"objects": objects, "count": len(objects)}), 200
-
-
-@api_bp.route("/pipeline/find-by-color", methods=["POST"])
-def handle_find_by_color():
-    """POST /api/pipeline/find-by-color — หาพิกัดกรอบวัตถุตามสีที่เลือก (#163)
-
-    ส่งต่อให้ ai-engine ที่ POST /pipeline/03_segmentation/color-box
-    เป็นตัวเดียวกับที่เคยอยู่ที่ /api/pipeline/find-objects ก่อนย้ายไปเป็นจับหน้า
-    — พารามิเตอร์กลับมาเป็นชุดเดิมของ selective_color_mask/clean_mask
-
-    คืนแค่พิกัด ไม่วาดลงภาพ — หน้าเว็บวาดกรอบเอง ผู้ใช้จึงยังเห็นภาพต้นฉบับชัดๆ
-    """
-    data = request.get_json(silent=True)
-    image_b64, error = _image_from_request(data)
-    if error:
-        return jsonify({"error": error}), 400
-
-    # ช่วงค่าตามที่ selective_color_mask / clean_mask ของ pipeline รับได้
-    limits = {
-        "center_degrees": (0, 359, 50),
-        "tolerance_degrees": (1, 180, 20),
-        "saturation_min": (0, 255, 60),
-        "value_min": (0, 255, 40),
-        # ขั้นต่ำ 3 ให้ตรงกับ clean_mask() ของ pipeline (segmentation.py:68)
-        # ถ้ารับ 1 ผ่านไป ai-engine จะ raise ValueError -> ผู้ใช้เห็น 502 ทั้งที่ค่าตัวเองผิด
-        "kernel_size": (3, 31, 3),
-        "minimum_area": (0, 10_000_000, 200),
-    }
-    params = {}
-    for name, (minimum, maximum, default) in limits.items():
-        value, error = _whole_number(data.get(name, default), name, minimum, maximum)
-        if error:
-            return jsonify({"error": error}), 400
-        params[name] = value
-    if params["kernel_size"] % 2 == 0:
-        return jsonify({"error": "kernel_size ต้องเป็นเลขคี่ / kernel_size must be an odd number"}), 400
-
-    try:
-        objects = find_objects_by_color(image_b64, params)
-    except PipelineClientError as e:
-        return jsonify({"error": e.message}), e.status_code
-    except Exception as e:
-        current_app.logger.error(f"เกิดข้อผิดพลาดในการหาวัตถุตามสี: {e}", exc_info=True)
         return jsonify({"error": "เกิดข้อผิดพลาดในการติดต่อ AI Engine / Internal Server Error"}), 500
 
     # ไม่เจอวัตถุเลยไม่ใช่ error — คืน list ว่างพร้อม 200
