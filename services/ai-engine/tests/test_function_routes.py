@@ -178,6 +178,110 @@ def test_contours_route_rejects_invalid_parameters(params):
     assert "error" in response.json
 
 
+# --- /pipeline/03_segmentation/color-box (Function page "เลือกสีแล้วตีกรอบ") ---
+# ตัวเดิมที่เคยอยู่ที่ contours ก่อน #163 เปลี่ยนไปเป็นจับหน้า — ย้ายมาไว้ที่
+# route ใหม่นี้ เรียก selective_color_mask/clean_mask/find_objects ที่ไม่ได้
+# ถูกแก้เลยสักบรรทัด (ดู test_segmentation.py — ฟังก์ชันพวกนี้ยังมีเทสเดิมครบ)
+
+def _object_image():
+    image = np.zeros((100, 120, 3), dtype=np.uint8)
+    cv2.rectangle(image, (10, 20), (39, 59), (0, 0, 255), -1)
+    cv2.rectangle(image, (70, 10), (109, 79), (0, 0, 255), -1)
+    return image
+
+
+def _color_box_body(**params):
+    body_params = {
+        "center_degrees": 0,
+        "tolerance_degrees": 10,
+        "saturation_min": 60,
+        "value_min": 40,
+        "kernel_size": 3,
+        "minimum_area": 100,
+    }
+    body_params.update(params)
+    return {"image": _encode_png(_object_image()), "params": body_params}
+
+
+def test_color_box_route_returns_sorted_json_boxes_without_contour_arrays():
+    client = create_app({"TESTING": True}).test_client()
+
+    response = client.post(
+        "/pipeline/03_segmentation/color-box", json=_color_box_body()
+    )
+
+    assert response.status_code == 200
+    assert response.json["stage"] == "03_segmentation"
+    assert response.json["operation"] == "color-box"
+    assert response.json["metrics"] == {"object_count": 2}
+    assert [
+        {key: item[key] for key in ("x", "y", "width", "height")}
+        for item in response.json["objects"]
+    ] == [
+        {"x": 70, "y": 10, "width": 40, "height": 70},
+        {"x": 10, "y": 20, "width": 30, "height": 40},
+    ]
+    assert response.json["objects"][0]["area"] > response.json["objects"][1]["area"]
+
+
+def test_color_box_route_returns_200_and_empty_list_when_nothing_matches():
+    body = _color_box_body(center_degrees=120)
+    response = create_app({"TESTING": True}).test_client().post(
+        "/pipeline/03_segmentation/color-box", json=body
+    )
+    assert response.status_code == 200
+    assert response.json["objects"] == []
+    assert response.json["metrics"] == {"object_count": 0}
+
+
+@pytest.mark.parametrize("params", [
+    [],
+    {"center_degrees": True},
+    {"center_degrees": -1},
+    {"center_degrees": 360},
+    {"tolerance_degrees": True},
+    {"tolerance_degrees": -1},
+    {"tolerance_degrees": 181},
+    {"saturation_min": True},
+    {"saturation_min": -1},
+    {"saturation_min": 256},
+    {"value_min": True},
+    {"value_min": -1},
+    {"value_min": 256},
+    {"kernel_size": True},
+    {"kernel_size": 2},
+    {"kernel_size": 4},
+    {"kernel_size": 33},
+    {"minimum_area": True},
+    {"minimum_area": -1},
+])
+def test_color_box_route_rejects_invalid_parameters(params):
+    if isinstance(params, dict):
+        body = _color_box_body(**params)
+    else:
+        body = {"image": _encode_png(_object_image()), "params": params}
+    response = create_app({"TESTING": True}).test_client().post(
+        "/pipeline/03_segmentation/color-box", json=body
+    )
+    assert response.status_code == 400
+    assert "error" in response.json
+
+
+@pytest.mark.parametrize("body", [
+    None,
+    [],
+    {"image": 123},
+    {"image": "not-base64!!!"},
+    {"image": base64.b64encode(b"not an image").decode("ascii")},
+])
+def test_color_box_route_rejects_invalid_images_and_bodies(body):
+    response = create_app({"TESTING": True}).test_client().post(
+        "/pipeline/03_segmentation/color-box", json=body
+    )
+    assert response.status_code == 400
+    assert "error" in response.json
+
+
 @pytest.mark.parametrize("body", [
     None,
     [],
