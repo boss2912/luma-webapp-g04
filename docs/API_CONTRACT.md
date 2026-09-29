@@ -302,7 +302,6 @@ sorted(r.rule for r in create_app().url_map.iter_rules() if "pipeline" in r.rule
 | `02_enhancement/blur` | `pipeline/02_enhancement/spatial_filters.py` |
 | `03_segmentation/contours` | `pipeline/03_segmentation/segmentation.py` (`find_faces`) — เดิมเป็นตีกรอบสี ตอนนี้เป็นจับหน้าจริงด้วย YuNet (DNN) |
 | `03_segmentation/color-box` | `pipeline/03_segmentation/segmentation.py` (`find_color_boxes` เรียก `selective_color_mask`/`clean_mask`/`find_objects` เดิม) — ฟังก์ชันที่ 3 ของหน้า Function: เลือกสีแล้วตีกรอบ |
-| `01_acquisition/png_info` | `pipeline/01_acquisition/acquisition.py` (`read_generation_parameters`) — หน้า "PNG Info" ใหม่ อ่านข้อความ "parameters" ที่ฝังอยู่ในไฟล์ PNG |
 | `04_features/color_palette` | `pipeline/04_features/color_palette.py` |
 | `04_features/auto_tag` | `pipeline/04_features/auto_tag.py` |
 
@@ -409,24 +408,6 @@ error) · ค่า input ผิด รวมถึง bool ในช่อง�
 พร้อม `metrics.object_count`, `stage: "03_segmentation"` และ `operation:
 "color-box"` · ไม่พบวัตถุให้ตอบ 200 กับ `objects: []` (ไม่ใช่ error) · ค่า input
 ผิด รวมถึง bool ในช่องตัวเลข ให้ตอบ 400
-
-#### หน้า "PNG Info" (ฟังก์ชันเพิ่มเติม แยกจากหน้า img2img)
-
-`POST /pipeline/01_acquisition/png_info` อ่านข้อความ "parameters" ที่ฝังอยู่ใน
-ไฟล์ PNG — chunk มาตรฐานเดียวกับที่ Stable Diffusion WebUI/Forge ฝังไว้เมื่อสร้าง
-ภาพ (prompt/negative prompt/steps/sampler/CFG/seed/ขนาด) ใช้ได้กับ PNG จากที่ไหน
-ก็ได้ ไม่ใช่แค่ภาพในคลังผลงานของแอปนี้ — `forge_client.save_base64_image()` ของ
-backend ฝังข้อความนี้ให้ภาพทุกใบที่แอปสร้างเองด้วย (ทั้งจาก `/api/generate` และ
-`/api/img2img`) หน้านี้จึงใช้ตรวจสอบภาพของตัวเองย้อนหลังได้เช่นกัน:
-
-```json
-{ "image": "<base64>" }
-```
-
-ตอบ `{"parameters": "<string หรือ null>", "found": true/false, "stage":
-"01_acquisition", "operation": "png_info"}` · ไม่มี chunk ฝังอยู่เป็นเรื่องปกติ
-(PNG ทั่วไปที่ไม่ได้มาจากเครื่องมือแบบนี้) ไม่ใช่ error — ตอบ 200 กับ
-`found: false` · อัปโหลดไฟล์ที่ไม่ใช่ PNG (เช่น JPEG) ให้ตอบ 400
 
 ---
 
