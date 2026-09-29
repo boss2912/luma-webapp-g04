@@ -38,7 +38,6 @@ extract_palette = import_module("pipeline.04_features.color_palette").extract_pa
 spatial_filters = import_module("pipeline.02_enhancement.spatial_filters")
 segmentation = import_module("pipeline.03_segmentation.segmentation")
 classify_image = import_module("pipeline.04_features.auto_tag").classify
-acquisition = import_module("pipeline.01_acquisition.acquisition")
 
 
 def _decode_bgr_image(image_b64):
@@ -280,36 +279,6 @@ def create_app(config=None):
             "metrics": {"object_count": len(objects)},
             "stage": "03_segmentation",
             "operation": "color-box",
-        })
-
-    @app.post("/pipeline/01_acquisition/png_info")
-    def png_info():
-        # หน้า "PNG Info" ใหม่ (ฟังก์ชันเพิ่มเติม แยกจาก img2img) — ใส่รูป PNG แล้วดู
-        # prompt/ค่าที่ใช้สร้างภาพ ถ้ามีฝังไว้ในไฟล์ (Stable Diffusion WebUI/Forge
-        # ฝังแบบนี้ไว้ตั้งแต่สร้าง — forge_client.save_base64_image() ของ backend
-        # ก็ฝังให้ภาพที่แอปนี้สร้างเองด้วย) ใช้ได้กับ PNG จากที่ไหนก็ได้ ไม่ใช่แค่
-        # ภาพในคลังของแอปนี้
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict):
-            return jsonify({"error": "Expected a JSON object"}), 400
-        image_b64 = data.get("image")
-        if not isinstance(image_b64, str) or not image_b64:
-            return jsonify({"error": "image must be a nonempty base64 string"}), 400
-        try:
-            image_bytes = base64.b64decode(image_b64, validate=True)
-        except (ValueError, binascii.Error):
-            return jsonify({"error": "image must be valid base64"}), 400
-
-        try:
-            parameters = acquisition.read_generation_parameters(BytesIO(image_bytes))
-        except acquisition.ImageValidationError as exc:
-            return jsonify({"error": str(exc)}), 400
-
-        return jsonify({
-            "parameters": parameters,
-            "found": parameters is not None,
-            "stage": "01_acquisition",
-            "operation": "png_info",
         })
 
     @app.post("/pipeline/04_features/auto_tag")
