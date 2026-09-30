@@ -205,7 +205,8 @@ def _remove_bg_body(region=None):
     return {"image": _encode_png(_checkerboard()), "params": params}
 
 
-def test_remove_background_route_erases_only_the_selected_region():
+def test_remove_background_route_erases_an_ellipse_inscribed_in_the_region_not_the_whole_box():
+    """[กรณีทดสอบ]: ลบเป็นวงรี/วงกลมที่แนบในกรอบที่ลาก ไม่ใช่ทั้งกรอบสี่เหลี่ยม (ตามที่ผู้ใช้ขอ)"""
     client = create_app({"TESTING": True}).test_client()
 
     response = client.post("/pipeline/03_segmentation/remove-background", json=_remove_bg_body())
@@ -213,14 +214,18 @@ def test_remove_background_route_erases_only_the_selected_region():
     assert response.status_code == 200
     assert response.json["stage"] == "03_segmentation"
     assert response.json["operation"] == "remove-background"
-    assert response.json["metrics"] == {"erased_pixels": 64}
     result = _decode_png_with_alpha(response.json["image"])
     assert result.shape == (24, 24, 4)
     alpha = result[:, :, 3]
-    outside = np.ones((24, 24), dtype=bool)
-    outside[8:16, 8:16] = False
-    assert np.all(alpha[8:16, 8:16] == 0), "กรอบที่ลากต้องถูกลบเป็นโปร่งใสทั้งหมด"
-    assert np.all(alpha[outside] == 255), "นอกกรอบต้องทึบแสงเหมือนเดิมทั้งหมด"
+
+    # region = {x:8, y:8, width:8, height:8} -> วงกลมรัศมี 4 จุดศูนย์กลาง (12, 12)
+    assert alpha[12, 12] == 0, "จุดกึ่งกลางวงกลมต้องถูกลบเป็นโปร่งใส"
+    assert alpha[8, 8] == 255, "มุมของกรอบสี่เหลี่ยมต้องไม่ถูกลบ เพราะอยู่นอกวงกลมที่แนบใน"
+    assert alpha[0, 0] == 255, "นอกกรอบทั้งหมดต้องทึบแสงเหมือนเดิม"
+
+    erased = int(np.count_nonzero(alpha == 0))
+    assert 0 < erased < 64, "พื้นที่ที่ลบต้องน้อยกว่าทั้งกรอบสี่เหลี่ยม (8x8=64) เพราะเป็นวงกลมข้างใน"
+    assert response.json["metrics"] == {"erased_pixels": erased}
 
 
 @pytest.mark.parametrize("params", [

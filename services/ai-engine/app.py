@@ -199,8 +199,9 @@ def create_app(config=None):
 
     @app.post("/pipeline/03_segmentation/remove-background")
     def remove_background_route():
-        # Function page "ลบพื้นหลัง" — ลากกรอบเหมือน blur แต่แทนที่จะเบลอ กรอบที่ลาก
-        # จะถูกลบให้โปร่งใส (alpha=0) ส่วนนอกกรอบคงทึบแสงเดิม ใช้
+        # Function page "ลบพื้นหลัง" — ลากกรอบเหมือน blur เพื่อกำหนดขอบเขต แต่บริเวณที่
+        # ถูกลบจริงเป็นวงรี/วงกลมที่แนบในกรอบนั้น (ไม่ใช่ทั้งกรอบสี่เหลี่ยม) ตามที่ผู้ใช้
+        # ขอ — ใช้ cv2.ellipse วาด mask แทนการเติมทั้งกรอบ ใช้
         # segmentation.remove_background(image, mask) ตรงๆ ซึ่งมีอยู่แล้วในไพพ์ไลน์
         # แต่ไม่เคยมี route ผูกให้เรียกผ่าน HTTP มาก่อน (ดู docs/API_CONTRACT.md
         # ตาราง "ยังไม่มี route") — mask ที่นี่สร้างจากกรอบสี่เหลี่ยมที่ลาก ไม่ใช่จาก
@@ -233,7 +234,9 @@ def create_app(config=None):
             return jsonify({"error": "region must stay within the image bounds"}), 400
 
         mask = np.full((image_height, image_width), 255, dtype=np.uint8)
-        mask[y:y + height, x:x + width] = 0
+        center = (x + width // 2, y + height // 2)
+        axes = (max(width // 2, 1), max(height // 2, 1))
+        cv2.ellipse(mask, center, axes, 0, 0, 360, 0, thickness=-1)
         try:
             result = segmentation.remove_background(pixels, mask)
             result_b64 = _encode_png(result)
@@ -242,7 +245,7 @@ def create_app(config=None):
 
         return jsonify({
             "image": result_b64,
-            "metrics": {"erased_pixels": int(width * height)},
+            "metrics": {"erased_pixels": int(np.count_nonzero(mask == 0))},
             "stage": "03_segmentation",
             "operation": "remove-background",
         })
