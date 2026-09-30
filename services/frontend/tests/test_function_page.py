@@ -195,6 +195,26 @@ def test_removebg_drag_updates_only_its_own_selection_not_blurs():
     assert result["blurDisabled"] is True
 
 
+def test_removebg_preview_draws_an_ellipse_not_a_rectangle():
+    """[กรณีทดสอบ]: พรีวิวระหว่างลากต้องเป็นวงรี/วงกลม ไม่ใช่กรอบสี่เหลี่ยม (ตามที่ผู้ใช้ขอ)
+
+    ต้องตรงกับที่ ai-engine จะลบจริง — ถ้าพรีวิวยังเป็นสี่เหลี่ยมแต่ลบจริงเป็นวงกลม
+    ผู้ใช้จะงงว่าทำไมขอบเขตที่เห็นไม่ตรงกับผลลัพธ์
+    """
+    result = _run("removebg_drag")
+    assert result["ellipseCount"] > 0
+    assert result["rectStrokeCount"] == 0
+    # กรอบลาก {x:100,y:50,width:100,height:50} -> วงรีศูนย์กลาง (150,75) รัศมี (50,25)
+    assert result["ellipse"] == {"x": 150, "y": 75, "radiusX": 50, "radiusY": 25}
+
+
+def test_blur_preview_still_draws_a_rectangle_not_an_ellipse():
+    """[กรณีทดสอบ]: เบลอต้องพรีวิวเป็นสี่เหลี่ยมเหมือนเดิม — เปลี่ยนแค่ removebg ไม่ใช่ทุกฟังก์ชัน"""
+    result = _run("blur_drag_still_draws_a_rectangle")
+    assert result["rectStrokeCount"] > 0
+    assert result["ellipseCount"] == 0
+
+
 def test_removebg_sends_region_and_csrf_then_shows_result():
     """[กรณีทดสอบ]: กดลบพื้นหลัง -> ยิง /api/pipeline/remove-background พร้อมกรอบที่แปลงพิกัดแล้ว"""
     result = _run("removebg_request")

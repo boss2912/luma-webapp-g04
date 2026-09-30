@@ -19,11 +19,13 @@ function el(extra = {}) {
 // displayWidth ต่างจาก width เพื่อจำลองว่า CSS ย่อภาพลง (max-width:100%)
 function makeCanvas(displayWidth) {
   const strokes = [];
+  const ellipses = [];
   const canvas = el({
     width: 0, height: 0,
     getContext: () => ({
-      clearRect() {}, drawImage() {}, setLineDash() {},
+      clearRect() {}, drawImage() {}, setLineDash() {}, beginPath() {}, stroke() {},
       strokeRect(x, y, w, h) { strokes.push({ x, y, width: w, height: h }); },
+      ellipse(x, y, radiusX, radiusY) { ellipses.push({ x, y, radiusX, radiusY }); },
       set lineWidth(v) {}, set strokeStyle(v) {},
     }),
     getBoundingClientRect: () => ({
@@ -34,6 +36,7 @@ function makeCanvas(displayWidth) {
     toDataURL: () => "data:image/png;base64,Q0FOVkFT",
   });
   canvas.strokes = strokes;
+  canvas.ellipses = ellipses;
   return canvas;
 }
 
@@ -253,6 +256,22 @@ async function main() {
       removebgDisabled: env.nodes["fn-removebg-btn"].disabled,
       blurSelectionText: env.nodes["fn-selection"].textContent,
       blurDisabled: env.nodes["fn-blur-btn"].disabled,
+      // พรีวิวต้องวาดเป็นวงรี (ellipse) ไม่ใช่กรอบสี่เหลี่ยม (strokeRect) สำหรับ removebg
+      ellipseCount: env.canvas.ellipses.length,
+      ellipse: env.canvas.ellipses[env.canvas.ellipses.length - 1] || null,
+      rectStrokeCount: env.canvas.strokes.length,
+    }));
+    return;
+  }
+
+  if (scenario === "blur_drag_still_draws_a_rectangle") {
+    // เบลอต้องยังพรีวิวเป็นสี่เหลี่ยมเหมือนเดิม ไม่ได้เปลี่ยนไปเป็นวงรีไปด้วย
+    const env = load({ displayWidth: 800 });
+    pickImage(env, "blur");
+    drag(env.canvas, [100, 50], [200, 100]);
+    console.log(JSON.stringify({
+      ellipseCount: env.canvas.ellipses.length,
+      rectStrokeCount: env.canvas.strokes.length,
     }));
     return;
   }

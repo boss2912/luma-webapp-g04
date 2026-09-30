@@ -80,7 +80,17 @@
     if (selection) {
       ctx.strokeStyle = "#6d28d9";
       ctx.setLineDash([lineWidth * 3, lineWidth * 2]);
-      ctx.strokeRect(selection.x, selection.y, selection.width, selection.height);
+      if (chosen === "removebg") {
+        // ลบพื้นหลังลบเป็นวงกลม/วงรีที่แนบในกรอบที่ลาก ไม่ใช่ทั้งกรอบ — วาดพรีวิว
+        // เป็นวงรีให้ตรงกับที่จะถูกลบจริง ไม่ใช่กรอบสี่เหลี่ยมแบบเบลอ
+        const cx = selection.x + selection.width / 2;
+        const cy = selection.y + selection.height / 2;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, selection.width / 2, selection.height / 2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(selection.x, selection.y, selection.width, selection.height);
+      }
       ctx.setLineDash([]);
     }
   }
