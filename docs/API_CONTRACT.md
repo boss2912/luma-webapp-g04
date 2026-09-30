@@ -268,7 +268,7 @@ sorted(r.rule for r in create_app().url_map.iter_rules() if "pipeline" in r.rule
 |---|---|
 | `02_enhancement/blur` | `pipeline/02_enhancement/spatial_filters.py` |
 | `03_segmentation/contours` | `pipeline/03_segmentation/segmentation.py` (`find_faces`) — เดิมเป็นตีกรอบสี ตอนนี้เป็นจับหน้าจริงด้วย YuNet (DNN) |
-| `03_segmentation/remove-background` | `pipeline/03_segmentation/segmentation.py` (`remove_background`) — ฟังก์ชันที่ 3 ของหน้า Function: ลบพื้นหลังเฉพาะกรอบที่ลากเลือก |
+| `03_segmentation/remove-background` | `pipeline/03_segmentation/segmentation.py` (`remove_background`) — ฟังก์ชันที่ 3 ของหน้า Function: ลบพื้นหลังเป็นวงรีที่แนบในกรอบที่ลากเลือก |
 | `04_features/color_palette` | `pipeline/04_features/color_palette.py` |
 | `04_features/auto_tag` | `pipeline/04_features/auto_tag.py` |
 
@@ -346,11 +346,13 @@ error) · ค่า input ผิด รวมถึง bool ในช่อง�
 > เช็คด้วย `hasattr(cv2, "CascadeClassifier")` ได้ `False` — จึงไม่มีทางเลือกที่
 > เป็น classical CV ล้วนสำหรับงานนี้
 
-`POST /pipeline/03_segmentation/remove-background` ลบเฉพาะกรอบสี่เหลี่ยมที่ผู้ใช้
-ลากเลือกให้โปร่งใส ส่วนนอกกรอบคงทึบแสงเดิมทั้งหมด — ใช้
-`segmentation.remove_background(image, mask)` ตรงๆ ที่มีอยู่แล้วในไพพ์ไลน์ (ไม่เคย
-มี route มาก่อน ดูหัวข้อยกเลิก `remove_bg` เดิมด้านบน) `mask` ที่นี่สร้างจากกรอบ
-สี่เหลี่ยมที่ลาก ไม่ใช่จาก `selective_color_mask`:
+`POST /pipeline/03_segmentation/remove-background` ลบพื้นหลังให้โปร่งใสเป็น
+**วงรี/วงกลมที่แนบในกรอบสี่เหลี่ยม** ที่ผู้ใช้ลากเลือก (ไม่ใช่ทั้งกรอบสี่เหลี่ยม
+— ผู้ใช้ขอให้เป็นทรงกลมแทนสี่เหลี่ยมโดยเฉพาะ) ส่วนนอกวงรีคงทึบแสงเดิมทั้งหมด
+รวมถึงมุมของกรอบสี่เหลี่ยมที่ลากด้วย — ใช้ `segmentation.remove_background(image,
+mask)` ตรงๆ ที่มีอยู่แล้วในไพพ์ไลน์ (ไม่เคยมี route มาก่อน ดูหัวข้อยกเลิก
+`remove_bg` เดิมด้านบน) `mask` ที่นี่สร้างด้วย `cv2.ellipse()` แนบในกรอบสี่เหลี่ยม
+ที่ลาก ไม่ใช่จาก `selective_color_mask`:
 
 ```json
 {
@@ -361,10 +363,12 @@ error) · ค่า input ผิด รวมถึง bool ในช่อง�
 }
 ```
 
-พิกัดต้องเป็น integer ที่ไม่ใช่ bool และกรอบต้องอยู่ภายในภาพ (เงื่อนไขเดียวกับ
+`region` ยังเป็นกรอบสี่เหลี่ยมเหมือนเดิม (ใช้กำหนดขอบเขตของวงรีเท่านั้น) พิกัด
+ต้องเป็น integer ที่ไม่ใช่ bool และกรอบต้องอยู่ภายในภาพ (เงื่อนไขเดียวกับ
 `region` ของ `02_enhancement/blur`) ตอบ `image` เป็น PNG ที่มี alpha channel —
-โปร่งใส (alpha 0) เฉพาะในกรอบที่ลบ ส่วนนอกกรอบ alpha 255 (ทึบแสง) ทั้งหมด พร้อม
-`metrics.erased_pixels`, `stage: "03_segmentation"` และ `operation:
+โปร่งใส (alpha 0) เฉพาะในวงรีที่แนบในกรอบ ส่วนที่เหลือทั้งหมด alpha 255
+(ทึบแสง) พร้อม `metrics.erased_pixels` (นับจากพิกเซลที่ถูกลบจริงในวงรี ไม่ใช่
+พื้นที่กรอบสี่เหลี่ยม), `stage: "03_segmentation"` และ `operation:
 "remove-background"` · ค่า input ผิด รวมถึง bool ในช่องตัวเลข ให้ตอบ 400
 
 ---
