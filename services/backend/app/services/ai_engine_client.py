@@ -128,6 +128,25 @@ def blur_region(image_b64: str, region: dict, size: int) -> str:
     return image
 
 
+def remove_background(image_b64: str, region: dict) -> str:
+    """เรียก ai-engine (03_segmentation/remove-background) เพื่อลบพื้นหลังเฉพาะกรอบที่
+    ผู้ใช้ลากเลือก — ใช้ segmentation.remove_background(image, mask) ของ pipeline เดิม
+    ที่มีอยู่แล้วแต่ไม่เคยมี route ผูกให้เรียกผ่าน HTTP มาก่อน
+
+    Returns:
+        str: ภาพผลลัพธ์เป็น base64 ล้วน (PNG มี alpha channel ตรงกรอบที่ลบ)
+    """
+    data = _post_pipeline("03_segmentation", "remove-background", image_b64, {"region": region})
+
+    image = data.get("image")
+    if not isinstance(image, str) or not image.strip():
+        raise PipelineClientError(
+            "ไม่พบภาพในผลลัพธ์จาก AI engine / No image returned from AI engine",
+            status_code=502,
+        )
+    return image
+
+
 def find_objects(image_b64: str, params: dict) -> list[dict]:
     """เรียก ai-engine (03_segmentation/contours) เพื่อหาพิกัดกรอบของวัตถุในภาพ (#163)
 
