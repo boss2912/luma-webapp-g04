@@ -182,36 +182,6 @@ Query params ที่ต้องรองรับ (สเปก Asset Hub —
 ```
 ลบทั้งไฟล์บนดิสก์และแถวใน DB · ไฟล์หายไปแล้วแต่แถวยังอยู่ → ไม่ fail แค่ log warning
 
-### `POST /api/img2img` — แก้ภาพเดิมด้วย AI (Issue #33, Lecture 2 หน้า 58-61)
-
-> **ร่างเสนอ (คนที่ 1)** — รอทีมยืนยันใน PR ที่เพิ่มหัวข้อนี้
-
-```jsonc
-// request — ต้อง login · ต้องมี CSRF token เหมือน POST อื่น
-{
-  "init_image": "data:image/png;base64,....",   // Data URL หรือ base64 ล้วน · สูงสุด 10 MB
-  "prompt": "a watercolor fox",
-  "mode": "text",                               // text | sketch | inpaint | inpaint-sketch (default text)
-  "mask": null,                                 // inpaint* เท่านั้น: ภาพขาว-ดำขนาดเท่า init_image, ขาว = บริเวณที่วาดใหม่
-  "denoising_strength": 0.7,                    // 0-1 · ต่ำ = ใกล้ภาพเดิม
-  "negative_prompt": "", "steps": 20, "cfg_scale": 8, "sampler_name": "DPM++ 2M Karras", "seed": -1,
-  "width": 768, "height": 512                   // ไม่ส่ง = ขนาด 512/768/1024 ที่ใกล้ภาพจริงที่สุด
-}
-// response — รูปแบบเดียวกับ /api/generate · ภาพที่ได้เป็น asset ใหม่ ภาพต้นฉบับไม่ถูกแก้
-{ "status": "success", "asset_id": 43, "image_url": "/api/assets/43/image" }
-```
-
-| กรณี | สถานะ |
-|---|---|
-| ไม่ login | 401 |
-| prompt ว่าง · mode ไม่รู้จัก · ภาพ/mask ไม่ใช่ base64 ของภาพจริง · mask ขนาดไม่เท่าภาพ · strength นอก 0-1 · ค่าตัวเลขเป็น true/false หรือนอกช่วงเดียวกับ /api/generate | 400 |
-| โหมด inpaint* ไม่ส่ง mask · โหมด text/sketch ส่ง mask มา | 400 |
-| ภาพใหญ่เกิน 10 MB | 413 |
-| ai-engine / Forge ช้าเกินกำหนด | 504 |
-| ai-engine ต่อไม่ได้หรือตอบผิดรูป | 502 |
-
-โหมด `sketch` / `inpaint-sketch`: frontend วาดเส้นลงบนภาพก่อนแล้วส่งภาพที่วาดแล้วเป็น `init_image` (ai-engine ส่ง `mode` ไม่ต่อให้ Forge — ดู `POST /forge/img2img`)
-
 ### `POST /api/pipeline/palette/extract` — จานสีจาก `04_features` (Issue #101, #60)
 
 ```json
@@ -235,10 +205,13 @@ Backend เรียก `POST /pipeline/04_features/color_palette` ต่อ (�
 
 ### ~~`POST /api/pipeline/segmentation/remove_bg`~~ — ยกเลิก (Issue #101, #61)
 
-❌ **ไม่ทำ** — ยกเลิกพร้อม Smart Canvas · backend จะไม่มี route นี้
+❌ **ไม่ทำที่ path นี้** — path เดิมยกเลิกพร้อม Smart Canvas (`canvas.js` ที่เคยเรียกถูกลบไปแล้ว)
 
-ตัวลบพื้นหลังอยู่ที่ `pipeline/03_segmentation/segmentation.py::remove_background()` ซึ่งเป็น
-**ส่วนย่อยข้อ 3 ของเกณฑ์อาจารย์** และวัดผลแล้วใน #67 — คะแนนอยู่ตรงนั้น ไม่ได้อยู่ที่หน้าเว็บ
+`pipeline/03_segmentation/segmentation.py::remove_background()` เป็น
+**ส่วนย่อยข้อ 3 ของเกณฑ์อาจารย์** และวัดผลแล้วใน #67 มาตั้งแต่แรก — ต่อมามีหน้า
+Function เพิ่ม "ลบพื้นหลัง" (ลากกรอบแล้วกดลบ) เข้ามาด้วยจริง ผ่าน path ใหม่
+`POST /api/pipeline/remove-background` (ดูหัวข้อ Function page routes ด้านล่าง)
+คนละ path กับที่ยกเลิกไปข้างบนนี้ — ไม่ได้ขัดกับการยกเลิกนั้น
 
 ---
 
@@ -276,14 +249,8 @@ Example AI engine request:
 
 This addition applies to the AI engine txt2img endpoint. The backend owner must
 confirm forwarding `scheduler` from `/api/generate`; the existing backend's
-legacy sampler value remains supported. It does not add scheduler support to
-img2img. Response fields remain `images` and `seed_used`.
-
-### `POST /forge/img2img`
-```json
-{ "init_image": "<base64>", "prompt": "...", "denoising_strength": 0.7, "mask": "<base64|null>", "mode": "text|sketch|inpaint|inpaint-sketch" }
-```
-4 โหมดตาม Lecture 2 หน้า 56–61
+legacy sampler value remains supported. Response fields remain `images` and
+`seed_used`.
 
 ### `POST /pipeline/<stage>/<operation>`
 
@@ -301,6 +268,7 @@ sorted(r.rule for r in create_app().url_map.iter_rules() if "pipeline" in r.rule
 |---|---|
 | `02_enhancement/blur` | `pipeline/02_enhancement/spatial_filters.py` |
 | `03_segmentation/contours` | `pipeline/03_segmentation/segmentation.py` (`find_faces`) — เดิมเป็นตีกรอบสี ตอนนี้เป็นจับหน้าจริงด้วย YuNet (DNN) |
+| `03_segmentation/remove-background` | `pipeline/03_segmentation/segmentation.py` (`remove_background`) — ฟังก์ชันที่ 3 ของหน้า Function: ลบพื้นหลังเฉพาะกรอบที่ลากเลือก |
 | `04_features/color_palette` | `pipeline/04_features/color_palette.py` |
 | `04_features/auto_tag` | `pipeline/04_features/auto_tag.py` |
 
@@ -311,7 +279,7 @@ sorted(r.rule for r in create_app().url_map.iter_rules() if "pipeline" in r.rule
 |---|---|
 | `01_acquisition` | `image_metadata` · `validate_image_file` · `field_of_view` (`acquisition.py`) |
 | `02_enhancement` | `histogram` · `statistics` · `assess_quality` (`histogram.py`) · `gamma` · `log_transform` · `contrast_stretch` (`point_operations.py`) · `median` (`spatial_filters.py`) · `equalize` · `match_histogram` (`histogram_mapping.py`) |
-| `03_segmentation` | `remove_background` · `selective_color_mask` (`segmentation.py`) |
+| `03_segmentation` | `selective_color_mask` (`segmentation.py`) |
 | `04_features` | `extract` (`feature_vector.py`) — เวกเตอร์คุณลักษณะ ไม่ใช่ statistics ตัวเดียว |
 | `05_evaluation` | `image_quality` (PSNR/SSIM, `quality_metrics.py`) · `segmentation_quality` (IoU, `segmentation_metrics.py`) |
 
@@ -377,6 +345,27 @@ error) · ค่า input ผิด รวมถึง bool ในช่อง�
 > (Haar cascade) **ไม่มีอยู่จริง** ใน `opencv-python==5.0.0.93` ที่โปรเจกต์นี้ล็อกไว้
 > เช็คด้วย `hasattr(cv2, "CascadeClassifier")` ได้ `False` — จึงไม่มีทางเลือกที่
 > เป็น classical CV ล้วนสำหรับงานนี้
+
+`POST /pipeline/03_segmentation/remove-background` ลบเฉพาะกรอบสี่เหลี่ยมที่ผู้ใช้
+ลากเลือกให้โปร่งใส ส่วนนอกกรอบคงทึบแสงเดิมทั้งหมด — ใช้
+`segmentation.remove_background(image, mask)` ตรงๆ ที่มีอยู่แล้วในไพพ์ไลน์ (ไม่เคย
+มี route มาก่อน ดูหัวข้อยกเลิก `remove_bg` เดิมด้านบน) `mask` ที่นี่สร้างจากกรอบ
+สี่เหลี่ยมที่ลาก ไม่ใช่จาก `selective_color_mask`:
+
+```json
+{
+  "image": "<base64>",
+  "params": {
+    "region": {"x": 120, "y": 80, "width": 200, "height": 150}
+  }
+}
+```
+
+พิกัดต้องเป็น integer ที่ไม่ใช่ bool และกรอบต้องอยู่ภายในภาพ (เงื่อนไขเดียวกับ
+`region` ของ `02_enhancement/blur`) ตอบ `image` เป็น PNG ที่มี alpha channel —
+โปร่งใส (alpha 0) เฉพาะในกรอบที่ลบ ส่วนนอกกรอบ alpha 255 (ทึบแสง) ทั้งหมด พร้อม
+`metrics.erased_pixels`, `stage: "03_segmentation"` และ `operation:
+"remove-background"` · ค่า input ผิด รวมถึง bool ในช่องตัวเลข ให้ตอบ 400
 
 ---
 
