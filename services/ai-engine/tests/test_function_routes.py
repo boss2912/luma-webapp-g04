@@ -191,3 +191,68 @@ def test_contours_route_rejects_invalid_images_and_bodies(body):
     )
     assert response.status_code == 400
     assert "error" in response.json
+
+
+# --------------------------------------------- หน้า "ลบพื้นหลัง" (ลากกรอบแล้วกดลบ)
+
+def _decode_png_with_alpha(image_b64):
+    raw = base64.b64decode(image_b64, validate=True)
+    return cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+
+
+def _remove_bg_body(region=None):
+    params = {"region": region if region is not None else {"x": 8, "y": 8, "width": 8, "height": 8}}
+    return {"image": _encode_png(_checkerboard()), "params": params}
+
+
+def test_remove_background_route_erases_only_the_selected_region():
+    client = create_app({"TESTING": True}).test_client()
+
+    response = client.post("/pipeline/03_segmentation/remove-background", json=_remove_bg_body())
+
+    assert response.status_code == 200
+    assert response.json["stage"] == "03_segmentation"
+    assert response.json["operation"] == "remove-background"
+    assert response.json["metrics"] == {"erased_pixels": 64}
+    result = _decode_png_with_alpha(response.json["image"])
+    assert result.shape == (24, 24, 4)
+    alpha = result[:, :, 3]
+    outside = np.ones((24, 24), dtype=bool)
+    outside[8:16, 8:16] = False
+    assert np.all(alpha[8:16, 8:16] == 0), "กรอบที่ลากต้องถูกลบเป็นโปร่งใสทั้งหมด"
+    assert np.all(alpha[outside] == 255), "นอกกรอบต้องทึบแสงเหมือนเดิมทั้งหมด"
+
+
+@pytest.mark.parametrize("params", [
+    [],
+    {},
+    {"region": None},
+    {"region": {"x": 0, "y": 0, "width": 5}},
+    {"region": {"x": True, "y": 0, "width": 5, "height": 5}},
+    {"region": {"x": -1, "y": 0, "width": 5, "height": 5}},
+    {"region": {"x": 0, "y": 0, "width": 0, "height": 5}},
+    {"region": {"x": 20, "y": 0, "width": 5, "height": 5}},
+    {"region": {"x": 0, "y": 20, "width": 5, "height": 5}},
+])
+def test_remove_background_route_rejects_invalid_parameters(params):
+    body = {"image": _encode_png(_checkerboard()), "params": params}
+    response = create_app({"TESTING": True}).test_client().post(
+        "/pipeline/03_segmentation/remove-background", json=body
+    )
+    assert response.status_code == 400
+    assert "error" in response.json
+
+
+@pytest.mark.parametrize("body", [
+    None,
+    [],
+    {"image": 123},
+    {"image": "not-base64!!!"},
+    {"image": base64.b64encode(b"not an image").decode("ascii")},
+])
+def test_remove_background_route_rejects_invalid_images_and_bodies(body):
+    response = create_app({"TESTING": True}).test_client().post(
+        "/pipeline/03_segmentation/remove-background", json=body
+    )
+    assert response.status_code == 400
+    assert "error" in response.json
