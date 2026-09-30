@@ -121,6 +121,10 @@ def test_choosing_a_function_opens_the_image_step_with_only_that_tool():
     assert s["toolObjects"] is True and s["toolBlur"] is False
     assert s["chosenName"] == "จับหน้า"
 
+    s = _run("after_choose_removebg")
+    assert s["toolRemoveBg"] is True and s["toolBlur"] is False and s["toolObjects"] is False
+    assert s["chosenName"] == "ลบพื้นหลัง"
+
 
 def test_picking_an_image_opens_the_work_step():
     """[กรณีทดสอบ]: เลือกภาพแล้วถึงจะเห็นพื้นที่ทำงาน"""
@@ -143,7 +147,7 @@ def test_change_function_goes_back_to_step_one_and_clears_everything():
     assert s["resetDisabled"] is True
     assert "ยังไม่ได้เลือกภาพ" in s["hint"]
     # เครื่องมือกับชื่อฟังก์ชันต้องถูกล้างด้วย ไม่ใช่แค่ซ่อนขั้นที่ครอบมันอยู่
-    assert s["toolBlur"] is False and s["toolObjects"] is False
+    assert s["toolBlur"] is False and s["toolObjects"] is False and s["toolRemoveBg"] is False
     assert s["chosenName"] == ""
 
 
@@ -174,3 +178,36 @@ def test_find_objects_also_sends_the_clean_image():
     """[กรณีทดสอบ]: กดหาวัตถุซ้ำ กรอบเขียวรอบก่อนต้องไม่ติดไปกับภาพที่ส่ง"""
     result = _run("objects_request")
     assert result["sentImage"] == "data:image/png;base64,Q0xFQU4="
+
+
+# --------------------------------------------------------- ลบพื้นหลัง (ลากกรอบแล้วกดลบ)
+
+def test_removebg_drag_updates_only_its_own_selection_not_blurs():
+    """[กรณีทดสอบ]: ลากกรอบตอนเลือกฟังก์ชันลบพื้นหลัง -> อัปเดตแค่ปุ่ม/ข้อความของ removebg
+
+    เบลอกับลบพื้นหลังใช้กรอบลากเลือกตัวเดียวกัน (selection) แต่แยกคนละการ์ดเครื่องมือ
+    ปุ่ม/ข้อความของอีกฝั่งต้องไม่ถูกแตะเลย
+    """
+    result = _run("removebg_drag")
+    assert "100 x 50" in result["removebgSelectionText"]
+    assert result["removebgDisabled"] is False
+    assert result["blurSelectionText"] == "ยังไม่ได้เลือกกรอบ"
+    assert result["blurDisabled"] is True
+
+
+def test_removebg_sends_region_and_csrf_then_shows_result():
+    """[กรณีทดสอบ]: กดลบพื้นหลัง -> ยิง /api/pipeline/remove-background พร้อมกรอบที่แปลงพิกัดแล้ว"""
+    result = _run("removebg_request")
+    assert result["url"].endswith("/api/pipeline/remove-background")
+    assert result["region"] == {"x": 200, "y": 100, "width": 200, "height": 100}
+    assert result["hasCsrf"] is True
+    assert result["lastLoaded"] == "data:image/png;base64,RVJBU0VE"
+    assert result["sentImage"] == "data:image/png;base64,Q0xFQU4="   # ภาพสะอาด เหมือน blur (#176)
+
+
+def test_removebg_server_error_is_shown_and_button_recovers():
+    """[กรณีทดสอบ]: server ตอบ 400 -> แสดงข้อความจริงของ server ปุ่มกลับมากดได้"""
+    result = _run("removebg_server_error")
+    assert "region must stay within the image bounds" in result["error"]
+    assert result["errorHidden"] is False
+    assert result["buttonDisabled"] is False

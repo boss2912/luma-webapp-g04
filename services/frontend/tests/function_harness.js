@@ -42,15 +42,18 @@ const IDS = ["fn-canvas", "fn-file", "fn-reset", "fn-hint", "fn-error", "fn-sele
   "fn-min-size",
   // ขั้นตอน 1-2-3 (เลือกฟังก์ชัน -> เลือกภาพ -> ทำงาน)
   "fn-change-image", "fn-change-function", "fn-step-function", "fn-step-image",
-  "fn-step-work", "fn-chosen-name", "fn-work-title", "fn-tool-blur", "fn-tool-objects"];
+  "fn-step-work", "fn-chosen-name", "fn-work-title", "fn-tool-blur", "fn-tool-objects",
+  // ฟังก์ชันที่ 3: ลบพื้นหลัง (ใช้กรอบลากเลือกร่วมกับ blur)
+  "fn-tool-removebg", "fn-removebg-btn", "fn-removebg-selection"];
 
 function load({ displayWidth, fetchImpl, imageSize = [800, 600] }) {
   const nodes = {};
   IDS.forEach((id) => { nodes[id] = el(); });
-  const choices = [el({ dataset: { function: "blur" } }), el({ dataset: { function: "objects" } })];
+  const choices = [el({ dataset: { function: "blur" } }), el({ dataset: { function: "objects" } }),
+    el({ dataset: { function: "removebg" } })];
   // ตั้งสถานะเริ่มต้นให้ตรงกับ function.html ที่ใส่ hidden ไว้ตั้งแต่ต้น
   // (el() ตั้ง hidden=false ให้ทุกตัว ถ้าไม่ตั้งตรงนี้ mock จะไม่ตรงกับของจริง)
-  ["fn-step-image", "fn-step-work", "fn-tool-blur", "fn-tool-objects",
+  ["fn-step-image", "fn-step-work", "fn-tool-blur", "fn-tool-objects", "fn-tool-removebg",
    "fn-objects-result"].forEach((id) => { nodes[id].hidden = true; });
   const canvas = makeCanvas(displayWidth);
   nodes["fn-canvas"] = canvas;
@@ -130,6 +133,7 @@ async function main() {
     step3: !env.nodes["fn-step-work"].hidden,
     toolBlur: !env.nodes["fn-tool-blur"].hidden,
     toolObjects: !env.nodes["fn-tool-objects"].hidden,
+    toolRemoveBg: !env.nodes["fn-tool-removebg"].hidden,
     chosenName: env.nodes["fn-chosen-name"].textContent,
     objectsDisabled: env.nodes["fn-objects-btn"].disabled,
     resetDisabled: env.nodes["fn-reset"].disabled,
@@ -150,6 +154,12 @@ async function main() {
   if (scenario === "after_choose_objects") {
     const env = load({ displayWidth: 400 });
     chooseFunction(env, "objects");
+    return console.log(JSON.stringify(steps(env)));
+  }
+
+  if (scenario === "after_choose_removebg") {
+    const env = load({ displayWidth: 400 });
+    chooseFunction(env, "removebg");
     return console.log(JSON.stringify(steps(env)));
   }
 
@@ -229,6 +239,62 @@ async function main() {
       offscreenCount: env.offscreens.length,
       offscreenSize: env.offscreens.length ? [env.offscreens[0].width, env.offscreens[0].height] : null,
       drewCurrentImage: env.offscreens.length ? Boolean(env.offscreens[0].drew) : false,
+    }));
+    return;
+  }
+
+  if (scenario === "removebg_drag") {
+    // กรอบลากเลือกต้องผูกกับปุ่ม/ข้อความของ removebg ไม่ใช่ของ blur (คนละการ์ด)
+    const env = load({ displayWidth: 800 });
+    pickImage(env, "removebg");
+    drag(env.canvas, [100, 50], [200, 100]);
+    console.log(JSON.stringify({
+      removebgSelectionText: env.nodes["fn-removebg-selection"].textContent,
+      removebgDisabled: env.nodes["fn-removebg-btn"].disabled,
+      blurSelectionText: env.nodes["fn-selection"].textContent,
+      blurDisabled: env.nodes["fn-blur-btn"].disabled,
+    }));
+    return;
+  }
+
+  if (scenario === "removebg_request") {
+    let sent = null;
+    const env = load({
+      displayWidth: 400,
+      fetchImpl: async (url, opts) => {
+        sent = { url, body: JSON.parse(opts.body), headers: opts.headers };
+        return { ok: true, status: 200, json: async () => ({ image: "RVJBU0VE" }) };
+      },
+    });
+    pickImage(env, "removebg");
+    drag(env.canvas, [100, 50], [200, 100]);
+    await env.nodes["fn-removebg-btn"].fire("click");
+    await sleep();
+    console.log(JSON.stringify({
+      url: sent.url, region: sent.body.region,
+      hasCsrf: Boolean(sent.headers["X-CSRFToken"]),
+      lastLoaded: env.loaded[env.loaded.length - 1],
+      sentImage: sent.body.image,
+      buttonDisabled: env.nodes["fn-removebg-btn"].disabled,
+    }));
+    return;
+  }
+
+  if (scenario === "removebg_server_error") {
+    const env = load({
+      displayWidth: 800,
+      fetchImpl: async () => ({
+        ok: false, status: 400, json: async () => ({ error: "region must stay within the image bounds" }),
+      }),
+    });
+    pickImage(env, "removebg");
+    drag(env.canvas, [100, 50], [200, 100]);
+    await env.nodes["fn-removebg-btn"].fire("click");
+    await sleep();
+    console.log(JSON.stringify({
+      error: env.nodes["fn-error"].textContent,
+      errorHidden: env.nodes["fn-error"].hidden,
+      buttonDisabled: env.nodes["fn-removebg-btn"].disabled,
     }));
     return;
   }

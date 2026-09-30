@@ -32,6 +32,11 @@
           <span class="fn-choice__name">จับหน้า</span>
           <span class="fn-choice__desc">หาใบหน้าในภาพด้วยโมเดล AI แล้วตีกรอบให้</span>
         </button>
+
+        <button type="button" class="fn-choice" id="fn-choose-removebg" data-function="removebg">
+          <span class="fn-choice__name">ลบพื้นหลัง</span>
+          <span class="fn-choice__desc">ลากกรอบบนภาพ แล้วลบเฉพาะในกรอบให้โปร่งใส ส่วนนอกกรอบคงเดิม</span>
+        </button>
       </div>
     </section>
 
@@ -90,6 +95,13 @@
 
             <button type="button" id="fn-objects-btn" disabled>หาใบหน้าในภาพ</button>
             <p class="fn-result" id="fn-objects-result" hidden></p>
+          </article>
+
+          <article class="fn-tool" id="fn-tool-removebg" hidden>
+            <p>ลากเมาส์บนภาพเพื่อเลือกกรอบที่จะลบ แล้วกดปุ่มลบพื้นหลัง — บริเวณนอกกรอบจะไม่ถูกแตะ</p>
+
+            <p class="fn-selection" id="fn-removebg-selection">ยังไม่ได้เลือกกรอบ</p>
+            <button type="button" id="fn-removebg-btn" disabled>ลบพื้นหลังในกรอบที่เลือก</button>
           </article>
 
           <div class="fn-tool__footer">

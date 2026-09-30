@@ -1,10 +1,10 @@
 /**
  * LUMA — หน้า Function (Issue #163)
  * -------------------------------------------------------------------------
- * สองเครื่องมือ: เบลอเฉพาะกรอบที่ลากเลือก · จับหน้าด้วย AI
+ * สามเครื่องมือ: เบลอเฉพาะกรอบที่ลากเลือก · จับหน้าด้วย AI · ลบพื้นหลังเฉพาะกรอบที่ลากเลือก
  *
  * ไล่เป็นขั้น: เลือกฟังก์ชัน -> เลือกภาพ -> ทำงาน
- * สองฟังก์ชันนี้ทำงานแยกกัน ไม่ได้ทำต่อจากกัน จึงแสดงทีละอันตามที่ผู้ใช้เลือก
+ * สามฟังก์ชันนี้ทำงานแยกกัน ไม่ได้ทำต่อจากกัน จึงแสดงทีละอันตามที่ผู้ใช้เลือก
  * แสดงพร้อมกันทั้งหมดทำให้เข้าใจผิดว่าต้องทำเรียงกัน
  *
  * หน้าเว็บไม่ประมวลผลภาพเอง — ส่งไป backend ซึ่งส่งต่อ ai-engine อีกที
@@ -31,10 +31,12 @@
   const workTitle = document.getElementById("fn-work-title");
   const toolBlur = document.getElementById("fn-tool-blur");
   const toolObjects = document.getElementById("fn-tool-objects");
+  const toolRemoveBg = document.getElementById("fn-tool-removebg");
 
   const FUNCTIONS = {
     blur: { name: "เบลอเฉพาะจุด", work: "ลากกรอบแล้วกดเบลอ", tool: toolBlur },
     objects: { name: "จับหน้า", work: "ตั้งค่าแล้วกดหาใบหน้า", tool: toolObjects },
+    removebg: { name: "ลบพื้นหลัง", work: "ลากกรอบแล้วกดลบ", tool: toolRemoveBg },
   };
   let chosen = null;
   const hint = document.getElementById("fn-hint");
@@ -43,6 +45,8 @@
   const blurBtn = document.getElementById("fn-blur-btn");
   const objectsBtn = document.getElementById("fn-objects-btn");
   const objectsResult = document.getElementById("fn-objects-result");
+  const removeBgSelectionText = document.getElementById("fn-removebg-selection");
+  const removeBgBtn = document.getElementById("fn-removebg-btn");
 
   let originalDataUrl = null; // ภาพที่ผู้ใช้เลือกตอนแรก ใช้ตอนกดคืนค่า
   let currentImage = null;    // Image object ที่กำลังแสดงอยู่
@@ -90,9 +94,11 @@
       selection = null;
       boxes = [];
       selectionText.textContent = "ยังไม่ได้เลือกกรอบ";
+      removeBgSelectionText.textContent = "ยังไม่ได้เลือกกรอบ";
       objectsResult.hidden = true;
       hint.textContent = `ภาพขนาด ${image.naturalWidth} x ${image.naturalHeight} — ลากเมาส์บนภาพเพื่อเลือกกรอบ`;
       blurBtn.disabled = true;
+      removeBgBtn.disabled = true;
       objectsBtn.disabled = chosen !== "objects";
       resetBtn.disabled = false;
       stepWork.hidden = false;
@@ -128,8 +134,10 @@
     fileInput.value = "";
     objectsResult.hidden = true;
     selectionText.textContent = "ยังไม่ได้เลือกกรอบ";
+    removeBgSelectionText.textContent = "ยังไม่ได้เลือกกรอบ";
     hint.textContent = "ยังไม่ได้เลือกภาพ";
     blurBtn.disabled = true;
+    removeBgBtn.disabled = true;
     objectsBtn.disabled = true;
     resetBtn.disabled = true;
     clearError();
@@ -207,21 +215,29 @@
     if (dragStart) updateSelection(event);
   });
 
+  // เบลอกับลบพื้นหลังใช้กรอบที่ลากเลือกร่วมกัน (selection ตัวเดียว) แต่คนละ
+  // ปุ่ม/ข้อความ เพราะแยกอยู่คนละการ์ดเครื่องมือ — อัปเดตเฉพาะของ chosen ตัวปัจจุบัน
+  function currentSelectionUi() {
+    if (chosen === "removebg") return { text: removeBgSelectionText, btn: removeBgBtn };
+    return { text: selectionText, btn: blurBtn };
+  }
+
   canvas.addEventListener("mouseup", (event) => {
     if (!dragStart) return;
     updateSelection(event);
     dragStart = null;
+    const { text, btn } = currentSelectionUi();
     // กรอบเล็กกว่า 1 พิกเซลคือคลิกเฉยๆ ไม่ใช่การลาก
     if (!selection || selection.width < 1 || selection.height < 1) {
       selection = null;
-      selectionText.textContent = "ยังไม่ได้เลือกกรอบ";
-      blurBtn.disabled = true;
+      text.textContent = "ยังไม่ได้เลือกกรอบ";
+      btn.disabled = true;
       redraw();
       return;
     }
-    selectionText.textContent =
+    text.textContent =
       `กรอบที่เลือก: ${selection.width} x ${selection.height} ที่ (${selection.x}, ${selection.y})`;
-    blurBtn.disabled = false;
+    btn.disabled = false;
   });
 
   canvas.addEventListener("mouseleave", () => {
@@ -273,6 +289,26 @@
       blurBtn.disabled = false;
     } finally {
       blurBtn.textContent = label;
+    }
+  });
+
+  removeBgBtn.addEventListener("click", async () => {
+    if (!selection || !currentImage) return;
+    clearError();
+    removeBgBtn.disabled = true;
+    const label = removeBgBtn.textContent;
+    removeBgBtn.textContent = "กำลังลบพื้นหลัง...";
+    try {
+      const data = await postJson("/api/pipeline/remove-background", {
+        image: cleanImageDataUrl(),
+        region: selection,
+      });
+      loadImage(`data:image/png;base64,${data.image}`);
+    } catch (err) {
+      showError(err.message);
+      removeBgBtn.disabled = false;
+    } finally {
+      removeBgBtn.textContent = label;
     }
   });
 
