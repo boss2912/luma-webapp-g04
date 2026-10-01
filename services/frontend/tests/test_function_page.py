@@ -231,3 +231,24 @@ def test_removebg_server_error_is_shown_and_button_recovers():
     assert "region must stay within the image bounds" in result["error"]
     assert result["errorHidden"] is False
     assert result["buttonDisabled"] is False
+
+
+# --------------------------------------------------- response เก่าล้าสมัยไม่ทับ DOM ปัจจุบัน (#207)
+
+def test_stale_blur_response_does_not_pull_the_screen_back_to_step_three():
+    """[กรณีทดสอบ]: กดเบลอ -> ผู้ใช้กดเปลี่ยนฟังก์ชันก่อน response กลับมา -> response เก่าต้องไม่มีผล
+
+    บั๊กเดิม: loadImage() ของ response เก่าสั่ง stepWork.hidden = false ดึงหน้าจอ
+    กลับไปขั้นที่ 3 ทับสถานะ "กลับไปขั้นที่ 1" ที่ผู้ใช้เพิ่งกดไป (รีวิว #207)
+    """
+    result = _run("stale_blur_response_does_not_override_reset")
+    assert result["step1Visible"] is True
+    assert result["step3Visible"] is False
+    assert result["hint"] == "ยังไม่ได้เลือกภาพ"
+    assert result["lastLoaded"] != "data:image/png;base64,U1RBTEU="
+
+
+def test_stale_removebg_response_does_not_override_a_newly_picked_image():
+    """[กรณีทดสอบ]: กดลบพื้นหลัง -> ผู้ใช้เลือกไฟล์ใหม่ก่อน response กลับมา -> ต้องไม่ทับไฟล์ใหม่"""
+    result = _run("stale_removebg_response_does_not_override_new_image")
+    assert result["lastLoaded"] != "data:image/png;base64,U1RBTEU="

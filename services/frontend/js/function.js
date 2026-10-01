@@ -53,6 +53,10 @@
   let selection = null;       // กรอบที่ลากเลือก หน่วยเป็น "พิกเซลของภาพ" ไม่ใช่พิกเซลบนจอ
   let boxes = [];             // กรอบวัตถุที่ ai-engine ส่งกลับมา
   let dragStart = null;
+  // นับรอบทุกครั้งที่เปลี่ยนฟังก์ชัน/กลับขั้นที่ 1 (#207) — ถ้า response ของ fetch
+  // ที่ยิงไปก่อนหน้ากลับมาช้า หลังผู้ใช้กดเปลี่ยนฟังก์ชัน/เริ่มใหม่ไปแล้ว จะรู้ตัวว่า
+  // ตัวเองล้าสมัยแล้วและไม่เอาผลไปทับ DOM ของฟังก์ชัน/ภาพปัจจุบัน
+  let epoch = 0;
 
   function showError(message) {
     errorBox.textContent = message;
@@ -96,6 +100,7 @@
   }
 
   function loadImage(dataUrl) {
+    epoch++; // ภาพใหม่ = เซสชันใหม่ — ทำให้ fetch เก่าที่ยังค้างอยู่ (ถ้ามี) รู้ตัวว่าล้าสมัย
     const image = new Image();
     image.onload = () => {
       currentImage = image;
@@ -120,6 +125,7 @@
 
   /** ไปขั้นที่ 2 — เลือกภาพสำหรับฟังก์ชันที่เพิ่งเลือก */
   function chooseFunction(key) {
+    epoch++;
     chosen = key;
     clearError();
     chosenName.textContent = FUNCTIONS[key].name;
@@ -133,6 +139,7 @@
 
   /** กลับไปขั้นที่ 1 — ล้างทุกอย่างทิ้ง เพราะสองฟังก์ชันไม่ได้ทำงานต่อจากกัน */
   function resetToStart() {
+    epoch++;
     chosen = null;
     Object.values(FUNCTIONS).forEach((f) => { f.tool.hidden = true; });
     chosenName.textContent = "";
@@ -283,6 +290,7 @@
 
   blurBtn.addEventListener("click", async () => {
     if (!selection || !currentImage) return;
+    const requestEpoch = epoch;
     clearError();
     blurBtn.disabled = true;
     const label = blurBtn.textContent;
@@ -293,17 +301,24 @@
         region: selection,
         size: Number(document.getElementById("fn-blur-size").value),
       });
+      // ผู้ใช้อาจเปลี่ยนฟังก์ชันหรือเลือกภาพใหม่ไปแล้วระหว่างรอ response นี้ — ถ้า
+      // epoch ไม่ตรงกันแล้วแปลว่า response นี้ล้าสมัย ต้องทิ้งไป ไม่เอาไปทับ DOM
+      // ของฟังก์ชัน/ภาพปัจจุบัน (#207) — คืนข้อความปุ่มก่อนเรียก loadImage() เพราะ
+      // loadImage() เพิ่ม epoch เอง ถ้าเช็คหลังเรียกจะเข้าใจผิดว่าล้าสมัยไปด้วย
+      if (requestEpoch !== epoch) return;
+      blurBtn.textContent = label;
       loadImage(`data:image/png;base64,${data.image}`);
     } catch (err) {
+      if (requestEpoch !== epoch) return;
+      blurBtn.textContent = label;
       showError(err.message);
       blurBtn.disabled = false;
-    } finally {
-      blurBtn.textContent = label;
     }
   });
 
   removeBgBtn.addEventListener("click", async () => {
     if (!selection || !currentImage) return;
+    const requestEpoch = epoch;
     clearError();
     removeBgBtn.disabled = true;
     const label = removeBgBtn.textContent;
@@ -313,17 +328,20 @@
         image: cleanImageDataUrl(),
         region: selection,
       });
+      if (requestEpoch !== epoch) return;
+      removeBgBtn.textContent = label;
       loadImage(`data:image/png;base64,${data.image}`);
     } catch (err) {
+      if (requestEpoch !== epoch) return;
+      removeBgBtn.textContent = label;
       showError(err.message);
       removeBgBtn.disabled = false;
-    } finally {
-      removeBgBtn.textContent = label;
     }
   });
 
   objectsBtn.addEventListener("click", async () => {
     if (!currentImage) return;
+    const requestEpoch = epoch;
     clearError();
     objectsBtn.disabled = true;
     const label = objectsBtn.textContent;
@@ -334,6 +352,7 @@
         confidence_min: Number(document.getElementById("fn-confidence").value),
         min_size: Number(document.getElementById("fn-min-size").value),
       });
+      if (requestEpoch !== epoch) return;
       boxes = data.objects || [];
       objectsResult.textContent = boxes.length
         ? `เจอ ${boxes.length} ใบหน้า`
@@ -341,10 +360,13 @@
       objectsResult.hidden = false;
       redraw();
     } catch (err) {
+      if (requestEpoch !== epoch) return;
       showError(err.message);
     } finally {
-      objectsBtn.disabled = false;
-      objectsBtn.textContent = label;
+      if (requestEpoch === epoch) {
+        objectsBtn.disabled = false;
+        objectsBtn.textContent = label;
+      }
     }
   });
 })();

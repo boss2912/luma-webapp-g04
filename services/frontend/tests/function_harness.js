@@ -318,6 +318,64 @@ async function main() {
     return;
   }
 
+  if (scenario === "stale_blur_response_does_not_override_reset") {
+    // (#207) จำลอง race: กดเบลอ -> ระหว่างรอ response ผู้ใช้กดเปลี่ยนฟังก์ชัน
+    // (resetToStart) -> response เก่าเพิ่งกลับมา -> ต้องไม่ทับ DOM กลับไปขั้นที่ 3
+    let resolveFetch;
+    const env = load({
+      displayWidth: 400,
+      fetchImpl: () => new Promise((resolve) => {
+        resolveFetch = () => resolve({ ok: true, status: 200, json: async () => ({ image: "U1RBTEU=" }) });
+      }),
+    });
+    pickImage(env, "blur");
+    drag(env.canvas, [100, 50], [200, 100]);
+    const clickPromise = env.nodes["fn-blur-btn"].fire("click"); // ยิง fetch แต่ยังไม่ resolve
+
+    env.nodes["fn-change-function"].fire("click"); // ผู้ใช้เปลี่ยนใจก่อน response กลับมา
+
+    resolveFetch(); // response เก่าเพิ่งมาถึงตอนนี้
+    await clickPromise;
+    await sleep();
+
+    console.log(JSON.stringify({
+      step1Visible: !env.nodes["fn-step-function"].hidden,
+      step3Visible: !env.nodes["fn-step-work"].hidden,
+      hint: env.nodes["fn-hint"].textContent,
+      lastLoaded: env.loaded[env.loaded.length - 1] || null,
+    }));
+    return;
+  }
+
+  if (scenario === "stale_removebg_response_does_not_override_new_image") {
+    // (#207) กดลบพื้นหลัง -> ระหว่างรอ response ผู้ใช้เปลี่ยนภาพใหม่ (fileInput change)
+    // -> response เก่ากลับมาทีหลัง -> ต้องไม่ทับภาพใหม่ที่เพิ่งโหลด
+    let resolveFetch;
+    const env = load({
+      displayWidth: 400,
+      fetchImpl: () => new Promise((resolve) => {
+        resolveFetch = () => resolve({ ok: true, status: 200, json: async () => ({ image: "U1RBTEU=" }) });
+      }),
+    });
+    pickImage(env, "removebg");
+    drag(env.canvas, [100, 50], [200, 100]);
+    const clickPromise = env.nodes["fn-removebg-btn"].fire("click");
+
+    env.nodes["fn-file"].files = [{ name: "b.png" }];
+    env.nodes["fn-file"].fire("change"); // เลือกไฟล์ใหม่ก่อน response เก่าจะกลับมา
+
+    resolveFetch();
+    await clickPromise;
+    await sleep();
+
+    console.log(JSON.stringify({
+      // ภาพสุดท้ายที่โหลดต้องเป็นไฟล์ใหม่ (จาก FakeFileReader) ไม่ใช่ผลลบพื้นหลังเก่า
+      lastLoaded: env.loaded[env.loaded.length - 1],
+      removebgDisabled: env.nodes["fn-removebg-btn"].disabled,
+    }));
+    return;
+  }
+
   if (scenario === "objects_request") {
     let sent = null;
     const env = load({
