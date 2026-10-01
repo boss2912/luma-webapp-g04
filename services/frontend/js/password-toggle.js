@@ -19,8 +19,11 @@
         input.type = show ? "text" : "password";
         btn.setAttribute("aria-label", show ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน");
         btn.setAttribute("aria-pressed", String(show));
-        if (eye) eye.hidden = show;
-        if (eyeOff) eyeOff.hidden = !show;
+        // ห้ามใช้ eye.hidden = show — SVGElement ไม่มี IDL property "hidden" ที่
+        // สะท้อนกลับไปเป็น attribute จริงแบบ HTMLElement ไอคอนเลยไม่สลับเลยสักครั้ง
+        // (รีวิว PR #204 โดย @6710301001-dorji) ต้องสั่ง attribute ตรงๆ แทน
+        if (eye) eye.toggleAttribute("hidden", show);
+        if (eyeOff) eyeOff.toggleAttribute("hidden", !show);
       });
     });
   }

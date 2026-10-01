@@ -29,10 +29,16 @@ def _run(scenario: str) -> dict:
 
 
 def test_clicking_the_eye_shows_the_password():
+    """[กรณีทดสอบ]: ต้องสลับ "attribute" hidden จริง ไม่ใช่แค่ property (#207)
+
+    SVGElement ไม่มี IDL reflection ของ hidden แบบ HTMLElement — ถ้าโค้ดใช้
+    eye.hidden = x ตรงๆ ไอคอนจะไม่สลับเลยทั้งที่ property ดูเหมือนเปลี่ยนถูกต้อง
+    (รีวิว PR #204 โดย @6710301001-dorji) เทสนี้เช็ค hasAttribute() ไม่ใช่ .hidden
+    """
     result = _run("single_click_shows_password")
     assert result["inputType"] == "text"
-    assert result["eyeHidden"] is True
-    assert result["eyeOffHidden"] is False
+    assert result["eyeHasHiddenAttr"] is True
+    assert result["eyeOffHasHiddenAttr"] is False
     assert result["ariaLabel"] == "ซ่อนรหัสผ่าน"
     assert result["ariaPressed"] == "true"
 
@@ -40,8 +46,8 @@ def test_clicking_the_eye_shows_the_password():
 def test_clicking_again_hides_the_password():
     result = _run("second_click_hides_password_again")
     assert result["inputType"] == "password"
-    assert result["eyeHidden"] is False
-    assert result["eyeOffHidden"] is True
+    assert result["eyeHasHiddenAttr"] is False
+    assert result["eyeOffHasHiddenAttr"] is True
     assert result["ariaLabel"] == "แสดงรหัสผ่าน"
 
 
