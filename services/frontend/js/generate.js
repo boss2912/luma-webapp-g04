@@ -65,9 +65,6 @@
       const seed = Number.isNaN(parsedSeed) ? -1 : parsedSeed;
       const width = parseInt(form.width ? form.width.value : "512", 10) || 512;
       const height = parseInt(form.height ? form.height.value : "512", 10) || 512;
-      // ทีม AI Engine ยังไม่ได้เชื่อมรายชื่อ checkpoint จริง — ตอนนี้ backend ไม่อ่านค่านี้
-      // ส่งไปก่อนเพื่อให้จุดต่อพร้อมอยู่แล้วตอนฝั่งนั้นทำเสร็จ
-      const checkpoint = form.checkpoint ? form.checkpoint.value : "default";
 
       const payload = {
         prompt,
@@ -78,7 +75,6 @@
         seed,
         width,
         height,
-        checkpoint,
       };
 
       if (form.checkpoint) payload.checkpoint = form.checkpoint.value;
