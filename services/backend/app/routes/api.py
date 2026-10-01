@@ -4,6 +4,7 @@ Endpoint สร้างภาพ AI (Issue #22) + คลังผลงาน (
 """
 
 import os
+import math
 import uuid
 
 from flask import Blueprint, current_app, jsonify, request, send_file, session
@@ -63,17 +64,19 @@ def _parse_generation_params(data: dict, default_width: int = 512, default_heigh
     # ไว้เป็น fallback เพื่อไม่ให้เครื่องที่ยังไม่ copy config.py มามีพฤติกรรมเปลี่ยน
     config = current_app.config
 
-    try:
-        steps = int(data.get("steps", config.get("FORGE_DEFAULT_STEPS", 20)))
-    except (ValueError, TypeError):
+    raw_steps = data.get("steps", config.get("FORGE_DEFAULT_STEPS", 20))
+    if isinstance(raw_steps, bool) or not isinstance(raw_steps, int):
         return bad("steps ต้องเป็นตัวเลขจำนวนเต็ม / steps must be an integer")
-    if steps < 1 or steps > 50:
+    if raw_steps < 1 or raw_steps > 50:
         return bad("steps ต้องอยู่ระหว่าง 1-50")
+    steps = raw_steps
 
-    try:
-        cfg_scale = float(data.get("cfg_scale", config.get("FORGE_DEFAULT_CFG_SCALE", 8.0)))
-    except (ValueError, TypeError):
+    raw_cfg = data.get("cfg_scale", config.get("FORGE_DEFAULT_CFG_SCALE", 8.0))
+    if (isinstance(raw_cfg, bool)
+            or not isinstance(raw_cfg, (int, float))
+            or not math.isfinite(raw_cfg)):
         return bad("cfg_scale ต้องเป็นตัวเลข / cfg_scale must be a number")
+    cfg_scale = float(raw_cfg)
     if cfg_scale < 1.0 or cfg_scale > 30.0:
         return bad("cfg_scale ต้องอยู่ระหว่าง 1.0-30.0")
 
@@ -84,23 +87,25 @@ def _parse_generation_params(data: dict, default_width: int = 512, default_heigh
         return bad(f"sampler_name ต้องเป็นหนึ่งใน: {', '.join(SUPPORTED_SAMPLERS)} "
                    f"/ sampler_name must be one of the supported samplers")
 
-    try:
-        seed = int(data.get("seed", config.get("FORGE_DEFAULT_SEED", -1)))
-    except (ValueError, TypeError):
+    raw_seed = data.get("seed", config.get("FORGE_DEFAULT_SEED", -1))
+    if isinstance(raw_seed, bool) or not isinstance(raw_seed, int):
         return bad("seed ต้องเป็นตัวเลขจำนวนเต็ม / seed must be an integer")
     # ai-engine ปฏิเสธ seed < -1 (app.py:273, :359) — ถ้าไม่ดักที่นี่ งานจะเข้าคิวไปแล้ว
     # ค่อยล้มทีหลัง ผู้ใช้เห็นแค่ "AI engine ตอบกลับด้วยสถานะ 400" ซึ่งไม่บอกว่าตัวเองกรอกอะไรผิด
-    if seed < -1:
+    if raw_seed < -1:
         return bad("seed ต้องเป็น -1 (สุ่ม) หรือจำนวนเต็มตั้งแต่ 0 ขึ้นไป "
                    "/ seed must be -1 (random) or a non-negative integer")
+    seed = raw_seed
 
-    try:
-        width = int(data.get("width", default_width))
-        height = int(data.get("height", default_height))
-    except (ValueError, TypeError):
+    raw_width = data.get("width", default_width)
+    raw_height = data.get("height", default_height)
+    if (isinstance(raw_width, bool) or not isinstance(raw_width, int)
+            or isinstance(raw_height, bool) or not isinstance(raw_height, int)):
         return bad("width และ height ต้องเป็นจำนวนเต็ม")
-    if width not in ALLOWED_SIZES or height not in ALLOWED_SIZES:
+    if raw_width not in ALLOWED_SIZES or raw_height not in ALLOWED_SIZES:
         return bad("width/height ต้องเป็น 512, 768 หรือ 1024")
+    width = raw_width
+    height = raw_height
 
     return {
         "negative_prompt": negative_prompt.strip(),
