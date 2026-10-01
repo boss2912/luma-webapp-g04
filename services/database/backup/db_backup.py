@@ -29,6 +29,7 @@ sqlite3.Connection.backup() ของ Python อ่านข้อมูลผ�
 ถ้าไฟล์ backup เสีย ต้องรู้ตั้งแต่ก่อนเขียนทับ ไม่ใช่รู้หลังจากฐานข้อมูลจริงหายไปแล้ว
 """
 
+import os
 import re
 import shutil
 import sqlite3
@@ -41,7 +42,36 @@ HERE = Path(__file__).resolve().parent            # services/database/backup
 DATABASE_DIR = HERE.parent                        # services/database
 
 
-def backup(db_path, backup_dir):
+def default_uploads_path(db_path=None):
+    """หาโฟลเดอร์ uploads ของโปรเจกต์ (#207 ST5)
+    1. ตรวจสอบ LUMA_UPLOADS_DIR จาก environment variable ก่อน (สำหรับการทดสอบหรือ deployment พิเศษ)
+    2. ถ้ามี uploads อยู่ข้าง db_path (เช่น layout ปกติ หรือ test fixture) ให้ใช้ db_path.parent / "uploads"
+    3. ถาม instance_path ของ backend ผ่าน migrate_app
+    4. fallback: DATABASE_DIR.parent / "backend" / "instance" / "uploads"
+    """
+    env_dir = os.environ.get("LUMA_UPLOADS_DIR")
+    if env_dir:
+        return Path(env_dir)
+
+    if db_path is not None:
+        local_uploads = Path(db_path).parent / "uploads"
+        if local_uploads.is_dir():
+            return local_uploads
+
+    try:
+        sys.path.insert(0, str(DATABASE_DIR))
+        from migrate_app import create_migration_app
+        app = create_migration_app()
+        return Path(app.instance_path) / "uploads"
+    except Exception:
+        pass
+
+    if db_path is not None:
+        return Path(db_path).parent / "uploads"
+    return (DATABASE_DIR.parent / "backend" / "instance" / "uploads").resolve()
+
+
+def backup(db_path, backup_dir, uploads_dir=None):
     """สำรอง db_path ไปเป็นไฟล์ใหม่ใน backup_dir แล้วคืน path ของไฟล์ที่ได้"""
     db_path = Path(db_path)
     backup_dir = Path(backup_dir)
@@ -67,8 +97,8 @@ def backup(db_path, backup_dir):
         except FileExistsError:
             number += 1
 
-    # สำรองภาพด้วย — DB เก็บแค่ path ของภาพ ไม่ได้เก็บตัวภาพ
-    uploads = db_path.parent / "uploads"
+    # สำรองภาพด้วย — DB เก็บแค่ path ของภาพ ไม่ได้เก็บตัวภาพ (#207 ST5)
+    uploads = Path(uploads_dir) if uploads_dir is not None else default_uploads_path(db_path)
     saved_uploads = _uploads_backup_dir(target)
     # จำไว้ก่อนว่ามีโฟลเดอร์ชื่อนี้อยู่แล้วไหม — ขั้นเก็บกวาดต้องลบเฉพาะของที่ตัวเองสร้าง
     uploads_existed_before = saved_uploads.exists()
@@ -97,7 +127,7 @@ def _uploads_backup_dir(backup_file):
     return backup_file.with_name(backup_file.stem + "-uploads")
 
 
-def restore(backup_file, db_path):
+def restore(backup_file, db_path, uploads_dir=None):
     """เขียนทับ db_path ด้วยข้อมูลจาก backup_file (ตรวจว่าไฟล์ไม่เสียก่อนเขียน)"""
     backup_file = Path(backup_file)
     if not backup_file.is_file():
@@ -109,15 +139,17 @@ def restore(backup_file, db_path):
     # ถ้าเลือกไฟล์ผิด restore จากสำเนานี้กลับได้ทันที
     safety = None
     if Path(db_path).is_file():
-        safety = backup(db_path, backup_file.parent)
+        safety = backup(db_path, backup_file.parent, uploads_dir=uploads_dir)
 
     try:
         _copy(backup_file, Path(db_path))
 
-        # คืนภาพที่หายไป — เติมเฉพาะไฟล์ที่ขาด ไม่ลบภาพที่มีอยู่
+        # คืนภาพที่หายไป — เติมเฉพาะไฟล์ที่ขาด ไม่ลบภาพที่มีอยู่ (#207 ST5)
         saved_uploads = _uploads_backup_dir(backup_file)
+        target_uploads = Path(uploads_dir) if uploads_dir is not None else default_uploads_path(db_path)
         if saved_uploads.is_dir():
-            shutil.copytree(saved_uploads, Path(db_path).parent / "uploads", dirs_exist_ok=True)
+            target_uploads.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(saved_uploads, target_uploads, dirs_exist_ok=True)
     except BaseException as error:
         # พังหลังสร้างสำเนากันพลาดไปแล้ว — ต้องบอก path ไม่งั้นผู้ใช้ไม่รู้ว่ามีสำเนาอยู่
         # ตอนที่ต้องใช้มันที่สุด (รีวิว PR #190: ดิสก์เต็ม · I/O error)
@@ -298,14 +330,18 @@ def _force_utf8_stdout() -> None:
 
 def main(args):
     if args == ["backup"]:
-        print("backup แล้ว:", backup(default_db_path(), HERE))
+        db_path = default_db_path()
+        uploads = default_uploads_path(db_path)
+        print("backup แล้ว:", backup(db_path, HERE, uploads_dir=uploads))
         return 0
     if len(args) == 2 and args[0] == "restore":
-        safety = restore(args[1], default_db_path())
+        db_path = default_db_path()
+        uploads = default_uploads_path(db_path)
+        safety = restore(args[1], db_path, uploads_dir=uploads)
         print("restore แล้ว จาก:", args[1])
         if safety:
             print("สำเนาก่อน restore (ย้อนกลับได้):", safety)
-        warning = upgrade_warning(default_db_path())
+        warning = upgrade_warning(db_path)
         if warning:
             print(warning)
         # เตือนทุกครั้งที่ restore สำเร็จ — cookie ที่ผู้ใช้ถืออยู่ยังเซ็นด้วย key เดิม

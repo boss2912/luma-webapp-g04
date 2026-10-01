@@ -182,6 +182,7 @@ def test_edit_image_posts_to_ai_engine_img2img_and_maps_errors():
     for side_effect, reply, expected in (
             (None, Mock(status_code=504), 504),
             (None, Mock(status_code=500), 502),
+            (requests.exceptions.Timeout("Read timed out"), None, 504),
             (requests.exceptions.ConnectionError("HTTPConnectionPool(host='10.0.0.5', port=8000)"), None, 502)):
         with app.app_context(), \
                 patch("app.services.forge_client.requests.post", side_effect=side_effect, return_value=reply), \
