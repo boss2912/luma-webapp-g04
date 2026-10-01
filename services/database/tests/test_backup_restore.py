@@ -594,3 +594,46 @@ def test_restore_command_says_to_change_secret_key(db_file, tmp_path, capsys):
     assert result == 0
     assert "SECRET_KEY" in output
     assert "token_hex" in output
+
+
+def test_backup_restore_with_separated_uploads_directory(db_file, tmp_path, monkeypatch):
+    """[กรณีทดสอบ #207 ST5]: เมื่อย้าย db_path ไปคนละโฟลเดอร์กับ uploads
+    ต้องสามารถสำรองและกู้คืนรูปภาพได้ถูกต้อง ไม่ทึกทักว่า uploads อยู่ข้าง db_path เสมอ"""
+    # 1. ย้าย db_file ไปไว้ในโฟลเดอร์แยกต่างหากที่ไม่มี uploads อยู่ข้างๆ
+    separate_db_dir = tmp_path / "separate_db_dir"
+    separate_db_dir.mkdir(parents=True, exist_ok=True)
+    custom_db = separate_db_dir / "luma.db"
+    shutil.copy2(db_file, custom_db)
+
+    # 2. uploads อยู่ที่โฟลเดอร์อื่น
+    custom_uploads = tmp_path / "custom_instance" / "uploads"
+    img = custom_uploads / "generated" / "test.png"
+    img.parent.mkdir(parents=True, exist_ok=True)
+    img.write_bytes(b"image-in-separate-folder")
+
+    # 3. สำรองข้อมูลโดยระบุ uploads_dir
+    backups_dir = tmp_path / "backups"
+    backup_file = backup(custom_db, backups_dir, uploads_dir=custom_uploads)
+
+    # 4. ลบภาพต้นทางทิ้ง
+    img.unlink()
+    assert not img.exists()
+
+    # 5. กู้คืนข้อมูล
+    restore(backup_file, custom_db, uploads_dir=custom_uploads)
+
+    # 6. ภาพต้องกลับมาที่ custom_uploads ครบทุกไบต์
+    assert img.exists()
+    assert img.read_bytes() == b"image-in-separate-folder"
+
+    # 7. ทดสอบกรณีไม่ส่ง uploads_dir ตรงๆ แต่กำหนดผ่าน LUMA_UPLOADS_DIR / config
+    monkeypatch.setenv("LUMA_UPLOADS_DIR", str(custom_uploads))
+    backup_file2 = backup(custom_db, backups_dir)
+    img.unlink()
+    assert not img.exists()
+
+    restore(backup_file2, custom_db)
+    assert img.exists()
+    assert img.read_bytes() == b"image-in-separate-folder"
+
+
