@@ -212,10 +212,32 @@ def create_app(config=None):
         params = data.get("params", {})
         if not isinstance(params, dict):
             return jsonify({"error": "params must be a JSON object"}), 400
+
+        # ใช้ decode เฉพาะของ route นี้แทน _decode_bgr_image() ที่ใช้ร่วมกับ route อื่น
+        # เพราะต้องอ่าน alpha channel ไว้ด้วย (ดูเหตุผลเรื่อง existing_alpha ด้านล่าง)
+        # — _decode_bgr_image() ใช้ cv2.IMREAD_COLOR ซึ่งตัด alpha ทิ้งเสมอ ใช้ร่วมไม่ได้
+        image_b64 = data.get("image")
+        if not isinstance(image_b64, str) or not image_b64:
+            return jsonify({"error": "image must be a nonempty base64 string"}), 400
         try:
-            pixels = _decode_bgr_image(data.get("image"))
-        except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+            image_bytes = base64.b64decode(image_b64, validate=True)
+        except (ValueError, binascii.Error):
+            return jsonify({"error": "image must be valid base64"}), 400
+        try:
+            raw = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+        except cv2.error:
+            raw = None
+        if raw is None:
+            return jsonify({"error": "image must contain a supported image"}), 400
+
+        # ภาพที่เคยลบพื้นหลังมาแล้วรอบก่อน (กดลบซ้ำบนผลลัพธ์เดิม) มี alpha channel
+        # ติดมาด้วย — ต้องแยกเก็บไว้ก่อนตัดเหลือ BGR 3 ช่องให้ remove_background() ใช้
+        if raw.ndim == 3 and raw.shape[2] == 4:
+            pixels = raw[:, :, :3]
+            existing_alpha = raw[:, :, 3]
+        else:
+            pixels = raw
+            existing_alpha = None
 
         region = params.get("region")
         required = ("x", "y", "width", "height")
@@ -237,6 +259,18 @@ def create_app(config=None):
         center = (x + width // 2, y + height // 2)
         axes = (max(width // 2, 1), max(height // 2, 1))
         cv2.ellipse(mask, center, axes, 0, 0, 360, 0, thickness=-1)
+        # axes ปัดขึ้นขั้นต่ำ 1 พิกเซลเสมอ (เผื่อกรอบแคบกว่า 2px) ทำให้กรอบเล็กมาก
+        # เช่น 1x1 อาจลบล้นออกนอกกรอบที่เลือกไปถึง 4 พิกเซล — จำกัด mask ให้อยู่แค่
+        # ในกรอบสี่เหลี่ยมที่เลือกเท่านั้น ไม่ว่ารูปทรงวงรีจะคำนวณล้นแค่ไหนก็ตาม
+        mask[:y, :] = 255
+        mask[y + height:, :] = 255
+        mask[:, :x] = 255
+        mask[:, x + width:] = 255
+        if existing_alpha is not None:
+            # รักษาพื้นที่ที่เคยลบไปแล้วในรอบก่อนไว้ — ไม่งั้นลบซ้ำรอบใหม่จะทำให้
+            # พื้นที่เดิมกลับมาทึบแสง (alpha 255) เพราะ mask ใหม่ไม่รู้จักพื้นที่เดิม
+            mask = np.minimum(mask, existing_alpha)
+
         try:
             result = segmentation.remove_background(pixels, mask)
             result_b64 = _encode_png(result)

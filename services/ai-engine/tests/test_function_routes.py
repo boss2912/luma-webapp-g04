@@ -228,6 +228,59 @@ def test_remove_background_route_erases_an_ellipse_inscribed_in_the_region_not_t
     assert response.json["metrics"] == {"erased_pixels": erased}
 
 
+def test_remove_background_route_never_erases_outside_a_tiny_region():
+    """[กรณีทดสอบ]: กรอบเล็กมาก (1x1) ต้องไม่ลบล้นออกนอกกรอบ (ROI leak, รีวิว #207)
+
+    axes คำนวณขั้นต่ำ 1 พิกเซลเสมอ — ถ้าไม่จำกัด mask ให้อยู่แค่ในกรอบที่เลือก
+    วงกลมรัศมี 1 จะล้นไปลบพิกเซลข้างเคียงนอกกรอบที่ผู้ใช้ไม่ได้เลือกไว้ด้วย
+    """
+    client = create_app({"TESTING": True}).test_client()
+    body = {
+        "image": _encode_png(_checkerboard()),
+        "params": {"region": {"x": 12, "y": 12, "width": 1, "height": 1}},
+    }
+
+    response = client.post("/pipeline/03_segmentation/remove-background", json=body)
+
+    assert response.status_code == 200
+    alpha = _decode_png_with_alpha(response.json["image"])[:, :, 3]
+    # เพื่อนบ้านทั้ง 4 ทิศของกรอบ 1x1 ต้องทึบแสงเหมือนเดิม ไม่ถูกลบล้นออกมา
+    assert alpha[11, 12] == 255, "พิกเซลด้านบนนอกกรอบต้องไม่ถูกลบ"
+    assert alpha[13, 12] == 255, "พิกเซลด้านล่างนอกกรอบต้องไม่ถูกลบ"
+    assert alpha[12, 11] == 255, "พิกเซลด้านซ้ายนอกกรอบต้องไม่ถูกลบ"
+    assert alpha[12, 13] == 255, "พิกเซลด้านขวานอกกรอบต้องไม่ถูกลบ"
+
+
+def test_remove_background_route_preserves_previously_erased_area_on_repeat():
+    """[กรณีทดสอบ]: ลบพื้นหลังซ้ำรอบสองต้องไม่ทำให้พื้นที่ที่ลบไปแล้วในรอบแรกกลับมาทึบแสง
+
+    บั๊กเดิม: สร้าง mask 255 ใหม่ทุกรอบโดยไม่สนใจ alpha เดิมของภาพที่ส่งเข้ามา
+    ทำให้พื้นที่ที่เคยโปร่งใสจากรอบก่อนกลับมาทึบแสงเมื่อกดลบรอบใหม่ (รีวิว #207)
+    """
+    client = create_app({"TESTING": True}).test_client()
+    original = _checkerboard()
+
+    first = client.post("/pipeline/03_segmentation/remove-background", json={
+        "image": _encode_png(original),
+        "params": {"region": {"x": 2, "y": 2, "width": 6, "height": 6}},
+    })
+    assert first.status_code == 200
+    first_png_b64 = first.json["image"]
+    first_alpha = _decode_png_with_alpha(first_png_b64)[:, :, 3]
+    assert first_alpha[5, 5] == 0, "setup: รอบแรกต้องลบตรงกลางกรอบแรกสำเร็จ"
+
+    # ส่งผลลัพธ์รอบแรก (มี alpha ติดมาแล้ว) กลับเข้าไปลบซ้ำที่กรอบอื่นที่ไม่ทับกัน
+    second = client.post("/pipeline/03_segmentation/remove-background", json={
+        "image": first_png_b64,
+        "params": {"region": {"x": 16, "y": 16, "width": 6, "height": 6}},
+    })
+    assert second.status_code == 200
+    second_alpha = _decode_png_with_alpha(second.json["image"])[:, :, 3]
+
+    assert second_alpha[5, 5] == 0, "พื้นที่ที่ลบไปแล้วในรอบแรกต้องยังโปร่งใสอยู่ ไม่กลับมาทึบแสง"
+    assert second_alpha[19, 19] == 0, "พื้นที่ที่เพิ่งลบในรอบสองต้องโปร่งใสด้วย"
+
+
 @pytest.mark.parametrize("params", [
     [],
     {},
