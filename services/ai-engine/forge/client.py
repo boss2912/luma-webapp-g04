@@ -42,18 +42,6 @@ def list_checkpoints(forge_base_url, timeout=30):
     return [{"title": model["title"]} for model in models]
 
 
-def edit_image(payload, forge_base_url, timeout=120):
-    """Forward an img2img request using Forge's init_images list contract."""
-    forge_payload = {
-        key: value for key, value in payload.items()
-        if key not in ("init_image", "mask", "mode")
-    }
-    forge_payload["init_images"] = [payload["init_image"]]
-    if payload.get("mask") is not None:
-        forge_payload["mask"] = payload["mask"]
-    return _request_image(forge_payload, forge_base_url, "img2img", timeout)
-
-
 def _request_image(payload, forge_base_url, operation, timeout):
     endpoint = forge_base_url.rstrip("/") + f"/sdapi/v1/{operation}"
     try:
