@@ -87,8 +87,8 @@ try:
         except requests.ConnectionError: pass
         time.sleep(1)
     s = requests.Session(); s.get(B + "/pages/login.html"); s.headers["X-CSRFToken"] = s.cookies.get("csrf_token", "")
-    s.post(B + "/api/auth/register", json={"email": "live@luma.test", "displayName": "live", "password": "password123"})
-    rec("B", "login", s.post(B + "/api/auth/login", json={"email": "live@luma.test", "password": "password123"}).ok)
+    s.post(B + "/api/auth/register", json={"email": "live@luma.test", "displayName": "live", "password": "password123"})  # no-secret-check (อีเมลทดสอบ โดเมน .test ไม่มีจริง)
+    rec("B", "login", s.post(B + "/api/auth/login", json={"email": "live@luma.test", "password": "password123"}).ok)  # no-secret-check
     ck = s.get(B + "/api/checkpoints")
     rec("B", "รายชื่อ checkpoint ผ่าน backend -> ai-engine -> Forge", ck.ok, f"{len(ck.json().get('items', []))} ตัว" if ck.ok else ck.text[:80])
 
