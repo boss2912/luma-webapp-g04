@@ -4,7 +4,6 @@ Endpoints สำหรับระบบสมาชิก Authentication พร
 """
 
 import time
-from collections import defaultdict
 from flask import Blueprint, jsonify, request, session, current_app
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -22,9 +21,9 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 #
 # ข้อจำกัดที่รู้อยู่: dict นี้อยู่ในโปรเซสเดียว — รีสตาร์ทแอปแล้วรีเซ็ตทันที
 # และถ้ารันหลาย worker/instance พร้อมกัน แต่ละตัวจะนับแยกกันเอง (ไม่ share state)
-# พอใช้สำหรับเดโม/รันเครื่องเดียว แต่ deploy จริงหลายเครื่องต้องย้ายไป Redis
+# พอใช้สำหรับเดโม/รันเครื่องเดียว แต่ deploy จริงหลายเครื่องต้องย้ายไป Redis (V5, F14)
 # หรือที่เก็บกลางแบบอื่นถึงจะกันการเดารหัสผ่านได้จริง
-_login_failed_attempts: dict[str, list[float]] = defaultdict(list)
+_login_failed_attempts: dict[str, list[float]] = {}
 
 # ข้อความ error เดียวกันทั้งสองกรณี (ไม่มี user / รหัสผิด) กันคนเดา
 # ว่าอีเมลไหนสมัครไว้แล้วจากข้อความ error ที่ต่างกัน
@@ -42,16 +41,33 @@ def _invalid(field: str, message: str):
 def check_rate_limit(key: str, max_attempts: int = 5, window_seconds: int = 60) -> bool:
     """ตรวจสอบว่าบัญชีนี้ (key = อีเมลแบบ lower) ถูกบล็อกจาก Rate Limiting หรือไม่"""
     now = time.time()
-    attempts = _login_failed_attempts[key]
+
+    # ล้าง key ที่ timestamps หมดอายุทั้งหมดออกจาก dict เพื่อป้องกัน memory leak จากอีเมลสุ่ม (#212)
+    expired_keys = [
+        k for k, timestamps in list(_login_failed_attempts.items())
+        if not any(now - t < window_seconds for t in timestamps)
+    ]
+    for k in expired_keys:
+        _login_failed_attempts.pop(k, None)
+
+    attempts = _login_failed_attempts.get(key)
+    if not attempts:
+        return False
 
     # ลบ timestamps ที่หมดอายุเกิน window_seconds ออก
-    _login_failed_attempts[key] = [t for t in attempts if now - t < window_seconds]
+    valid_attempts = [t for t in attempts if now - t < window_seconds]
+    if not valid_attempts:
+        _login_failed_attempts.pop(key, None)
+        return False
 
-    return len(_login_failed_attempts[key]) >= max_attempts
+    _login_failed_attempts[key] = valid_attempts
+    return len(valid_attempts) >= max_attempts
 
 
 def record_failed_attempt(key: str):
     """บันทึกการพยายาม Login ที่ล้มเหลว"""
+    if key not in _login_failed_attempts:
+        _login_failed_attempts[key] = []
     _login_failed_attempts[key].append(time.time())
 
 

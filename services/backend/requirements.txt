@@ -17,7 +17,6 @@
 Flask==3.0.3
 
 # --- Flask extensions -------------------------------------------------------
-Flask-Login==0.6.3          # session auth
 Flask-Migrate==4.0.7        # Alembic migrations - required, do not rely on db.create_all()
 Flask-SQLAlchemy==3.1.1     # ORM
 Flask-WTF==1.2.1            # CSRFProtect + forms
