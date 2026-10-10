@@ -36,6 +36,7 @@ python tools/check_all.py --with-tests
 | [`check_env_installed.py`](check_env_installed.py) | env ที่ลงในเครื่องต้องตรงกับ requirements | `--with-env` | – |
 | [`run_all_tests.py`](run_all_tests.py) | รัน pytest ทุก service สรุปรวม | `--with-tests` | – |
 | [`mock_forge_server.py`](mock_forge_server.py) | Forge AI ปลอม ไม่ต้องมี GPU | – | – |
+| [`forge_live_check.py`](forge_live_check.py) | ทดสอบกับ **Forge ตัวจริง** ทั้ง API ตรงและทั้งระบบ (สร้างภาพ ≤9 ครั้ง ครั้งละ 6 steps) — `python tools/forge_live_check.py --forge http://<IP เครื่อง AI>:7860` | – | – |
 
 > `check_doc_links` กับ `run_all_tests` ไม่อยู่ใน pre-commit เพราะช้าเกินกว่าจะรันทุก commit
 > ให้ไปรันตอนก่อนเปิด PR แทน
