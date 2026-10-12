@@ -65,10 +65,13 @@ def check_rate_limit(key: str, max_attempts: int = 5, window_seconds: int = 60) 
 
 
 def record_failed_attempt(key: str):
-    """บันทึกการพยายาม Login ที่ล้มเหลว"""
-    if key not in _login_failed_attempts:
-        _login_failed_attempts[key] = []
-    _login_failed_attempts[key].append(time.time())
+    """บันทึกการพยายาม Login ที่ล้มเหลว
+
+    ใช้ setdefault ทำเช็ค+สร้าง list ในจังหวะเดียว (atomic) — ถ้าแยกเป็น
+    "เช็คว่ามี key ไหม" แล้ว "append" คนละบรรทัด คำขออื่นที่ sweep dict
+    (บรรทัด 46-51) แทรกกลางได้ ลบ key ทิ้งก่อน append จะชน KeyError (#224 review)
+    """
+    _login_failed_attempts.setdefault(key, []).append(time.time())
 
 
 def reset_rate_limit(key: str):
