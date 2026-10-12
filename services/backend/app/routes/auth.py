@@ -28,7 +28,7 @@ _login_failed_attempts: dict[str, list[float]] = defaultdict(list)
 
 # ข้อความ error เดียวกันทั้งสองกรณี (ไม่มี user / รหัสผิด) กันคนเดา
 # ว่าอีเมลไหนสมัครไว้แล้วจากข้อความ error ที่ต่างกัน
-_INVALID_CREDENTIALS = "อีเมลหรือรหัสผ่านไม่ถูกต้อง / Invalid credentials"
+_INVALID_CREDENTIALS = "ชื่อ/อีเมล หรือรหัสผ่านไม่ถูกต้อง / Invalid credentials"
 
 # สมัครซ้ำ: ข้อความเดียวไม่ว่าจะซ้ำที่อีเมลหรือชื่อ และตอบ 400 ตาม docs/API_CONTRACT.md (#49)
 _ALREADY_TAKEN = "อีเมลหรือชื่อนี้ถูกใช้แล้ว / Email or displayName already taken"
@@ -126,21 +126,39 @@ def login():
     data = request.get_json(silent=True) or {}
     if not isinstance(data, dict):
         return jsonify({"error": "คำขอต้องเป็น JSON object / Request must be a JSON object"}), 400
-    email = data.get("email", "")
+    # ช่องเดียวรับได้ทั้งชื่อและอีเมล — หน้าเว็บส่งมาในคีย์ "login"
+    # ถ้าไม่มีคีย์ "login" ให้อ่านคีย์ "email" แทน ของเดิมที่ส่งอีเมลมาจึงยังใช้ได้
+    login_name = data.get("login", data.get("email", ""))
     password = data.get("password", "")
-    if not isinstance(email, str) or not isinstance(password, str):
-        return jsonify({"error": "email และ password ต้องเป็นข้อความ / must be strings"}), 400
-    email = email.strip().lower()
+    if not isinstance(login_name, str) or not isinstance(password, str):
+        return jsonify({"error": "login และ password ต้องเป็นข้อความ / must be strings"}), 400
+    login_name = login_name.strip()
 
-    if not email or not password:
-        return jsonify({"error": "กรุณาระบุอีเมลและรหัสผ่าน / Email and password required"}), 400
+    if not login_name or not password:
+        return jsonify({"error": "กรุณาระบุชื่อหรืออีเมล และรหัสผ่าน / Login and password required"}), 400
+
+    # มี @ = ค้นจากอีเมล · ไม่มี @ = ค้นจากชื่อ (ค้นทีละคอลัมน์ ไม่ค้นสองคอลัมน์พร้อมกัน)
+    # เหตุผล: หน้าสมัครยอมให้ตั้งชื่อที่มี @ ได้ ถ้าค้นสองคอลัมน์พร้อมกัน
+    # คนที่ตั้งชื่อตัวเองเป็นอีเมลของคนอื่นจะถูกหยิบขึ้นมาแทนเจ้าของอีเมลได้
+    # คอลัมน์ทั้งสองเป็น COLLATE NOCASE อยู่แล้ว จึงไม่สนตัวพิมพ์เล็กใหญ่
+    if "@" in login_name:
+        user = User.query.filter_by(email=login_name.lower()).first()
+    else:
+        user = User.query.filter_by(username=login_name).first()
+
+    # นับการเดารหัสผิด "ต่อบัญชี" — ถ้าเจอบัญชี ใช้อีเมลของบัญชีนั้นเป็นตัวนับ
+    # ไม่งั้นคนเดาจะสลับพิมพ์ชื่อกับอีเมลของบัญชีเดียวกัน แล้วได้จำนวนครั้งเป็นสองเท่า
+    if user is not None:
+        rate_key = user.email
+    else:
+        rate_key = login_name.lower()
 
     # 1. ตรวจสอบ Rate Limiting ต่อบัญชี (บล็อกถ้าผิดเกิน 5 ครั้งใน 1 นาที) — เช็คก่อนเทียบรหัส
     #    ทำให้ช่วงที่โดนบล็อก รหัสถูกก็เข้าไม่ได้ คนเดาจึงแยกไม่ออกว่าเดาถูกแล้วหรือยัง
     # ค่า default ตั้งได้ผ่าน instance/config.py (#192) — .get() ใส่ 5/60 เดิมไว้เป็น
     # fallback เพื่อไม่ให้เครื่องที่ยังไม่ copy config.py มามีพฤติกรรมเปลี่ยน
     if check_rate_limit(
-        email,
+        rate_key,
         max_attempts=current_app.config.get("RATE_LIMIT_MAX_ATTEMPTS", 5),
         window_seconds=current_app.config.get("RATE_LIMIT_WINDOW_SECONDS", 60),
     ):
@@ -151,13 +169,12 @@ def login():
         }), 429
 
     # 2. เทียบรหัสผ่านจริงกับ hash ในตาราง users — ไม่ใช่การเทียบสตริง/ความยาวแบบเดิม
-    user = User.query.filter_by(email=email).first()
     if user is None or not check_password_hash(user.password_hash, password):
-        record_failed_attempt(email)
+        record_failed_attempt(rate_key)
         return jsonify({"error": _INVALID_CREDENTIALS}), 401
 
     # Login สำเร็จ -> ล้างประวัติล้มเหลว
-    reset_rate_limit(email)
+    reset_rate_limit(rate_key)
 
     # เก็บแค่ user_id ใน session ไม่ยัดข้อมูล user ทั้งก้อนลง cookie
     session["user_id"] = user.id
@@ -165,7 +182,7 @@ def login():
     return jsonify({
         "status": "success",
         "message": "เข้าสู่ระบบสำเร็จ",
-        "user": {"email": user.email, "displayName": user.username},
+        "user": {"email": user.email, "displayName": user.username, "role": user.role},
     }), 200
 
 
@@ -192,4 +209,6 @@ def get_current_user():
         session.pop("user_id", None)
         return jsonify({"error": "ยังไม่ได้เข้าสู่ระบบ / Unauthorized"}), 401
 
-    return jsonify({"email": user.email, "displayName": user.username}), 200
+    # role ส่งไปให้หน้าเว็บตัดสินว่าจะแสดงเมนู "จัดการผู้ใช้" ไหม
+    # (เป็นแค่การซ่อนเมนู การกันจริงอยู่ที่ /api/admin/* ซึ่งเช็ค role ที่ฝั่งนี้อีกรอบ)
+    return jsonify({"email": user.email, "displayName": user.username, "role": user.role}), 200
