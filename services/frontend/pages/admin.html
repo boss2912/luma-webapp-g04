@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LUMA — จัดการผู้ใช้</title>
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/admin.css" />
+</head>
+<body data-page="admin">
+  <header class="app-header">
+    <div id="app-nav-slot"></div>
+  </header>
+
+  <main class="app-main">
+    <h1>จัดการผู้ใช้</h1>
+    <p class="admin-hint">
+      แก้ชื่อหรืออีเมลในช่องแล้วกด "บันทึก" ของแถวนั้น
+      ช่องรหัสผ่านใหม่เว้นว่างไว้ได้ถ้าไม่ต้องการเปลี่ยนรหัส
+      (ระบบเก็บรหัสผ่านแบบเข้ารหัสทางเดียว จึงแสดงรหัสเดิมไม่ได้ ตั้งใหม่ได้อย่างเดียว)
+    </p>
+
+    <p id="admin-error" class="admin-error" hidden role="alert"></p>
+
+    <div class="admin-table-wrap">
+      <table class="admin-table" id="admin-table" hidden>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>ชื่อ</th>
+            <th>อีเมล</th>
+            <th>สิทธิ์</th>
+            <th>รหัสผ่านใหม่</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="admin-rows"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="../js/csrf.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/admin.js"></script>
+</body>
+</html>
