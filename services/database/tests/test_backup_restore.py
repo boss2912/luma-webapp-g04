@@ -61,7 +61,7 @@ def count_rows(db_file):
 
 @pytest.fixture()
 def db_file(tmp_path):
-    """ไฟล์ .db ชั่วคราวที่รัน migration ครบแล้ว มี user 1 คน asset 2 ใบ"""
+    """ไฟล์ .db ชั่วคราวที่รัน migration ครบแล้ว มี user 2 คน (admin ตั้งต้น + boss) asset 2 ใบ"""
     path = tmp_path / "luma.db"
     os.environ["LUMA_DATABASE_URI"] = "sqlite:///" + str(path).replace("\\", "/")
 
@@ -92,7 +92,7 @@ def db_file(tmp_path):
 def test_backup_then_restore_gives_same_rows(db_file, tmp_path):
     """MUST — backup → ลบฐานข้อมูล → restore → นับแถวต้องเท่าเดิม"""
     before = count_rows(db_file)
-    assert before["users"] == 1 and before["assets"] == 2, "fixture ต้องมีข้อมูลก่อนทดสอบ"
+    assert before["users"] == 2 and before["assets"] == 2, "fixture ต้องมีข้อมูลก่อนทดสอบ"
 
     backup_file = backup(db_file, tmp_path / "backups")
     db_file.unlink()
