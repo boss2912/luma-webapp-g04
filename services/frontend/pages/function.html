@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LUMA — Function</title>
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="stylesheet" href="../css/function.css" />
+</head>
+<body data-page="function">
+  <header class="app-header">
+    <div id="app-nav-slot"></div>
+  </header>
+
+  <main class="app-main">
+    <h1>Function</h1>
+    <p>เครื่องมือประมวลผลภาพ — ประมวลผลจริงที่ AI Engine ส่วนหน้าเว็บทำหน้าที่เลือกบริเวณและแสดงผล</p>
+
+    <div class="fn-error" id="fn-error" hidden role="alert"></div>
+
+    <!-- ขั้นที่ 1 — เลือกฟังก์ชันก่อน แต่ละฟังก์ชันทำงานแยกกัน ไม่ได้ทำต่อจากกัน -->
+    <section class="fn-step" id="fn-step-function">
+      <h2 class="fn-step__title">เลือกฟังก์ชัน</h2>
+
+      <div class="fn-choices">
+        <button type="button" class="fn-choice" id="fn-choose-blur" data-function="blur">
+          <span class="fn-choice__name">เบลอเฉพาะจุด</span>
+          <span class="fn-choice__desc">ลากกรอบบนภาพ แล้วเบลอเฉพาะในกรอบ ส่วนนอกกรอบคงเดิม</span>
+        </button>
+
+        <button type="button" class="fn-choice" id="fn-choose-objects" data-function="objects">
+          <span class="fn-choice__name">จับหน้า</span>
+          <span class="fn-choice__desc">หาใบหน้าในภาพด้วยโมเดล AI แล้วตีกรอบให้</span>
+        </button>
+
+        <button type="button" class="fn-choice" id="fn-choose-removebg" data-function="removebg">
+          <span class="fn-choice__name">ลบพื้นหลัง</span>
+          <span class="fn-choice__desc">ลากเลือกบริเวณบนภาพ แล้วลบเป็นวงกลมให้โปร่งใส ส่วนนอกวงกลมคงเดิม</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ขั้นที่ 2 — เลือกภาพ (โผล่หลังเลือกฟังก์ชันแล้ว) -->
+    <section class="fn-step" id="fn-step-image" hidden>
+      <h2 class="fn-step__title">
+        เลือกภาพสำหรับ<span id="fn-chosen-name"></span>
+      </h2>
+
+      <div class="fn-step__body">
+        <label class="fn-file">
+          เลือกภาพจากเครื่อง
+          <input type="file" id="fn-file" accept="image/png, image/jpeg" />
+        </label>
+        <button type="button" class="fn-secondary" id="fn-change-function">เปลี่ยนฟังก์ชัน</button>
+      </div>
+    </section>
+
+    <!-- ขั้นที่ 3 — ทำงาน (โผล่หลังมีภาพแล้ว) -->
+    <section class="fn-step" id="fn-step-work" hidden>
+      <h2 class="fn-step__title"><span id="fn-work-title"></span></h2>
+
+      <div class="fn-layout">
+        <div class="fn-canvas-card">
+          <p class="fn-hint" id="fn-hint">ยังไม่ได้เลือกภาพ</p>
+          <div class="fn-canvas-wrap">
+            <canvas id="fn-canvas" width="0" height="0"></canvas>
+          </div>
+        </div>
+
+        <div class="fn-tools">
+          <article class="fn-tool" id="fn-tool-blur" hidden>
+            <p>ลากเมาส์บนภาพเพื่อเลือกกรอบ แล้วกดปุ่มเบลอ</p>
+
+            <div class="form-group">
+              <label for="fn-blur-size">ความแรง (ขนาด kernel — ต้องเป็นเลขคี่)</label>
+              <input type="number" id="fn-blur-size" value="15" min="3" max="99" step="2" />
+            </div>
+
+            <p class="fn-selection" id="fn-selection">ยังไม่ได้เลือกกรอบ</p>
+            <button type="button" id="fn-blur-btn" disabled>เบลอบริเวณที่เลือก</button>
+          </article>
+
+          <article class="fn-tool" id="fn-tool-objects" hidden>
+            <p>ตั้งค่าความเข้มงวดแล้วกดปุ่มด้านล่าง — ระบบหาใบหน้าให้เอง ไม่ต้องเลือกสี</p>
+
+            <div class="form-group">
+              <label for="fn-confidence">ความมั่นใจขั้นต่ำ (0-1 — ยิ่งต่ำยิ่งจับง่าย แต่เสี่ยงจับผิด)</label>
+              <input type="number" id="fn-confidence" value="0.6" min="0" max="1" step="0.05" />
+            </div>
+
+            <div class="form-group">
+              <label for="fn-min-size">ข้ามใบหน้าที่เล็กกว่า (พิกเซล)</label>
+              <input type="number" id="fn-min-size" value="20" min="0" />
+            </div>
+
+            <button type="button" id="fn-objects-btn" disabled>หาใบหน้าในภาพ</button>
+            <p class="fn-result" id="fn-objects-result" hidden></p>
+          </article>
+
+          <article class="fn-tool" id="fn-tool-removebg" hidden>
+            <p>ลากเมาส์บนภาพเพื่อกำหนดขอบเขต แล้วกดปุ่มลบพื้นหลัง — จะลบเฉพาะวงกลมที่แนบในขอบเขตนั้น ส่วนอื่นไม่ถูกแตะ</p>
+
+            <p class="fn-selection" id="fn-removebg-selection">ยังไม่ได้เลือกกรอบ</p>
+            <button type="button" id="fn-removebg-btn" disabled>ลบพื้นหลังในกรอบที่เลือก</button>
+          </article>
+
+          <div class="fn-tool__footer">
+            <button type="button" class="fn-secondary" id="fn-reset" disabled>คืนภาพต้นฉบับ</button>
+            <button type="button" class="fn-secondary" id="fn-change-image">เปลี่ยนภาพ</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="../js/csrf.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/function.js"></script>
+</body>
+</html>

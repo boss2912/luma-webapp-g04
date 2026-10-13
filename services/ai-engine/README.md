@@ -1,5 +1,87 @@
 # ai-engine/ — Forge AI + Image Processing Pipeline
 
+## Run the txt2img bridge
+
+From the repository root, activate `.venv` and start Forge with its API enabled.
+For local development, `python tools/mock_forge_server.py` can stand in for Forge.
+Then start this service in a second terminal:
+
+```bash
+FORGE_URL=http://127.0.0.1:7860 python services/ai-engine/app.py
+```
+
+The LUMA backend calls `POST http://127.0.0.1:8000/forge/txt2img` with JSON such as
+`{"prompt":"a tree","seed":123}`. This service calls Forge's
+`/sdapi/v1/txt2img` endpoint and returns `{"images":["<base64>"],"seed_used":123}`.
+The backend stores the image; this service does not return a local file path.
+
+### Sampler and scheduler on newer Forge versions
+
+`POST /forge/txt2img` also accepts an optional `scheduler` string. The legacy
+default `DPM++ 2M Karras` is sent to Forge as
+`{"sampler_name":"DPM++ 2M","scheduler":"Karras"}`. The same translation
+applies to `DPM++ SDE Karras` and `DPM++ 2M SDE Karras`. A caller may instead
+send separate values such as `{"sampler_name":"Euler a","scheduler":"Karras"}`.
+Conflicting combinations receive HTTP 400. The API response still contains
+`images` and `seed_used`; actual scheduler behavior should be checked with real
+Forge when it is available.
+
+## Image-to-image bridge
+
+`POST /forge/img2img` accepts a plain base64 `init_image`, `prompt`, and
+`denoising_strength` (0–1). `mode` may be `text`, `sketch`, `inpaint`, or
+`inpaint-sketch`; both inpaint modes require a same-size base64 `mask`.
+Text and sketch modes reject a mask. In an inpaint mask, white is the area to
+edit and black is preserved. The sketch mode expects the already painted source
+image. Send plain base64 rather than a Data URL; the backend strips any Data URL
+prefix before calling this service. The service validates
+inputs, forwards the source image as Forge's `init_images` list, and returns
+`{"images":["<base64>"],"seed_used":123}`. Invalid input receives 400.
+
+Forge's real `/sdapi/v1/img2img` API and the matching route in the project mock
+use `init_images`. The project-facing `/forge/img2img` route keeps the simpler
+singular `init_image` contract described above. A bridge regression test sends
+the translated request through the mock's Forge-compatible handler. Visual
+comparison of low and high denoising strengths still requires a running Forge
+model.
+
+## Pipeline HTTP routes
+
+`POST /pipeline/04_features/color_palette` accepts plain base64 image bytes:
+
+```json
+{"image":"<base64 PNG or JPEG>","params":{"colors":5}}
+```
+
+It uses the existing `pipeline/04_features/color_palette.py` extractor and
+returns `{"image":"<base64>","metrics":{"color_palette":["#ff0000"]}}`.
+The backend removes the Data URL prefix sent by the browser before calling this
+route. Invalid images or parameters receive HTTP 400.
+
+The Function page uses two additional routes:
+
+- `POST /pipeline/02_enhancement/blur` blurs only the requested rectangular
+  region. `params.region` contains integer `x`, `y`, `width`, and `height`
+  values in source-image pixels; `params.size` is an odd kernel size from 3
+  to 99.
+- `POST /pipeline/03_segmentation/contours` selects an HSV color range, cleans
+  the mask, and returns bounding boxes sorted from largest to smallest. An
+  image with no matching objects returns HTTP 200 with an empty `objects` list.
+
+All pipeline routes accept plain base64 rather than Data URLs. Invalid images,
+booleans in numeric fields, out-of-range parameters, and regions outside the
+image receive HTTP 400.
+Images above 4,194,304 pixels (the area of a 2048 × 2048 image) also receive
+HTTP 400 before OpenCV decodes them; this includes very small compressed files
+that would otherwise expand into large images in memory.
+
+When Forge runs on another computer, set `FORGE_URL` to its reachable address
+(for example, `http://192.168.1.30:7860`) before starting this service. `localhost`
+always refers to the computer running this service. Set `AI_ENGINE_HOST=0.0.0.0`
+when the backend must connect from another computer; the service listens on port
+8000 by default. For local tests, run
+`python -m pytest services/ai-engine/tests -q`.
+
 👤 คนที่ 3 — AI + Image Processing Engine
 **เครื่อง**: 192.168.1.30 (ตัวอย่าง) · เครื่องที่มี GPU
 
@@ -84,3 +166,16 @@ TINY_PNG_B64 = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
 - ทฤษฎี diffusion / VAE / latent space / LoRA: **Lecture 1 หน้า 22–47**
 - การควบคุมทั้งหมด: **Lecture 2 (ทั้งบท)**
 - [samplers](https://stable-diffusion-art.com/samplers/) · [expression prompts](https://noplog.com/blog/2025/02/26/stable-diffusion-expression-technique-prompts-examples/)
+
+## Checkpoint selection (#205)
+
+`GET /forge/checkpoints` returns sanitized `items` with model `title` from Forge.
+`POST /forge/txt2img` accepts `checkpoint` (a catalogue title, or `default`).
+Selected titles are checked against the current list, then sent as
+`override_settings.sd_model_checkpoint`, with restoration after the request.
+A missing title fails instead of silently generating with another model.
+If Forge appends its 10-character hash after loading a model, the earlier title
+without that hash still resolves to the unique current title. Ambiguous names
+and mismatched hashes are rejected; no directory or filename is discarded.
+
+Forge references: [model catalogue](https://github.com/lllyasviel/stable-diffusion-webui-forge/blob/main/modules/api/api.py) and [per-request overrides](https://github.com/lllyasviel/stable-diffusion-webui-forge/blob/main/modules/processing.py).

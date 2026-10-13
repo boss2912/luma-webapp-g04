@@ -20,7 +20,7 @@
 - [ ] dynamic range เพิ่มขึ้นเท่าไร
 - [ ] contrast `(Imax−Imin)/(Imax+Imin)` ก่อน/หลัง
 - [ ] **PSNR** / **SSIM** เทียบกับภาพอ้างอิง (สำหรับงาน denoise/restore)
-- [ ] เวลาที่ใช้ต่อภาพ — เทียบ box filter แบบ 2D กับแบบ separable (Lecture 5 หน้า 26–27)
+- [x] เวลาที่ใช้ต่อภาพ — เทียบ box filter แบบ 2D กับแบบ separable (Lecture 5 หน้า 26–27)
       **นี่เป็นการวัดที่พิสูจน์ทฤษฎีในสไลด์ได้ตรงๆ**
 
 **Segmentation (`03`)**
@@ -36,8 +36,8 @@
 
 โปรเจกต์นี้เป็น distributed system การวัดจึงรวมเรื่องระบบด้วย
 
-- [ ] เวลาตอบสนองแต่ละ endpoint (p50 / p95)
-- [ ] เวลา generate ภาพผ่าน Forge AI (เทียบตาม `steps` — Lecture 2 หน้า 7 บอกว่า
+- [x] เวลาตอบสนองแต่ละ endpoint (p50 / p95)
+- [x] เวลา generate ภาพผ่าน Forge AI (เทียบตาม `steps` — Lecture 2 หน้า 7 บอกว่า
       step มากขึ้น = compute มากขึ้น = ใช้เวลานานขึ้น **วัดให้เห็นจริง**)
 - [ ] ระบบรับผู้ใช้พร้อมกันได้กี่คนก่อนจะช้าลง
       → v1 ยิง Forge แบบ synchronous บล็อก 120 วิ ทำให้คนที่ 2 ต้องรอ
@@ -45,6 +45,63 @@
 - [ ] เวลาที่ใช้ข้าม network ระหว่างเครื่อง (V4/V5) เทียบกับรันเครื่องเดียว (V3)
 
 ## เครื่องมือ
+
+### Benchmark baseline for issue #68
+
+Run from the repository root with the project environment:
+
+```bash
+python services/ai-engine/pipeline/05_evaluation/benchmark_baseline.py \
+  --output services/ai-engine/samples/benchmark
+```
+
+This compares a 15 × 15 box filter implemented as a 2D convolution with two
+separable 1D passes on the same deterministic 1024 × 1024 grayscale image.
+The script saves a CSV, labeled PNG graph, and machine metadata. The committed
+sample in `samples/benchmark/` is one run on a Mac; times vary by hardware.
+
+To reproduce the queue comparison, start mock Forge with a fixed delay, the AI
+engine, and the backend, then run three batches of five simultaneous jobs:
+
+```bash
+python services/ai-engine/pipeline/05_evaluation/benchmark_baseline.py \
+  --output services/ai-engine/samples/benchmark \
+  --ai-url http://127.0.0.1:8000 \
+  --backend-url http://127.0.0.1:5000 \
+  --batches 3 --jobs-per-batch 5
+```
+
+The script compares the synchronous AI response with the backend's immediate
+queued `202`, polls each job through `done`, and saves raw trials, p50/p95
+tables, metadata, and a labeled graph. Use the same mock delay for the two
+paths. Mock timing proves queue behavior but does not prove GPU performance.
+
+To record the remaining successful user-facing endpoints, run the local mock
+Forge without a delay, the AI engine, and the backend on a database created by
+the Alembic migration chain. Then run:
+
+```bash
+python services/ai-engine/pipeline/05_evaluation/benchmark_baseline.py \
+  --output services/ai-engine/samples/benchmark \
+  --backend-url http://127.0.0.1:5000 \
+  --measure-endpoints --repeats 10 --endpoint-image-size 512
+```
+
+This sends a representative 512×512 blurred-noise PNG through one excluded
+warm-up and ten measured requests to `/api/img2img`,
+`/api/assets`, `/api/pipeline/blur-region`, `/api/pipeline/find-objects`, and
+`/api/pipeline/palette/extract`. The order rotates between trials so every route
+occupies every position twice. The saved CSVs and labeled graph report p50 and
+p95 for valid responses. The pipeline routes execute the real local algorithms;
+the mock Forge keeps img2img timing independent of public-network latency.
+Use `--endpoint-image-size 1024` for a second run at the largest supported
+generation size.
+
+When real Forge is available, add `--measure-real-steps`. This separately
+measures generation at 10, 20, and 30 steps and verifies that every response
+contains an image and concrete `seed_used`. Record the Forge machine, model,
+sampler, and scheduler beside the results. Do not present mock timings as
+evidence that more diffusion steps require more GPU time.
 
 - `time.perf_counter()` สำหรับจับเวลาโค้ด
 - `matplotlib` พลอต histogram / กราฟเปรียบเทียบ (Lecture 4 หน้า 28–29
@@ -60,7 +117,54 @@
 
 > เก็บ output ทั้งหมดไว้เป็นไฟล์ ไม่ใช่แค่ print ออกจอ — ต้องเอาไปใส่รายงาน
 
+## Implementation
+
+`quality_metrics.py` provides the first evaluation task from issue #66:
+
+- `image_quality()` calculates PSNR and SSIM for grayscale or BGR images.
+- `before_after_table()` requires results for all eight implemented enhancement
+  methods: gamma, log, contrast stretch, equalization, histogram matching,
+  box, Gaussian, and median. It fills every metric column.
+- `write_csv()` exports the complete table for the report.
+
+Use a clean reference image, its degraded `before` image, and the output from
+each enhancement operation. This module measures existing results and does not
+import Flask or duplicate the enhancement algorithms.
+
+Run `python services/ai-engine/samples/generate_evidence.py` from the repository
+root to regenerate `samples/evaluation/quality_metrics_table.csv`. The table uses
+all eight methods on the same deterministic noisy image and clean reference.
+Negative changes are retained: a method that worsens this image should not be
+presented as an improvement. These synthetic fixtures demonstrate the method;
+use project photographs for the final report.
+
+## Segmentation metrics
+
+`segmentation_metrics.py` measures binary masks for issue #67:
+
+- IoU measures overlap with the hand-drawn ground truth.
+- Precision measures how many selected pixels really belong to the object.
+- Recall measures how many ground-truth object pixels were found.
+- Pixel confusion counts show true/false positives and negatives.
+- `evaluate_cases()` requires at least five named mask pairs.
+- `write_csv()` saves a complete per-case table for the report.
+
+Five reproducible fixtures are stored in `../../samples/segmentation/`. They
+exercise the code. The `sunflower/` subdirectory supplements them with five
+varied photographs evaluated against masks painted by hand. It includes the
+full metrics table, aggregate confusion matrix, comparison figure, and written
+interpretation required for issue #67. The original PhotoArt50 JPG files are
+excluded because their redistribution is restricted.
+
 ## เชื่อมกับเมธอดในสไลด์
 
 **Lecture 1 หน้า 10–13** วางลำดับการทำวิจัยไว้: **Algorithm → Experiment → Conclusion**
 โมดูลนี้คือขั้น Experiment และ Conclusion ของโครงงาน
+
+## Classification evaluation tooling (#201, labels pending)
+
+`classification_metrics.py` computes per-tag confusion counts, accuracy,
+precision, recall and F1 with micro/macro summaries for the existing ten auto-tags.
+Unknown labels are excluded; undefined ratios remain null. The CLI and proposed
+annotation guide are in `../../samples/classification/README.md`.
+The candidate sheet is unreviewed: classification evidence is not complete yet.

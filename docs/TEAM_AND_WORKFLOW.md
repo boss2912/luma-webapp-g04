@@ -1,5 +1,9 @@
 # การแบ่งงานและวิธีทำงานร่วมกัน — Group 04
 
+> เอกสารนี้ตอบว่า **ใครรับผิดชอบอะไร** (ภาพรวม)
+> ถ้าอยากรู้ว่า **หยิบ issue ไหนก่อน** ให้เปิดไฟล์ของตัวเอง:
+> [`START_1_WEB.md`](START_1_WEB.md) · [`START_2_DATA.md`](START_2_DATA.md) · [`START_3_AI_IP.md`](START_3_AI_IP.md)
+
 ## ทีมมี 3 คน
 
 อาจารย์ยกตัวอย่างการแบ่งงานไว้สำหรับ 4–5 คน (Lecture 4 หน้า 55) เราจึงยุบรวมใหม่
@@ -23,7 +27,7 @@
 | งาน | รายละเอียด |
 |---|---|
 | **Backend (Flask)** | `create_app()` factory, Blueprint (main/auth/api), Authentication, REST API, Logging |
-| **Frontend** | HTML / CSS / JS, Smart Canvas UI, Asset Hub UI, responsive |
+| **Frontend** | HTML / CSS / JS, หน้า Function, Asset Hub UI, responsive |
 | **Nginx** | reverse proxy (งาน V5) |
 | **Integration** | เป็นคนรวมงานของทุกคนเข้าด้วยกัน เพราะเป็นชั้นกลาง |
 

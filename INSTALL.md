@@ -294,17 +294,16 @@ Windows PowerShell:
 Copy-Item services\backend\instance\config.py.example services\backend\instance\config.py
 ```
 
-แล้วแก้ค่าในไฟล์:
+แล้วแก้ค่าในไฟล์ (ค่าอื่นใช้ตามไฟล์ตัวอย่างได้เลย):
 
 ```python
-SECRET_KEY = "ใส่ค่าสุ่มของตัวเอง-ห้ามใช้ค่า default"
-SQLALCHEMY_DATABASE_URI = "sqlite:///luma.db"
-SQLALCHEMY_TRACK_MODIFICATIONS = False
-
-# ชี้ไปที่เครื่อง AI จริง - ห้าม hardcode localhost ตอน deploy หลายเครื่อง
-FORGE_AI_ENDPOINT = "http://192.168.1.30:7860/sdapi/v1/txt2img"
-AI_ENGINE_URL     = "http://192.168.1.30:8000"
+SECRET_KEY    = "ใส่ค่าสุ่มของตัวเอง-ห้ามใช้ค่า default"
+# เครื่องเดียว: 127.0.0.1 · แยกเครื่อง: IP เครื่อง ai-engine จริง เช่น http://192.168.1.30:8000
+AI_ENGINE_URL = "http://127.0.0.1:8000"
 ```
+
+> backend คุยกับ ai-engine เท่านั้น ไม่คุยกับ Forge ตรง — ที่อยู่ของ Forge ตั้งเป็น `FORGE_URL`
+> บนเครื่อง ai-engine (หัวข้อ 9)
 
 ### สร้าง SECRET_KEY แบบสุ่ม
 
@@ -317,7 +316,7 @@ python -c "import secrets; print(secrets.token_hex(32))"
 ## 8. ตรวจว่าติดตั้งสำเร็จ
 
 ```bash
-python -c "import flask, flask_sqlalchemy, flask_login, flask_migrate, flask_wtf; print('backend OK')"
+python -c "import flask, flask_sqlalchemy, flask_migrate, flask_wtf; print('backend OK')"
 python -c "import cv2, numpy, skimage, matplotlib, scipy, PIL; print('ai-engine OK')"
 python -c "import sqlalchemy, alembic; print('database OK')"
 python -m pytest --version
@@ -348,29 +347,49 @@ PSNR · SSIM · IoU · matplotlib headless savefig · PIL interop
 
 ### รัน test ของแต่ละ service
 
-```bash
-python -m pytest services/backend/tests -q
-python -m pytest services/ai-engine/tests -q
-python -m pytest services/database/tests -q
-```
+เทสต์อยู่บน branch `develop` (`main` เก็บเฉพาะตัวงานที่ใช้รัน):
 
-> ตอนนี้โฟลเดอร์ `tests/` ยังว่างอยู่ (โปรเจกต์เพิ่งวางโครง)
-> pytest จะบอกว่า "no tests ran" — ถือว่าปกติ
+```bash
+git switch develop
+python tools/run_all_tests.py
+```
 
 ---
 
 ## 9. รันโปรเจกต์
 
-> ⚠️ ยังไม่มีโค้ดให้รันครับ โปรเจกต์อยู่ในช่วงวางโครงสร้าง
-> หัวข้อนี้เป็นรูปแบบคำสั่งที่จะใช้เมื่อ V2 เริ่มมีของ — ดู `docs/ROADMAP.md`
+ขั้นตอนนี้ลองรันจริงบนเครื่องเดียวแล้ว (13 ต.ค. 2026): สมัคร → เข้าสู่ระบบ → สร้างภาพ →
+คลังผลงาน → หน้า Function ผ่านครบ · ทำหัวข้อ 7 (config) ให้เสร็จก่อน
 
-### Backend
+### 9.1 สร้างตารางในฐานข้อมูล
+
+รันจาก root ของ repo ครั้งแรก และทุกครั้งที่มี migration ใหม่:
 
 ```bash
-cd services/backend
-python run.py
+flask --app services/database/migrate_app db upgrade
+flask --app services/database/migrate_app db current   # ต้องขึ้น (head)
 ```
-เปิด http://127.0.0.1:5000
+
+### 9.2 เปิด 3 service (terminal 3 หน้าต่าง รันจาก root ของ repo)
+
+| หน้าต่าง | เปิดอะไร | Windows PowerShell |
+|---|---|---|
+| 1 | Forge ปลอม `:7860` (ไม่มี GPU ก็รันได้) | `python tools/mock_forge_server.py` |
+| 2 | ai-engine `:8000` | `$env:FORGE_URL = "http://127.0.0.1:7860"; python services/ai-engine/app.py` |
+| 3 | backend `:5000` | `cd services/backend; python run.py` |
+
+macOS / Linux หน้าต่าง 2: `FORGE_URL=http://127.0.0.1:7860 python services/ai-engine/app.py`
+
+มี Forge จริง → ตั้ง `FORGE_URL` ให้ชี้ Forge นั้นแทน แล้วไม่ต้องเปิดหน้าต่าง 1
+
+> ถ้าเก็บ output ลงไฟล์ (`python run.py > log.txt`) บน Windows แล้วเจอ `UnicodeEncodeError`
+> ให้ตั้ง `$env:PYTHONUTF8 = "1"` ก่อนรัน
+
+### 9.3 เปิดหน้าเว็บ
+
+http://127.0.0.1:5000 → สมัครสมาชิก → เข้าสู่ระบบ → สร้างภาพ
+
+เข้าผ่าน Nginx (V5) แทน → [`deploy/nginx/README.md`](deploy/nginx/README.md)
 
 ### Environment variable ที่คุม backend
 
@@ -544,7 +563,6 @@ datetime.now(UTC)
 | package | version | ใช้ที่ |
 |---|---|---|
 | Flask | 3.0.3 | backend · ai-engine |
-| Flask-Login | 0.6.3 | backend |
 | Flask-Migrate | 4.0.7 | backend |
 | Flask-SQLAlchemy | 3.1.1 | backend |
 | Flask-WTF | 1.2.1 | backend |

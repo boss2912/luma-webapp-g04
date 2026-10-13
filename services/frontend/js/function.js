@@ -1,0 +1,372 @@
+/**
+ * LUMA — หน้า Function (Issue #163)
+ * -------------------------------------------------------------------------
+ * สามเครื่องมือ: เบลอเฉพาะกรอบที่ลากเลือก · จับหน้าด้วย AI · ลบพื้นหลังเฉพาะกรอบที่ลากเลือก
+ *
+ * ไล่เป็นขั้น: เลือกฟังก์ชัน -> เลือกภาพ -> ทำงาน
+ * สามฟังก์ชันนี้ทำงานแยกกัน ไม่ได้ทำต่อจากกัน จึงแสดงทีละอันตามที่ผู้ใช้เลือก
+ * แสดงพร้อมกันทั้งหมดทำให้เข้าใจผิดว่าต้องทำเรียงกัน
+ *
+ * หน้าเว็บไม่ประมวลผลภาพเอง — ส่งไป backend ซึ่งส่งต่อ ai-engine อีกที
+ * ที่นี่ทำแค่ เลือกบริเวณ · ยิง fetch · วาดผลลงบน canvas
+ *
+ * ห้าม hardcode localhost/IP — อ่าน API base จาก window.LUMA_CONFIG เท่านั้น
+ */
+
+(() => {
+  const API_BASE = window.LUMA_CONFIG ? window.LUMA_CONFIG.apiBase : "";
+
+  const canvas = document.getElementById("fn-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  const fileInput = document.getElementById("fn-file");
+  const resetBtn = document.getElementById("fn-reset");
+  const changeImageBtn = document.getElementById("fn-change-image");
+  const changeFunctionBtn = document.getElementById("fn-change-function");
+  const stepFunction = document.getElementById("fn-step-function");
+  const stepImage = document.getElementById("fn-step-image");
+  const stepWork = document.getElementById("fn-step-work");
+  const chosenName = document.getElementById("fn-chosen-name");
+  const workTitle = document.getElementById("fn-work-title");
+  const toolBlur = document.getElementById("fn-tool-blur");
+  const toolObjects = document.getElementById("fn-tool-objects");
+  const toolRemoveBg = document.getElementById("fn-tool-removebg");
+
+  const FUNCTIONS = {
+    blur: { name: "เบลอเฉพาะจุด", work: "ลากกรอบแล้วกดเบลอ", tool: toolBlur },
+    objects: { name: "จับหน้า", work: "ตั้งค่าแล้วกดหาใบหน้า", tool: toolObjects },
+    removebg: { name: "ลบพื้นหลัง", work: "ลากกรอบแล้วกดลบ", tool: toolRemoveBg },
+  };
+  let chosen = null;
+  const hint = document.getElementById("fn-hint");
+  const errorBox = document.getElementById("fn-error");
+  const selectionText = document.getElementById("fn-selection");
+  const blurBtn = document.getElementById("fn-blur-btn");
+  const objectsBtn = document.getElementById("fn-objects-btn");
+  const objectsResult = document.getElementById("fn-objects-result");
+  const removeBgSelectionText = document.getElementById("fn-removebg-selection");
+  const removeBgBtn = document.getElementById("fn-removebg-btn");
+
+  let originalDataUrl = null; // ภาพที่ผู้ใช้เลือกตอนแรก ใช้ตอนกดคืนค่า
+  let currentImage = null;    // Image object ที่กำลังแสดงอยู่
+  let selection = null;       // กรอบที่ลากเลือก หน่วยเป็น "พิกเซลของภาพ" ไม่ใช่พิกเซลบนจอ
+  let boxes = [];             // กรอบวัตถุที่ ai-engine ส่งกลับมา
+  let dragStart = null;
+  // นับรอบทุกครั้งที่เปลี่ยนฟังก์ชัน/กลับขั้นที่ 1 (#207) — ถ้า response ของ fetch
+  // ที่ยิงไปก่อนหน้ากลับมาช้า หลังผู้ใช้กดเปลี่ยนฟังก์ชัน/เริ่มใหม่ไปแล้ว จะรู้ตัวว่า
+  // ตัวเองล้าสมัยแล้วและไม่เอาผลไปทับ DOM ของฟังก์ชัน/ภาพปัจจุบัน
+  let epoch = 0;
+
+  function showError(message) {
+    errorBox.textContent = message;
+    errorBox.hidden = false;
+  }
+
+  function clearError() {
+    errorBox.hidden = true;
+    errorBox.textContent = "";
+  }
+
+  /** วาดใหม่ทั้งหมด: ภาพ -> กรอบวัตถุ -> กรอบที่กำลังลาก */
+  function redraw() {
+    if (!currentImage) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(currentImage, 0, 0);
+
+    // เส้นต้องหนาตามขนาดภาพ ไม่งั้นภาพใหญ่จะเห็นเป็นเส้นผมบางๆ
+    const lineWidth = Math.max(2, Math.round(canvas.width / 400));
+
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = "#16a34a";
+    boxes.forEach((box) => ctx.strokeRect(box.x, box.y, box.width, box.height));
+
+    if (selection) {
+      ctx.strokeStyle = "#6d28d9";
+      ctx.setLineDash([lineWidth * 3, lineWidth * 2]);
+      if (chosen === "removebg") {
+        // ลบพื้นหลังลบเป็นวงกลม/วงรีที่แนบในกรอบที่ลาก ไม่ใช่ทั้งกรอบ — วาดพรีวิว
+        // เป็นวงรีให้ตรงกับที่จะถูกลบจริง ไม่ใช่กรอบสี่เหลี่ยมแบบเบลอ
+        const cx = selection.x + selection.width / 2;
+        const cy = selection.y + selection.height / 2;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, selection.width / 2, selection.height / 2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(selection.x, selection.y, selection.width, selection.height);
+      }
+      ctx.setLineDash([]);
+    }
+  }
+
+  function loadImage(dataUrl) {
+    epoch++; // ภาพใหม่ = เซสชันใหม่ — ทำให้ fetch เก่าที่ยังค้างอยู่ (ถ้ามี) รู้ตัวว่าล้าสมัย
+    const image = new Image();
+    image.onload = () => {
+      currentImage = image;
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      selection = null;
+      boxes = [];
+      selectionText.textContent = "ยังไม่ได้เลือกกรอบ";
+      removeBgSelectionText.textContent = "ยังไม่ได้เลือกกรอบ";
+      objectsResult.hidden = true;
+      hint.textContent = `ภาพขนาด ${image.naturalWidth} x ${image.naturalHeight} — ลากเมาส์บนภาพเพื่อเลือกกรอบ`;
+      blurBtn.disabled = true;
+      removeBgBtn.disabled = true;
+      objectsBtn.disabled = chosen !== "objects";
+      resetBtn.disabled = false;
+      stepWork.hidden = false;
+      redraw();
+    };
+    image.onerror = () => showError("เปิดภาพไม่สำเร็จ ลองไฟล์อื่น");
+    image.src = dataUrl;
+  }
+
+  /** ไปขั้นที่ 2 — เลือกภาพสำหรับฟังก์ชันที่เพิ่งเลือก */
+  function chooseFunction(key) {
+    epoch++;
+    chosen = key;
+    clearError();
+    chosenName.textContent = FUNCTIONS[key].name;
+    workTitle.textContent = FUNCTIONS[key].work;
+    Object.values(FUNCTIONS).forEach((f) => { f.tool.hidden = true; });
+    FUNCTIONS[key].tool.hidden = false;
+    stepFunction.hidden = true;
+    stepImage.hidden = false;
+    stepWork.hidden = true;
+  }
+
+  /** กลับไปขั้นที่ 1 — ล้างทุกอย่างทิ้ง เพราะสองฟังก์ชันไม่ได้ทำงานต่อจากกัน */
+  function resetToStart() {
+    epoch++;
+    chosen = null;
+    Object.values(FUNCTIONS).forEach((f) => { f.tool.hidden = true; });
+    chosenName.textContent = "";
+    workTitle.textContent = "";
+    originalDataUrl = null;
+    currentImage = null;
+    selection = null;
+    boxes = [];
+    fileInput.value = "";
+    objectsResult.hidden = true;
+    selectionText.textContent = "ยังไม่ได้เลือกกรอบ";
+    removeBgSelectionText.textContent = "ยังไม่ได้เลือกกรอบ";
+    hint.textContent = "ยังไม่ได้เลือกภาพ";
+    blurBtn.disabled = true;
+    removeBgBtn.disabled = true;
+    objectsBtn.disabled = true;
+    resetBtn.disabled = true;
+    clearError();
+    stepFunction.hidden = false;
+    stepImage.hidden = true;
+    stepWork.hidden = true;
+  }
+
+  document.querySelectorAll(".fn-choice").forEach((btn) => {
+    btn.addEventListener("click", () => chooseFunction(btn.dataset.function));
+  });
+
+  changeFunctionBtn.addEventListener("click", resetToStart);
+
+  changeImageBtn.addEventListener("click", () => {
+    // เปลี่ยนภาพแต่ยังอยู่ฟังก์ชันเดิม — ถอยไปขั้นที่ 2 ไม่ต้องเริ่มใหม่ทั้งหมด
+    const keep = chosen;
+    resetToStart();
+    chooseFunction(keep);
+  });
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    clearError();
+    const reader = new FileReader();
+    reader.onload = () => {
+      originalDataUrl = reader.result;
+      loadImage(originalDataUrl);
+    };
+    reader.onerror = () => showError("อ่านไฟล์ไม่สำเร็จ");
+    reader.readAsDataURL(file);
+  });
+
+  resetBtn.addEventListener("click", () => {
+    if (originalDataUrl) {
+      clearError();
+      loadImage(originalDataUrl);
+    }
+  });
+
+  /** แปลงพิกัดเมาส์บนจอ -> พิกัดในภาพจริง
+   *  canvas ถูกย่อด้วย CSS (max-width:100%) พิกัดสองระบบจึงไม่เท่ากัน
+   *  ถ้าส่งพิกัดบนจอไปตรงๆ กรอบที่เบลอจะเพี้ยนตามขนาดหน้าต่างของแต่ละคน */
+  function toImagePoint(event) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: Math.round((event.clientX - rect.left) * (canvas.width / rect.width)),
+      y: Math.round((event.clientY - rect.top) * (canvas.height / rect.height)),
+    };
+  }
+
+  function clamp(value, max) {
+    return Math.max(0, Math.min(value, max));
+  }
+
+  function updateSelection(event) {
+    const point = toImagePoint(event);
+    const x1 = clamp(Math.min(dragStart.x, point.x), canvas.width);
+    const y1 = clamp(Math.min(dragStart.y, point.y), canvas.height);
+    const x2 = clamp(Math.max(dragStart.x, point.x), canvas.width);
+    const y2 = clamp(Math.max(dragStart.y, point.y), canvas.height);
+    selection = { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+    redraw();
+  }
+
+  canvas.addEventListener("mousedown", (event) => {
+    if (!currentImage) return;
+    dragStart = toImagePoint(event);
+    selection = null;
+    redraw();
+  });
+
+  canvas.addEventListener("mousemove", (event) => {
+    if (dragStart) updateSelection(event);
+  });
+
+  // เบลอกับลบพื้นหลังใช้กรอบที่ลากเลือกร่วมกัน (selection ตัวเดียว) แต่คนละ
+  // ปุ่ม/ข้อความ เพราะแยกอยู่คนละการ์ดเครื่องมือ — อัปเดตเฉพาะของ chosen ตัวปัจจุบัน
+  function currentSelectionUi() {
+    if (chosen === "removebg") return { text: removeBgSelectionText, btn: removeBgBtn };
+    return { text: selectionText, btn: blurBtn };
+  }
+
+  canvas.addEventListener("mouseup", (event) => {
+    if (!dragStart) return;
+    updateSelection(event);
+    dragStart = null;
+    const { text, btn } = currentSelectionUi();
+    // กรอบเล็กกว่า 1 พิกเซลคือคลิกเฉยๆ ไม่ใช่การลาก
+    if (!selection || selection.width < 1 || selection.height < 1) {
+      selection = null;
+      text.textContent = "ยังไม่ได้เลือกกรอบ";
+      btn.disabled = true;
+      redraw();
+      return;
+    }
+    text.textContent =
+      `กรอบที่เลือก: ${selection.width} x ${selection.height} ที่ (${selection.x}, ${selection.y})`;
+    btn.disabled = false;
+  });
+
+  canvas.addEventListener("mouseleave", () => {
+    if (dragStart) dragStart = null;
+  });
+
+  /** ภาพสะอาดสำหรับส่งไป backend — วาด currentImage ลง canvas ชั่วคราว
+   *
+   *  ห้ามใช้ canvas.toDataURL() ตรงๆ เพราะ redraw() วาดกรอบที่เลือก (ม่วง)
+   *  และกรอบวัตถุ (เขียว) ทับไว้บนนั้น ภาพที่ส่งไปจะมีเส้นติดไปด้วยถาวร
+   */
+  function cleanImageDataUrl() {
+    const off = document.createElement("canvas");
+    off.width = currentImage.naturalWidth;
+    off.height = currentImage.naturalHeight;
+    off.getContext("2d").drawImage(currentImage, 0, 0);
+    return off.toDataURL("image/png");
+  }
+
+  async function postJson(path, body) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...window.csrfHeaders() },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || `คำขอไม่สำเร็จ (HTTP ${res.status})`);
+    }
+    return data;
+  }
+
+  blurBtn.addEventListener("click", async () => {
+    if (!selection || !currentImage) return;
+    const requestEpoch = epoch;
+    clearError();
+    blurBtn.disabled = true;
+    const label = blurBtn.textContent;
+    blurBtn.textContent = "กำลังเบลอ...";
+    try {
+      const data = await postJson("/api/pipeline/blur-region", {
+        image: cleanImageDataUrl(),
+        region: selection,
+        size: Number(document.getElementById("fn-blur-size").value),
+      });
+      // ผู้ใช้อาจเปลี่ยนฟังก์ชันหรือเลือกภาพใหม่ไปแล้วระหว่างรอ response นี้ — ถ้า
+      // epoch ไม่ตรงกันแล้วแปลว่า response นี้ล้าสมัย ต้องทิ้งไป ไม่เอาไปทับ DOM
+      // ของฟังก์ชัน/ภาพปัจจุบัน (#207) — คืนข้อความปุ่มก่อนเรียก loadImage() เพราะ
+      // loadImage() เพิ่ม epoch เอง ถ้าเช็คหลังเรียกจะเข้าใจผิดว่าล้าสมัยไปด้วย
+      if (requestEpoch !== epoch) return;
+      blurBtn.textContent = label;
+      loadImage(`data:image/png;base64,${data.image}`);
+    } catch (err) {
+      if (requestEpoch !== epoch) return;
+      blurBtn.textContent = label;
+      showError(err.message);
+      blurBtn.disabled = false;
+    }
+  });
+
+  removeBgBtn.addEventListener("click", async () => {
+    if (!selection || !currentImage) return;
+    const requestEpoch = epoch;
+    clearError();
+    removeBgBtn.disabled = true;
+    const label = removeBgBtn.textContent;
+    removeBgBtn.textContent = "กำลังลบพื้นหลัง...";
+    try {
+      const data = await postJson("/api/pipeline/remove-background", {
+        image: cleanImageDataUrl(),
+        region: selection,
+      });
+      if (requestEpoch !== epoch) return;
+      removeBgBtn.textContent = label;
+      loadImage(`data:image/png;base64,${data.image}`);
+    } catch (err) {
+      if (requestEpoch !== epoch) return;
+      removeBgBtn.textContent = label;
+      showError(err.message);
+      removeBgBtn.disabled = false;
+    }
+  });
+
+  objectsBtn.addEventListener("click", async () => {
+    if (!currentImage) return;
+    const requestEpoch = epoch;
+    clearError();
+    objectsBtn.disabled = true;
+    const label = objectsBtn.textContent;
+    objectsBtn.textContent = "กำลังหาใบหน้า...";
+    try {
+      const data = await postJson("/api/pipeline/find-objects", {
+        image: cleanImageDataUrl(),
+        confidence_min: Number(document.getElementById("fn-confidence").value),
+        min_size: Number(document.getElementById("fn-min-size").value),
+      });
+      if (requestEpoch !== epoch) return;
+      boxes = data.objects || [];
+      objectsResult.textContent = boxes.length
+        ? `เจอ ${boxes.length} ใบหน้า`
+        : "ไม่พบใบหน้าในภาพ ลองลดค่าความมั่นใจขั้นต่ำ";
+      objectsResult.hidden = false;
+      redraw();
+    } catch (err) {
+      if (requestEpoch !== epoch) return;
+      showError(err.message);
+    } finally {
+      if (requestEpoch === epoch) {
+        objectsBtn.disabled = false;
+        objectsBtn.textContent = label;
+      }
+    }
+  });
+})();

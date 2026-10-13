@@ -76,6 +76,25 @@ def make_hue_mask(hsv, center_deg, tol_deg, sat_min, val_min):
 - [ ] ทางเลือก: ใช้ **ControlNet `Seg` preprocessor** จาก `../forge/` ช่วย
       (Lecture 2 หน้า 29) — แต่ต้องมีวิธี OpenCV ด้วย เพราะเกณฑ์อาจารย์คือ image processing
 
+## Implementation
+
+`segmentation.py` provides the OpenCV implementation required by issue #23:
+
+- `selective_color_mask()` selects HSV colors using circular hue distance.
+- `clean_mask()` applies morphology OPEN followed by CLOSE.
+- `find_objects()` returns area, perimeter, and bounding boxes.
+- `remove_background()` returns a four-channel BGRA image with real alpha.
+- `segment()` combines those operations for callers that need the full result.
+- `find_faces()` detects faces with OpenCV's bundled YuNet DNN model instead of
+  color (issue: Function page "จับหน้า", replaces the old color-box tool).
+  `cv2.CascadeClassifier` does not exist in this project's pinned
+  `opencv-python==5.0.0.93` build, so this is the only face detector this
+  OpenCV actually has. The 232 KB ONNX file lives next to this README
+  (`face_detection_yunet_2023mar.onnx`) — the first learned model in this
+  pipeline; every other function above is rule-based.
+
+The module accepts and returns NumPy arrays and does not depend on Flask.
+
 ## Edge detection ที่เกี่ยวข้อง
 
 **Canny** — Lecture 2 หน้า 36 อธิบายไว้ในบริบท ControlNet ว่าเป็น
