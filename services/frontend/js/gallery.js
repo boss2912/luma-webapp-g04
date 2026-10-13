@@ -249,11 +249,10 @@
         tagsEl.appendChild(chip);
       });
 
+      // ใต้ภาพมีแค่วันที่กับปุ่มลบ ไม่แสดง item.id เพราะเป็นเลขของทั้งระบบ
+      // (นับภาพของทุกคนรวมกัน) ผู้ใช้เห็นแล้วจะงงว่าทำไมภาพแรกของตัวเองไม่ใช่ #1
       const footer = document.createElement("div");
       footer.className = "asset-card__footer";
-
-      const idEl = document.createElement("span");
-      idEl.textContent = `#${item.id}`;
 
       const dateEl = document.createElement("span");
       if (item.created_at) {
@@ -269,7 +268,6 @@
       deleteBtn.textContent = "ลบ";
       deleteBtn.addEventListener("click", () => deleteAsset(item, deleteBtn));
 
-      footer.appendChild(idEl);
       footer.appendChild(dateEl);
       footer.appendChild(deleteBtn);
 
@@ -285,7 +283,7 @@
 
     // #58: ต้องถามยืนยันก่อนลบ — ลบแล้วเอาคืนไม่ได้ (ลบทั้งไฟล์และแถวใน DB)
     async function deleteAsset(item, button) {
-      if (!window.confirm(`ลบภาพ #${item.id} ถาวร?\nลบแล้วกู้คืนไม่ได้`)) return;
+      if (!window.confirm("ลบภาพนี้ถาวร?\nลบแล้วกู้คืนไม่ได้")) return;
 
       button.disabled = true;
       try {

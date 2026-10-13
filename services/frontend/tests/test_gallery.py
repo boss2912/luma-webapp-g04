@@ -49,3 +49,14 @@ def test_failed_delete_tells_user_and_keeps_button_usable():
     assert result["reloads"] == 1
     assert len(result["alerts"]) == 1 and "Asset not found" in result["alerts"][0]
     assert result["button_disabled"] is False
+
+
+def test_card_and_confirm_do_not_show_the_asset_id():
+    """[กรณีทดสอบ]: ใต้ภาพมีแค่วันที่กับปุ่มลบ และกล่องยืนยันไม่โชว์ #id
+
+    id เป็นเลขของทั้งระบบ (นับภาพของทุกคนรวมกัน) ภาพแรกของบัญชีใหม่จึงไม่ใช่ #1 ทำให้ผู้ใช้งง
+    """
+    result = _run("ok")
+    assert result["footer_texts"] == ["-", "ลบ"]   # created_at = null -> "-"
+    assert len(result["confirms"]) == 1
+    assert "#" not in result["confirms"][0]
