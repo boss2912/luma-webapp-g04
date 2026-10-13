@@ -22,6 +22,9 @@ def app():
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
         "SECRET_KEY": "test-secret-key",
+        # เทสใช้อีเมลสมมุติ (@luma.ai) — ปิดการจำกัดโดเมนตอนสมัคร
+        # เทสที่ตรวจเรื่องโดเมนอยู่ใน test_auth.py
+        "ALLOWED_EMAIL_DOMAINS": None,
     }
     app = create_app(config_overrides=test_config)
 

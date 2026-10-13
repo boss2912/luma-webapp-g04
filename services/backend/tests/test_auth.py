@@ -19,9 +19,14 @@ from app import create_app
 from app.models import db
 
 
-def _make_client():
-    """สร้าง app + client บนฐานข้อมูล in-memory พร้อมตารางครบ (db.create_all() ใช้ได้ในเทส)"""
-    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+def _make_client(allowed_email_domains=None):
+    """สร้าง app + client บนฐานข้อมูล in-memory พร้อมตารางครบ (db.create_all() ใช้ได้ในเทส)
+
+    allowed_email_domains=None = สมัครได้ทุกโดเมน เพราะเทสส่วนใหญ่ใช้อีเมลสมมุติ
+    เทสเรื่องโดเมนส่งรายการโดเมนมาเอง
+    """
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+                      "ALLOWED_EMAIL_DOMAINS": allowed_email_domains})
     with app.app_context():
         db.create_all()
     return app, app.test_client()
@@ -179,6 +184,45 @@ def test_register_race_on_unique_constraint_is_400_not_500():
     assert raced.get_json() == duplicate_body
 
     assert _register(client, "after@example.com", "After").status_code == 201  # no-secret-check
+
+
+# ------------------------------------------------------------------------------
+# สมัครได้เฉพาะ @cdti.ac.th และ @gmail.com (ALLOWED_EMAIL_DOMAINS)
+# ------------------------------------------------------------------------------
+CDTI_AND_GMAIL = ("cdti.ac.th", "gmail.com")
+
+
+def test_default_allowed_email_domains_are_cdti_and_gmail():
+    """[กรณีทดสอบ]: เครื่องที่ไม่ได้ตั้งค่าใน instance/config.py ต้องจำกัดโดเมนตั้งแต่แรก"""
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    assert app.config["ALLOWED_EMAIL_DOMAINS"] == CDTI_AND_GMAIL
+
+
+def test_register_accepts_cdti_and_gmail():
+    """[กรณีทดสอบ]: สมัครด้วย @cdti.ac.th และ @gmail.com ได้ ตัวพิมพ์ใหญ่ก็ได้เพราะ backend แปลงเป็นตัวเล็กก่อน"""
+    _, client = _make_client(CDTI_AND_GMAIL)
+    assert _register(client, "you@cdti.ac.th", "A").status_code == 201
+    assert _register(client, "someone@gmail.com", "B").status_code == 201
+    assert _register(client, "User@CDTI.AC.TH", "C").status_code == 201
+
+
+def test_register_rejects_other_domains():
+    """[กรณีทดสอบ]: โดเมนอื่น / subdomain / โดเมนที่แค่หน้าตาคล้าย -> 400 ชี้ฟิลด์ email"""
+    _, client = _make_client(CDTI_AND_GMAIL)
+    rejected = ("x@example.com", "x@mail.cdti.ac.th", "x@notgmail.com", "x@gmail.com.example.com")  # no-secret-check
+    for email in rejected:
+        res = _register(client, email, "Tester")
+        assert res.status_code == 400, email
+        assert "email" in res.get_json()["errors"], email
+
+
+def test_login_does_not_check_email_domain():
+    """[กรณีทดสอบ]: จำกัดแค่ตอนสมัคร — บัญชีเดิมที่ใช้โดเมนอื่นยัง login ได้"""
+    app, client = _make_client(None)
+    assert _register(client, "old@luma.ai", "Old").status_code == 201  # no-secret-check
+    app.config["ALLOWED_EMAIL_DOMAINS"] = CDTI_AND_GMAIL
+    res = client.post("/api/auth/login", json={"email": "old@luma.ai", "password": "password123"})  # no-secret-check
+    assert res.status_code == 200
 
 
 # ==============================================================================

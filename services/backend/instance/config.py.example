@@ -48,6 +48,12 @@ AI_ENGINE_URL = "http://127.0.0.1:8000"
 # Shared secret for service-to-service authentication (Issue #210):
 # AI_ENGINE_KEY = "CHANGE-ME-shared-token-matching-ai-engine"
 
+# --- Register ----------------------------------------------------------------
+# Email domains that can sign up. The default lives in create_app():
+# ("cdti.ac.th", "gmail.com"). Login is not affected.
+# Set to None to accept every domain (for example on a benchmark machine).
+# ALLOWED_EMAIL_DOMAINS = None
+
 # --- Generation defaults ----------------------------------------------------
 # Values follow what the lecturer recommends in Lecture 2:
 #   CFG scale 8-14 (p.10)  |  steps 20-60 is enough (p.7)  |  seed -1 = random (p.5-6)

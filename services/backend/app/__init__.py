@@ -97,6 +97,10 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         # 10 x 2 x 1.33 + JSON ~= 28 MB จึงตั้ง 32 MB เผื่อไว้
         # ตรงกับ client_max_body_size 30m ของ Nginx (deploy/nginx/luma.conf)
         MAX_CONTENT_LENGTH=32 * 1024 * 1024,
+        # โดเมนอีเมลที่สมัครสมาชิกได้ (auth.register) — ใส่ตัวพิมพ์เล็ก
+        # จำกัดเฉพาะตอนสมัคร login ไม่เช็ค บัญชีเดิมที่ใช้โดเมนอื่นจึงยังเข้าได้
+        # ตั้งเป็น None ใน instance/config.py ถ้าจะรับทุกโดเมน
+        ALLOWED_EMAIL_DOMAINS=("cdti.ac.th", "gmail.com"),
     )
 
     # 2. โหลดค่าคอนฟิกจาก instance/config.py (ถ้ามี)

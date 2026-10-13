@@ -22,7 +22,7 @@ from app.models import db
 
 
 def _app(config_overrides=None):
-    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "ALLOWED_EMAIL_DOMAINS": None,
                       **(config_overrides or {})})
     with app.app_context():
         db.create_all()
