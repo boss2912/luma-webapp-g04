@@ -60,3 +60,19 @@ backend/
 - HTTP status code: Lecture 4 หน้า 89–90
 - Flask + SQLite CRUD: **Lecture 7 หน้า 99–108**
 - Front-End vs Back-End developer: Lecture 4 หน้า 61–62
+
+## Checkpoint selection (#205)
+
+Authenticated `GET /api/checkpoints` proxies the ai-engine catalogue.
+`POST /api/generate` accepts an optional `checkpoint` title and persists it in
+job params for the worker. Existing jobs without this field keep the default.
+This records the requested model, not independent proof of the loaded model.
+
+## Auto-tag หลังสร้างภาพ (#207)
+
+worker ของคิว (`app/services/job_queue.py`) ส่งภาพที่สร้างเสร็จไป ai-engine
+`POST /pipeline/04_features/auto_tag` แล้วผูกชื่อ tag กับ asset ผ่านตาราง `tags` / `asset_tags`
+— ผู้ใช้กรองคลังผลงานด้วย tag เหล่านี้ได้ทันทีโดยไม่ต้องพิมพ์เอง
+
+auto-tag เป็น best effort: ai-engine ล่มหรือตอบผิดรูป งานยัง `done` มีภาพ แค่ไม่มี tag
+ปิดได้ด้วย `AUTO_TAG_ENABLED = False` · รายละเอียดใน [`../../docs/API_CONTRACT.md`](../../docs/API_CONTRACT.md) ข้อ 5

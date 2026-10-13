@@ -1,0 +1,232 @@
+"""
+LUMA Backend Application Package
+Application Factory `create_app()`
+Issue #46 — create_app() + ระบบจัดการ Config อย่างปลอดภัย
+Issue #47 — Blueprint Modular Architecture & JSON Error Handlers
+Issue #48 — ระบบ Logging สะอาด ไม่พิมพ์ซ้ำซ้อน
+Issue #51 — OWASP Security Headers, Cookie Hardening & Rate Limiting
+"""
+
+import os
+import logging
+import secrets
+from flask import Flask, jsonify
+from flask.json.provider import DefaultJSONProvider
+from flask_migrate import Migrate
+from flask_wtf.csrf import CSRFProtect, generate_csrf
+from app.models import db
+
+
+def setup_logging(app: Flask):
+    """
+    ตั้งค่าระบบ Logging ไม่ให้พิมพ์ซ้ำซ้อน (Issue #48)
+    เมื่อรัน pytest หรือเรียก create_app() ซ้ำหลายครั้ง Handler จะไม่ถูกผูกเบิ้ล
+    """
+    app.logger.handlers.clear()
+    app.logger.propagate = False
+
+    formatter = logging.Formatter(
+        "[%(asctime)s] %(levelname)s in %(module)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(logging.DEBUG if app.debug else logging.INFO)
+
+    app.logger.addHandler(stream_handler)
+    app.logger.setLevel(logging.DEBUG if app.debug else logging.INFO)
+
+
+class SafeJSONProvider(DefaultJSONProvider):
+    """JSON ที่ซ้อนลึกมาก ("[" x 100,000) ทำให้ json.loads โยน RecursionError ซึ่งไม่ใช่ ValueError
+    get_json(silent=True) จึงไม่จับ แล้วกลายเป็น 500 ทุก route (fuzz #207)
+    แปลงเป็น ValueError ให้ทุก route ได้ None จาก get_json(silent=True) แล้วตอบ 400 ตามทางเดิม
+    """
+
+    def loads(self, s, **kwargs):
+        try:
+            return super().loads(s, **kwargs)
+        except RecursionError as exc:
+            raise ValueError("JSON ซ้อนลึกเกินไป / JSON is nested too deeply") from exc
+
+
+def create_app(config_overrides: dict | None = None) -> Flask:
+    """
+    Application Factory สำหรับสร้าง Flask Application
+    - กำหนด instance_path ไปที่ services/backend/instance/
+    - โหลด config พื้นฐาน และโหลด config.py จาก instance/
+    - ผูกระบบฐานข้อมูลและ Flask-Migrate ตาม ADR-008
+    - รองรับ config_overrides สำหรับการรันแบบทดสอบ
+    - ตั้งค่าระบบ Logging สะอาดไม่ซ้อน (Issue #48)
+    - ลงทะเบียน Blueprint และ JSON Error Handlers (Issue #47)
+    - แนบ Security Headers (OWASP) และ Cookie Hardening ในทุก Response (Issue #51)
+    """
+    backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    instance_path = os.path.join(backend_dir, "instance")
+
+    # เสิร์ฟ services/frontend/ ที่ origin เดียวกับ /api/ — ไม่ต้องมี CORS และ cookie session
+    # ส่งไปกับ fetch เอง (แยก origin :8080/:5000 เดิม browser บล็อกทุก fetch)
+    # ตรงกับ V5 ที่ nginx รวม / กับ /api/ ไว้ origin เดียว
+    frontend_dir = os.path.abspath(os.path.join(backend_dir, "..", "frontend"))
+
+    app = Flask(
+        __name__,
+        instance_path=instance_path,
+        instance_relative_config=True,
+        static_folder=frontend_dir,
+        static_url_path="",
+    )
+    app.json = SafeJSONProvider(app)
+
+    # 1. กำหนดค่าคอนฟิกเริ่มต้น (Default Configurations)
+    app.config.from_mapping(
+        SQLALCHEMY_DATABASE_URI=f"sqlite:///{os.path.join(instance_path, 'luma.db')}",
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        AI_ENGINE_URL="http://127.0.0.1:8000",
+        AI_ENGINE_KEY=os.environ.get("AI_ENGINE_KEY"),
+        FORGE_TIMEOUT_SECONDS=120,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        # เพดานขนาด request — ต้องเป็นค่าเริ่มต้น ไม่ใช่มีแค่ใน config.py.example
+        # เครื่องที่ไม่ได้ copy config.py มาจะไม่มีเพดานเลย (Flask default = None)
+        # แล้ว body ขนาดเท่าไหร่ก็ถูกรับเข้ามาจนหมดก่อนถึงจะถูกปฏิเสธที่ชั้นอื่น
+        #
+        # ที่มาของ 32 MB: img2img โหมด inpaint ส่งสองภาพ (ต้นฉบับ + mask)
+        # ภาพละไม่เกิน 10 MB ตาม IMG2IMG_MAX_BYTES · base64 โตขึ้น ~33%
+        # 10 x 2 x 1.33 + JSON ~= 28 MB จึงตั้ง 32 MB เผื่อไว้
+        # ตรงกับ client_max_body_size 30m ของ Nginx (deploy/nginx/luma.conf)
+        MAX_CONTENT_LENGTH=32 * 1024 * 1024,
+        # โดเมนอีเมลที่สมัครสมาชิกได้ (auth.register) — ใส่ตัวพิมพ์เล็ก
+        # จำกัดเฉพาะตอนสมัคร login ไม่เช็ค บัญชีเดิมที่ใช้โดเมนอื่นจึงยังเข้าได้
+        # ตั้งเป็น None ใน instance/config.py ถ้าจะรับทุกโดเมน
+        ALLOWED_EMAIL_DOMAINS=("cdti.ac.th", "gmail.com"),
+    )
+
+    # 2. โหลดค่าคอนฟิกจาก instance/config.py (ถ้ามี)
+    # silent=True ข้ามแค่กรณีไม่มีไฟล์ — config.py ที่ syntax พังต้อง error ออกมา
+    # ไม่งั้นแอปจะเปิดขึ้นด้วยค่า default เงียบๆ โดยไม่มีใครรู้
+    app.config.from_pyfile("config.py", silent=True)
+
+    # 3. นำค่า config_overrides มาทับสำหรับการรันเทส (Testing Mode)
+    if config_overrides:
+        app.config.update(config_overrides)
+
+    # ตั้งค่าระบบ Logging สะอาดไม่ซ้อน (Issue #48)
+    setup_logging(app)
+
+    # ห้ามมี SECRET_KEY ตายตัวในโค้ดหรือใช้ placeholder จาก config.py.example (#51)
+    # ทั้งสองค่าเปิดเผยอยู่ใน repo — ใครก็เซ็น cookie session ปลอมเป็น user คนไหนก็ได้
+    # ไม่ได้ตั้งไว้ -> สุ่มใหม่ทุกครั้งที่เปิดแอป ยังรันได้โดยไม่มี config.py (#46)
+    # แลกกับ session หลุดทุกครั้งที่รีสตาร์ท
+    key = app.config.get("SECRET_KEY")
+    if not key or str(key).startswith("CHANGE-ME"):
+        app.config["SECRET_KEY"] = secrets.token_hex(32)
+        if not app.config.get("TESTING"):
+            app.logger.warning(
+                "ไม่ได้ตั้ง SECRET_KEY ใน instance/config.py — ใช้ค่าสุ่มชั่วคราว session จะหลุดทุกครั้งที่รีสตาร์ท "
+                "/ SECRET_KEY not set, using a random one. "
+                'Run: python -c "import secrets; print(secrets.token_hex(32))"'
+            )
+
+    # 4. สร้างโฟลเดอร์ instance และ upload directory ถ้ายังไม่มี
+    os.makedirs(instance_path, exist_ok=True)
+    uploads_dir = os.path.join(instance_path, "uploads", "generated")
+    os.makedirs(uploads_dir, exist_ok=True)
+
+    # 5. ผูกระบบฐานข้อมูล SQLAlchemy และ Flask-Migrate ตาม ADR-008
+    db.init_app(app)
+
+    migrations_dir = os.path.abspath(os.path.join(backend_dir, "..", "database", "migrations"))
+    migrate = Migrate(app, db, directory=migrations_dir)
+
+    # CSRF (#51) — POST/PUT/PATCH/DELETE ต้องมี header X-CSRFToken ไม่งั้น 400
+    # (CSRFError เป็น BadRequest จึงออกเป็น JSON ผ่าน handler 400 ด้านล่างเอง)
+    # ปิดไว้ตอน TESTING เป็นค่าเริ่มต้น test ที่ต้องการตรวจ CSRF เปิดเองด้วย WTF_CSRF_ENABLED=True
+    app.config.setdefault("WTF_CSRF_ENABLED", not app.config.get("TESTING"))
+    CSRFProtect(app)
+
+    # ==========================================================================
+    # Security Headers (OWASP) แนบในทุก Response (Issue #51)
+    # ==========================================================================
+    @app.after_request
+    def set_security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "img-src 'self' data: http: https:; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline';"
+        )
+        # ส่ง CSRF token ใน cookie ที่ JS อ่านได้ (ไม่ HttpOnly) — js/csrf.js ใส่ค่านี้ใน header ทุก POST
+        # เว็บอื่นอ่าน cookie ของ origin นี้ไม่ได้ จึงปลอม header ไม่ได้
+        # ส่งใหม่ทุก response ให้ token สดตลอดตอนผู้ใช้ยังใช้งานอยู่ (หมดอายุ 1 ชม. ตาม Flask-WTF)
+        if app.config["WTF_CSRF_ENABLED"]:
+            response.set_cookie(
+                "csrf_token",
+                generate_csrf(),
+                samesite="Lax",
+                secure=app.config.get("SESSION_COOKIE_SECURE", False),
+            )
+        return response
+
+    # ==========================================================================
+    # ลงทะเบียน JSON Error Handlers (Issue #47)
+    # ==========================================================================
+    @app.errorhandler(400)
+    def bad_request(error):
+        msg = getattr(error, "description", "ข้อมูลไม่ถูกต้อง / Bad request")
+        return jsonify({"error": msg}), 400
+
+    @app.errorhandler(401)
+    def unauthorized(error):
+        return jsonify({"error": "ยังไม่ได้เข้าสู่ระบบ / Unauthorized"}), 401
+
+    @app.errorhandler(403)
+    def forbidden(error):
+        return jsonify({"error": "ไม่มีสิทธิ์เข้าถึง / Forbidden"}), 403
+
+    @app.errorhandler(404)
+    def not_found(error):
+        return jsonify({"error": "ไม่พบหน้าที่ระบุ / Not found"}), 404
+
+    @app.errorhandler(429)
+    def ratelimit_handler(error):
+        return jsonify({"error": "คำขอถี่เกินกำหนด กรุณารอสักครู่ / Too many requests"}), 429
+
+    @app.errorhandler(413)
+    def request_too_large(error):
+        # Flask โยน RequestEntityTooLarge เองเมื่อ body เกิน MAX_CONTENT_LENGTH
+        # ถ้าไม่ดัก จะได้หน้า HTML ซึ่ง res.json() ฝั่งหน้าเว็บอ่านไม่ได้ แล้ว error หายเงียบ
+        limit_mb = app.config["MAX_CONTENT_LENGTH"] // (1024 * 1024)
+        return jsonify({
+            "error": f"คำขอใหญ่เกิน {limit_mb} MB / Request larger than {limit_mb} MB"
+        }), 413
+
+    @app.errorhandler(500)
+    def internal_server_error(error):
+        return jsonify({"error": "เกิดข้อผิดพลาดภายในระบบ / Internal server error"}), 500
+
+    # ==========================================================================
+    # ลงทะเบียน Blueprints (Issue #47)
+    # ==========================================================================
+    from app.routes.api import api_bp
+    from app.routes.auth import auth_bp
+
+    app.register_blueprint(api_bp)
+    app.register_blueprint(auth_bp)
+
+    # Route ตรวจสอบสถานะ Server
+    @app.route("/health", methods=["GET"])
+    def health_check():
+        app.logger.info("Health check endpoint ถูกเรียกใช้งาน")
+        return jsonify({"status": "ok", "service": "luma-backend"}), 200
+
+    @app.route("/")
+    def index():
+        return app.redirect("/pages/index.html")
+
+    return app

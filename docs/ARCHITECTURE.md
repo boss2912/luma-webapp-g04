@@ -156,15 +156,72 @@ def get_asset_image(asset_id):
 
 ## 7. Config และ Environment Variable
 
+ตารางนี้เคยมี `API_BASE_URL` ที่ไม่มีโค้ดไหนอ่านเลย และขาดตัวแปรอีก 10 ตัวที่โค้ดใช้จริง (#175)
+ตรวจซ้ำได้ด้วย `grep -rhoE 'os\.environ\.get\("[A-Z_]+"' services tools` (7.1) และ
+`grep -rhoE 'config(\.get|\.setdefault)?\(?\[?"[A-Z_]+"' services/backend/app services/ai-engine/app.py` (7.2)
+
+> คำสั่งแรกจะพิมพ์ `WERKZEUG_RUN_MAIN` / `CONDA_DEFAULT_ENV` / `VIRTUAL_ENV` มาด้วย — ไม่อยู่
+> ในตารางเพราะไม่ใช่ config ของแอป: `WERKZEUG_RUN_MAIN` เป็นแฟล็กภายในของ Werkzeug reloader
+> (`run.py`) ส่วนอีกสองตัวเป็นการเช็ค environment ของเครื่องมือ dev (`tools/check_env_installed.py`)
+> ไม่ใช่ค่าที่มีผลต่อพฤติกรรมของ backend/ai-engine
+
+### 7.1 OS environment variable (`os.environ.get(...)`)
+
 | ตัวแปร | ใช้ที่ | default | หมายเหตุ |
 |---|---|---|---|
-| `LUMA_DEBUG` | backend | `0` | ⚠️ ห้ามเปิดพร้อม `LUMA_HOST=0.0.0.0` |
-| `LUMA_HOST` | backend | `127.0.0.1` | ตั้ง `0.0.0.0` ตอนต่อข้ามเครื่อง |
-| `SECRET_KEY` | `instance/config.py` | – | ⛔ ห้ามขึ้น git |
-| `SQLALCHEMY_DATABASE_URI` | `instance/config.py` | `sqlite:///luma.db` | เปลี่ยนเป็น `postgresql://...` ตอนแบบ 4 เครื่อง |
-| `FORGE_AI_ENDPOINT` | `instance/config.py` | – | IP เครื่อง AI |
-| `AI_ENGINE_URL` | `instance/config.py` | – | IP เครื่อง AI (pipeline) |
-| `API_BASE_URL` | frontend | – | IP เครื่อง backend (V4+) |
+| `LUMA_DEBUG` | backend (`run.py`) | `0` | ⚠️ ห้ามเปิดพร้อม `LUMA_HOST=0.0.0.0` |
+| `LUMA_HOST` | backend (`run.py`) | `127.0.0.1` | ตั้ง `0.0.0.0` ตอนต่อข้ามเครื่อง |
+| `FORGE_URL` | ai-engine (env) | – | ai-engine ใช้คุยกับ Forge — backend ไม่ใช้ |
+| `AI_ENGINE_HOST` | ai-engine (`app.py`, รันตรง) | `127.0.0.1` | host ที่ ai-engine เปิดเอง ต่างจาก `AI_ENGINE_URL` ที่เป็นฝั่ง backend เรียก |
+| `AI_ENGINE_PORT` | ai-engine (`app.py`, รันตรง) | `8000` | พอร์ตที่ ai-engine เปิดเอง |
+| `LUMA_DATABASE_URI` | `services/database/migrate_app.py` | ไฟล์ `.db` ใน `instance/` เดียวกับ `config.py.example` | override ตอนรัน Alembic/เทสด้วยฐานชั่วคราว ไม่แตะ `instance/config.py` ของ backend จริง |
+| `SEED_USER_PASSWORD` | `services/database/seeds/seed.py` | `demo1234` | รหัสผ่านบัญชี demo ตอนรัน `seed.py` |
+| `LUMA_BROWSER` | เทส (`test_img2img_layout.py`) | หา Chrome/Edge ให้เองจาก path มาตรฐาน | ชี้ path browser เองถ้าหาไม่เจอหรืออยากเลือกตัวไหนเป็นพิเศษ |
+
+### 7.2 Flask `app.config` (`services/backend/instance/config.py`)
+
+ไม่ใช่ OS environment variable — เป็นไฟล์ Python ที่ `create_app()` โหลดทับค่า default
+(`app.config.from_pyfile("config.py", silent=True)`) ไฟล์นี้ไม่ขึ้น git คัดลอกจาก
+`config.py.example` แล้วแก้เอง
+
+| คีย์ | default ในโค้ด | หมายเหตุ |
+|---|---|---|
+| `SECRET_KEY` | สุ่มใหม่ทุกครั้งที่เปิดถ้าไม่ตั้ง | ⛔ ห้ามขึ้น git · ไม่ตั้ง = session หลุดทุกครั้งที่รีสตาร์ท |
+| `SQLALCHEMY_DATABASE_URI` | `sqlite:///<instance>/luma.db` | เปลี่ยนเป็น `postgresql://...` ตอนแบบ 4 เครื่อง |
+| `AI_ENGINE_URL` | `http://127.0.0.1:8000` | IP เครื่อง AI — backend สร้างภาพและเรียก pipeline ผ่าน ai-engine ทางเดียว (ไม่ยิง Forge ตรง) |
+| `FORGE_TIMEOUT_SECONDS` | `120` | ai-engine ต้องตอบภายในเวลานี้ · `deploy/nginx/luma.conf` ตั้ง `proxy_read_timeout` ให้มากกว่านี้เสมอ |
+| `MAX_CONTENT_LENGTH` | `32 MB` | เพดานขนาด request ทั้งก้อน (#179) ตรงกับ `client_max_body_size 30m` ของ Nginx |
+| `IMG2IMG_MAX_BYTES` | `10 MB` | เพดานต่อภาพหนึ่งใบใน `/api/img2img` (ต้นฉบับ/mask แยกกันนับ) ไม่อยู่ใน `config.py.example` — ตั้งเองได้ถ้าต้องการ |
+| `PROMPT_MAX_CHARS` | `1000` | ความยาวสูงสุดของ `prompt` / `negative_prompt` — ตัวแยก prompt ของ Forge ช้าเกินเส้นตรงเมื่อยาวและวงเล็บถี่ (`prompt_check.py`) ไม่อยู่ใน `config.py.example` |
+| `PROMPT_MAX_BRACKET_DEPTH` | `20` | วงเล็บซ้อนได้กี่ชั้น — 2000 ชั้นทำ Forge ค้าง ไม่อยู่ใน `config.py.example` |
+| `AI_ENGINE_TIMEOUT_SECONDS` | `30` | timeout ต่อคำขอหนึ่งครั้งไปหา ai-engine (`ai_engine_client.py`) ไม่อยู่ใน `config.py.example` |
+| `JOB_STALE_AFTER_SECONDS` | `FORGE_TIMEOUT_SECONDS × 2` (`240`) | งาน `running` เก่ากว่านี้ถือว่าค้าง เอากลับมาเข้าคิวใหม่ (`job_queue.py`) ไม่อยู่ใน `config.py.example` |
+| `AUTO_TAG_ENABLED` | `True` | หลังสร้างภาพเสร็จ worker ขอ tag จาก `04_features/auto_tag` แล้วผูกกับ asset (`job_queue.py`, #207) · `False` = ไม่เรียกเลย ไม่อยู่ใน `config.py.example` |
+| `SESSION_COOKIE_SECURE` | `False` | ต้องเป็น `True` ตอน deploy หลัง HTTPS จริง ไม่งั้น cookie `csrf_token` หลุดผ่าน HTTP ได้ (`set_cookie(..., secure=...)`) |
+| `WTF_CSRF_ENABLED` | `not TESTING` (คือ `True` นอกโหมดเทส) | ปิดเฉพาะตอน `TESTING=True` เพื่อให้เทสที่ไม่ได้ตรวจ CSRF ไม่ต้องแนบ token เอง |
+| `FORGE_DEFAULT_STEPS` | `20` | ค่า `steps` เริ่มต้นของ `POST /api/generate`/`/api/img2img` เมื่อไม่ส่งมา (Lecture 2 หน้า 7) |
+| `FORGE_DEFAULT_CFG_SCALE` | `8.0` | ค่า `cfg_scale` เริ่มต้น (Lecture 2 หน้า 10 แนะนำ 8–14) |
+| `FORGE_DEFAULT_SAMPLER` | `"DPM++ 2M Karras"` | ต้องอยู่ใน `SUPPORTED_SAMPLERS` (ดูตาราง pipeline ใน `API_CONTRACT.md`) ไม่งั้นทุก request ที่ไม่ระบุ sampler จะได้ 400 |
+| `FORGE_DEFAULT_SEED` | `-1` | -1 = สุ่ม (Lecture 2 หน้า 5–6) |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60` | ช่วงเวลาที่นับความพยายาม login ผิดของ `check_rate_limit()` (`routes/auth.py`) |
+| `RATE_LIMIT_MAX_ATTEMPTS` | `5` | จำนวนครั้งที่ผิดได้ก่อนโดน 429 ในหน้าต่างเวลาข้างบน |
+
+> ✅ **6 คีย์ข้างบน (`FORGE_DEFAULT_*`, `RATE_LIMIT_*`) เพิ่งถูกต่อเข้ากับโค้ดจริง (#192)**
+> เดิม `config.py.example` มีคีย์เหล่านี้แต่ไม่มีจุดไหนอ่านเลย ค่า default ถูก hardcode ไว้ตรง
+> จุดที่ใช้แทน — แก้ให้ `_parse_generation_params()`/`check_rate_limit()` อ่านจาก
+> `current_app.config` จริง โดยใส่ค่าเดิมไว้เป็น fallback (`.get("FORGE_DEFAULT_STEPS", 20)`)
+> เครื่องที่ยังไม่ copy `config.py` มาจึงพฤติกรรมเหมือนเดิมทุกอย่าง
+
+### 7.3 ฝั่ง frontend
+
+**ไม่มี** environment variable ที่ frontend อ่านตอนนี้ `window.LUMA_CONFIG.apiBase`
+(อ่านใน `js/layout.js`, `js/gallery.js` ฯลฯ ทุกไฟล์เขียนคอมเมนต์ว่า "ห้าม hardcode
+localhost/IP — อ่าน API base จาก window.LUMA_CONFIG เท่านั้น") **ไม่เคยถูกกำหนดค่าที่ไหนเลย**
+ในทุกหน้า `.html` จึงเป็น `undefined` เสมอ โค้ดจึง fallback เป็น `""` (same-origin) — ใช้ได้พอดี
+กับ V3/V5 ที่ frontend กับ backend อยู่หลัง origin เดียวกัน (Flask serve เองหรือผ่าน Nginx)
+แต่ **ยังไม่มีกลไกตั้งค่านี้เลยสำหรับ V4** (frontend คนละเครื่องกับ backend) — ต้องมีคนเพิ่ม
+`<script>window.LUMA_CONFIG = { apiBase: "http://<ip>:5000" };</script>` ก่อนโหลด `layout.js`
+เอาไว้ตอนทำ V4 จริง (ดู #29)
 
 **ทำไม `LUMA_DEBUG` กับ `LUMA_HOST` แยกกันและ default ปลอดภัย**
 Werkzeug debugger **รันโค้ด Python จากหน้าเว็บได้** เมื่อเจอ exception
@@ -175,22 +232,31 @@ v1 hardcode `debug=True, host="0.0.0.0"` = ทุกเครื่องบน 
 
 ## 8. Data Flow ตัวอย่าง — generate ภาพ
 
+**คิวอยู่ที่ backend ไม่ใช่ ai-engine** — ตกลงกันใน #21 · ai-engine ยังเป็น request/response
+ธรรมดา ไม่มีคิว ไม่มี callback ไม่มีที่เก็บผลฝั่งตัวเอง
+
 ```
-1. Browser  POST /api/generate {prompt, steps, cfg_scale, sampler, seed}
-2. backend  routes/api.py       → validate ชนิด + ขอบเขตทุกฟิลด์
-3. backend  services/generate.py → สร้างแถว jobs (status=pending)
-4. backend  → HTTP POST ไป ai-engine
-5. ai-engine  queue/ รับเข้าคิว → status=running
-6. ai-engine  forge/ → เรียก Forge AI (Stable Diffusion WebUI)
-7. ai-engine  ได้ base64 → (optional) ส่งผ่าน pipeline/02_enhancement
-8. ai-engine  → ตอบกลับ backend
-9. backend  บันทึกไฟล์นอก static/ (ชื่อ uuid) + แถว assets + status=done
-10. backend → ตอบ {asset_id, image_url: "/api/assets/<id>/image"}
-11. Browser  โหลดรูปผ่าน endpoint ที่เช็ค ownership
+ 1. Browser    POST /api/generate {prompt, steps, cfg_scale, sampler_name, seed, width, height}
+ 2. backend    routes/api.py          → validate ชนิด + ขอบเขตทุกฟิลด์ (ผิด = 400 ไม่มี job เกิดขึ้น)
+ 3. backend    services/job_queue.py  → enqueue() สร้างแถว jobs (status=pending)
+ 4. backend    → ตอบ 202 {"status": "queued", "job_id": N} ทันที ไม่รอภาพ
+ 5. worker     thread ใน backend      → claim_next() จอง pending ที่เก่าสุด → status=running
+ 6. worker     services/forge_client.py → HTTP POST ai-engine /forge/txt2img (sync ทีละงาน)
+ 7. ai-engine  forge/ → เรียก Forge AI (Stable Diffusion WebUI) อ่าน seed จริงจาก info
+ 8. ai-engine  → ตอบ base64 กลับ backend
+ 9. worker     บันทึกไฟล์นอก static/ (ชื่อ uuid4)
+              → HTTP POST ai-engine /pipeline/04_features/auto_tag (best effort, #207)
+              → แถว assets + tags/asset_tags + jobs.status=done, asset_id, seed_used
+10. Browser    poll GET /api/jobs/<id> → pending / running / done / failed (+ error ถ้า failed)
+11. Browser    พอ done ได้ image_url → โหลดรูปผ่าน /api/assets/<id>/image ที่เช็ค ownership
 ```
 
+งานที่ล้ม (Forge ไม่ตอบ / ai-engine ล่ม) จะเป็น `status=failed` พร้อมเหตุผลในแถว job
+ไม่ค้างที่ `running` · ไม่ retry เอง ผู้ใช้กดส่งใหม่
+auto-tag ล้ม (ai-engine ตอบผิด / ล่มหลังสร้างภาพเสร็จ) **ไม่ทำให้งานล้ม** — ผู้ใช้ได้ภาพ แค่ไม่มี tag
+
 **จุดที่ v1 ทำไม่ถูกและต้องแก้**
-- ข้อ 4–8 ใน v1 เป็น **synchronous บล็อก 120 วินาที** → ต้องมี queue (ข้อ 5)
+- ข้อ 4–8 ใน v1 เป็น **synchronous บล็อก 120 วินาที** → แก้ด้วยคิวที่ backend (ข้อ 4–5)
 - ข้อ 9 ใน v1 ใช้ `int(time.time())` เป็นชื่อไฟล์ → ชนกันในวินาทีเดียว ต้องใช้ `uuid4`
 - ตาราง `jobs` มีอยู่แต่ไม่มีใครเขียน/อ่าน → ข้อ 3, 5, 9 ต้องใช้จริง
 
