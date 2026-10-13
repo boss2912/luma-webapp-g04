@@ -29,6 +29,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 
   const calls = [];
   const alerts = [];
+  const confirms = [];
   let deleteReply = { ok: true, status: 200, body: { status: "deleted", asset_id: 7 } };
   const list = { items: [{ id: 7, prompt: "a cat", image_url: "/api/assets/7/image", created_at: null }], page: 1, total: 1 };
 
@@ -51,7 +52,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
       location: { origin: "http://luma.test", pathname: "/pages/gallery.html", search: "",
                   get href() { return this.origin + this.pathname + this.search; } },
       csrfHeaders: () => ({ "X-CSRFToken": "tok" }),
-      confirm: () => scenario !== "cancel",
+      confirm: (message) => { confirms.push(message); return scenario !== "cancel"; },
       addEventListener() {},
       history: { pushState() {}, replaceState() {} },
     },
@@ -70,6 +71,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   await tick();
 
   const del = calls.find((c) => c.method === "DELETE");
+  const footer = find(card, "asset-card__footer");
   console.log(JSON.stringify({
     has_button: Boolean(button),
     delete_url: del ? del.url : null,
@@ -77,5 +79,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     reloads: calls.filter((c) => c.method === "GET").length,
     alerts,
     button_disabled: button.disabled,
+    footer_texts: footer.children.map((c) => c.textContent),
+    confirms,
   }));
 })();

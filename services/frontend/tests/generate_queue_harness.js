@@ -20,7 +20,7 @@ for (const [k, v] of Object.entries({ prompt: "a fox", negative_prompt: "", step
   sampler_name: "Euler a", seed: "-1", width: "512", height: "512" })) form[k] = { value: v };
 const n = { "generate-form": form };
 for (const id of ["generate-submit", "generate-error", "generate-spinner", "preview-container", "preview-image",
-  "preview-placeholder", "preview-meta", "meta-asset-id", "meta-prompt", "meta-info", "download-btn"]) n[id] = el();
+  "preview-placeholder", "preview-meta", "meta-prompt", "meta-info", "download-btn"]) n[id] = el();
 n["generate-error"].attrs.hidden = "";
 
 const polls = { done: ["pending", "running", "done"], no_seed: ["pending", "running", "done"],
@@ -84,7 +84,6 @@ vm.runInContext(fs.readFileSync(scriptPath, "utf8"), ctx);
     calls,
     spinner_texts: spinnerTexts,
     image_src: n["preview-image"].src,
-    asset_id: n["meta-asset-id"].textContent,
     meta_info: n["meta-info"].textContent,
     seed_in_form: form.seed.value,
     error: "hidden" in n["generate-error"].attrs ? null : n["generate-error"].textContent,

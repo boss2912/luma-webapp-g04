@@ -28,7 +28,6 @@
     const previewImage = document.getElementById("preview-image");
     const previewPlaceholder = document.getElementById("preview-placeholder");
     const previewMeta = document.getElementById("preview-meta");
-    const metaAssetId = document.getElementById("meta-asset-id");
     const metaPrompt = document.getElementById("meta-prompt");
     const metaInfo = document.getElementById("meta-info");
     const downloadBtn = document.getElementById("download-btn");
@@ -110,7 +109,8 @@
         previewContainer.classList.add("has-image");
 
         // แสดงข้อมูล Metadata ป้องกัน XSS ด้วย textContent
-        if (metaAssetId) metaAssetId.textContent = data.asset_id;
+        // ไม่แสดง asset_id เพราะเป็นเลขของทั้งระบบ (นับภาพของทุกคนรวมกัน) ผู้ใช้เห็นแล้วงง
+        // ยังเก็บไว้ใน currentAssetId เพื่อตั้งชื่อไฟล์ตอนดาวน์โหลด
         if (metaPrompt) metaPrompt.textContent = prompt;
         if (metaInfo) metaInfo.textContent = describeSettings(payload, data.seed_used);
         if (previewMeta) previewMeta.removeAttribute("hidden");
