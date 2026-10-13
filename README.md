@@ -8,19 +8,25 @@
   <img src="https://img.shields.io/badge/Python-3.11+-blue?logo=python" alt="Python">
   <img src="https://img.shields.io/badge/Flask-3.0-green?logo=flask" alt="Flask">
   <img src="https://img.shields.io/badge/SQLite-dev-orange?logo=sqlite" alt="SQLite">
-  <img src="https://img.shields.io/badge/milestone-V2%20(กำลังทำ)-yellow" alt="Milestone">
+  <img src="https://img.shields.io/badge/milestone-V5%20(โค้ดครบ)-green" alt="Milestone">
 </div>
 
 ---
 
-## 📌 สถานะปัจจุบัน
+## 📌 สถานะปัจจุบัน (13 ต.ค. 2026)
 
-> **โปรเจกต์อยู่ในช่วงวางโครงสร้างใหม่** — โค้ด v1 ถูกเก็บเป็นเอกสารและลบออกแล้ว
-> โครงสร้างโฟลเดอร์วางไว้ครบถึง V5 แต่ยังไม่มีโค้ด งานเริ่มจาก **V2** ตาม [`docs/ROADMAP.md`](docs/ROADMAP.md)
+> **โค้ดครบ milestone V1–V5 แล้ว** — เหลือยืนยันบนเครื่องจริง 3 เครื่อง (ดู [`docs/ROADMAP.md`](docs/ROADMAP.md))
 
-โค้ด v1 ทำได้ถึงปลาย **V3** (Flask + SQLite + Forge) และ `pytest` ผ่าน 33/33
-แต่**ยังไม่มี Image Processing pipeline 5 ส่วนที่อาจารย์ใช้ให้คะแนนโครงงาน 40%** เลย
-→ นั่นคือเหตุผลหลักที่รีเซ็ตโครงสร้าง ดูรายละเอียดใน [`archive/`](archive/)
+| ส่วน | ใช้งานได้แล้ว |
+|---|---|
+| หน้าเว็บ | สมัคร / เข้าสู่ระบบ · สร้างภาพจาก prompt · คลังผลงาน (ค้นหา + กรองด้วย tag) · หน้า Function (เบลอเฉพาะจุด · จับหน้า · ลบพื้นหลัง) |
+| Backend | REST API · session + CSRF · จำกัดจำนวนครั้ง login · คิวงานสร้างภาพ (ตอบ 202 แล้วทำต่อเบื้องหลัง) · ใส่ tag ให้ภาพอัตโนมัติ |
+| Image Processing 5 ส่วน | `pipeline/01_acquisition` … `05_evaluation` · วัดผลจริงบนชุด 50 ภาพ ([`sunflower50/REPORT.md`](services/ai-engine/samples/segmentation/sunflower50/REPORT.md): IoU 0.66 · ROC AUC 0.88) |
+| Nginx | ทางเข้าเดียว: ส่งไฟล์หน้าเว็บเอง + ส่งต่อ `/api/` ให้ backend · จำกัด login 30 ครั้ง/นาที ([`deploy/nginx/`](deploy/nginx/)) |
+| ทดสอบ | มีเทสต์ทุก service · รันทั้งหมดด้วย `python tools/run_all_tests.py` |
+
+ตัดออกตามข้อตกลงทีม: Image-to-Image (#207) · Smart Canvas ใช้หน้า Function แทน (เหตุผลใน [`docs/COURSE_REQUIREMENTS.md`](docs/COURSE_REQUIREMENTS.md))
+โค้ด v1 ที่รีเซ็ตไปเก็บเป็นเอกสารไว้ใน [`archive/`](archive/)
 
 ---
 
@@ -32,7 +38,7 @@
 
 | กลุ่ม | ฟีเจอร์ |
 |---|---|
-| **AI Generation** | Text-to-Image · Image-to-Image · *(optional)* LLM เล็กช่วยแปลงข้อความเป็น prompt |
+| **AI Generation** | Text-to-Image · ~~Image-to-Image~~ (ทีมตัดออก — #207) · *(optional)* LLM เล็กช่วยแปลงข้อความเป็น prompt |
 | **Function** | ฟังก์ชันประมวลผลภาพที่เรียกใช้ `pipeline/` ได้จากหน้าเว็บ (แทน Smart Canvas ที่ทีมตัดออก — ดู `docs/COURSE_REQUIREMENTS.md` ข้อ 9) |
 | **Asset Hub** | คลังผลงาน · ใส่ Tag · ค้นหา · ปรับ Style ตามผู้ใช้ (User Account Control) |
 
@@ -91,7 +97,7 @@
 ```
 luma-webapp-g04/
 ├── services/                    ← แยกตามเครื่องที่รันจริง
-│   ├── backend/                 Flask API            (คนที่ 1)
+│   ├── backend/                 Flask API + คิวงานสร้างภาพ (คนที่ 1)
 │   ├── frontend/                HTML / CSS / JS      (คนที่ 1)
 │   ├── ai-engine/                                    (คนที่ 3)
 │   │   ├── forge/               Forge AI client
@@ -101,7 +107,6 @@ luma-webapp-g04/
 │   │   │   ├── 03_segmentation/     ตรวจจับบริเวณวัตถุ
 │   │   │   ├── 04_features/         สกัดคุณลักษณะ → คัดแยก
 │   │   │   └── 05_evaluation/       วัดประสิทธิภาพ
-│   │   ├── queue/               job queue
 │   │   └── samples/             ภาพทดสอบ
 │   └── database/                schema · migrations · queries  (คนที่ 2)
 ├── deploy/                      nginx · env ต่อเครื่อง
@@ -140,7 +145,7 @@ luma-webapp-g04/
 
 📖 **คู่มือเต็ม → [`INSTALL.md`](INSTALL.md)** (Windows · macOS · Linux · Conda · แยก 3 เครื่อง · แก้ปัญหา)
 
-**Python 3.12** · ทุกเวอร์ชันถูกล็อกและทดสอบร่วมกันแล้ว — backend `pytest` 33/33 · ai-engine smoke 31/31
+**Python 3.12** · ทุกเวอร์ชันถูกล็อกและทดสอบร่วมกันแล้ว — ตรวจด้วย `python tools/run_all_tests.py` (เทสต์ทุก service) และ `python tools/smoke_test_ai_deps.py`
 
 ### ติดตั้งเร็วสุด (dev บนเครื่องเดียว)
 
