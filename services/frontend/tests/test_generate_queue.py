@@ -31,10 +31,22 @@ def test_polls_until_done_then_shows_the_image():
     """[กรณีทดสอบ]: 202 -> pending -> running -> done ต้องแสดงภาพ และบอกสถานะระหว่างรอ"""
     r = _run("done")
     assert r["calls"] == ["POST /api/generate", "GET /api/jobs/12", "GET /api/jobs/12", "GET /api/jobs/12"]
-    assert r["image_src"] == "/api/assets/30/image" and r["asset_id"] == 30
+    assert r["image_src"] == "/api/assets/30/image"
     assert any("คิว" in t for t in r["spinner_texts"]), "ต้องบอกผู้ใช้ว่ารอคิวอยู่"
     assert any("กำลังสร้าง" in t for t in r["spinner_texts"]), "ต้องบอกผู้ใช้ว่ากำลังสร้าง"
     assert r["error"] is None and r["button_disabled"] is False
+
+
+def test_page_does_not_show_the_asset_id():
+    """[กรณีทดสอบ]: ใต้ภาพไม่มีบรรทัด Asset ID ทั้งในหน้าและใน generate.js
+
+    asset_id เป็นเลขของทั้งระบบ (นับภาพของทุกคนรวมกัน) ไม่ใช่ลำดับภาพของผู้ใช้
+    ยังใช้ตั้งชื่อไฟล์ตอนดาวน์โหลดได้ (ดูเทส download ด้านล่าง)
+    """
+    page = (HERE.parent / "pages" / "generate.html").read_text(encoding="utf-8")
+    script = GENERATE_JS.read_text(encoding="utf-8")
+    assert "Asset ID" not in page
+    assert "meta-asset-id" not in page and "meta-asset-id" not in script
 
 
 def test_failed_job_shows_the_reason():
