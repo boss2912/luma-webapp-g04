@@ -137,12 +137,14 @@
 
       <!-- ส่วนแสดงผลภาพที่สร้างได้ -->
       <section class="generate-preview-card">
+        <!-- สถานะอยู่นอกกรอบภาพ — เดิมอยู่ใน .preview-container (flex) พอมีภาพเก่าเต็มกรอบแล้ว
+             กดสร้างรอบที่ 2 ป้ายสถานะถูกบีบเป็นแถบแคบๆ ชิดขอบขวาของภาพจนอ่านไม่ออก -->
+        <div class="spinner preview-status" id="generate-spinner" role="status" hidden>กำลังประมวลผลภาพจาก AI…</div>
         <div class="preview-container" id="preview-container">
           <p class="preview-placeholder" id="preview-placeholder">
             ภาพที่สร้างจะปรากฏที่นี่
           </p>
           <img class="preview-image" id="preview-image" alt="ภาพผลลัพธ์จาก AI" hidden />
-          <div class="spinner" id="generate-spinner" hidden>กำลังประมวลผลภาพจาก AI…</div>
         </div>
 
         <div class="preview-meta" id="preview-meta" hidden>
