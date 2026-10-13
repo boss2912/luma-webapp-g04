@@ -317,7 +317,7 @@ python -c "import secrets; print(secrets.token_hex(32))"
 ## 8. ตรวจว่าติดตั้งสำเร็จ
 
 ```bash
-python -c "import flask, flask_sqlalchemy, flask_login, flask_migrate, flask_wtf; print('backend OK')"
+python -c "import flask, flask_sqlalchemy, flask_migrate, flask_wtf; print('backend OK')"
 python -c "import cv2, numpy, skimage, matplotlib, scipy, PIL; print('ai-engine OK')"
 python -c "import sqlalchemy, alembic; print('database OK')"
 python -m pytest --version
@@ -544,7 +544,6 @@ datetime.now(UTC)
 | package | version | ใช้ที่ |
 |---|---|---|
 | Flask | 3.0.3 | backend · ai-engine |
-| Flask-Login | 0.6.3 | backend |
 | Flask-Migrate | 4.0.7 | backend |
 | Flask-SQLAlchemy | 3.1.1 | backend |
 | Flask-WTF | 1.2.1 | backend |
