@@ -175,3 +175,23 @@ def test_removed_checkpoint_error_is_not_reported_as_forge_offline():
         def json(self):
             return {"error": "Forge checkpoint is no longer available; refresh the model list"}
     assert "Selected checkpoint is no longer available" in _describe_engine_failure(Response())
+
+
+def test_forge_client_passes_ai_engine_key_header():
+    """[Issue #210]: เมื่อตั้งค่า AI_ENGINE_KEY ไว้ backend ต้องส่ง header X-LUMA-Engine-Key ไปด้วย"""
+    app = create_app({
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "AI_ENGINE_URL": "http://ai-host:8000",
+        "AI_ENGINE_KEY": "secret-token-xyz",
+    })
+    ai_engine_reply = Mock(status_code=200)
+    ai_engine_reply.json.return_value = {"images": ["aGk="], "seed_used": 42}
+
+    with app.app_context(), \
+            patch("app.services.forge_client.requests.post", return_value=ai_engine_reply) as post, \
+            patch("app.services.forge_client.save_base64_image", return_value="uploads/generated/x.png"):
+        generate_image(prompt="cat")
+
+    headers = post.call_args.kwargs.get("headers", {})
+    assert headers.get("X-LUMA-Engine-Key") == "secret-token-xyz"
