@@ -230,13 +230,11 @@ def create_app(config=None):
 
     @app.post("/pipeline/03_segmentation/remove-background")
     def remove_background_route():
-        # Function page "ลบพื้นหลัง" — ลากกรอบเหมือน blur เพื่อกำหนดขอบเขต แต่บริเวณที่
-        # ถูกลบจริงเป็นวงรี/วงกลมที่แนบในกรอบนั้น (ไม่ใช่ทั้งกรอบสี่เหลี่ยม) ตามที่ผู้ใช้
-        # ขอ — ใช้ cv2.ellipse วาด mask แทนการเติมทั้งกรอบ ใช้
-        # segmentation.remove_background(image, mask) ตรงๆ ซึ่งมีอยู่แล้วในไพพ์ไลน์
-        # แต่ไม่เคยมี route ผูกให้เรียกผ่าน HTTP มาก่อน (ดู docs/API_CONTRACT.md
-        # ตาราง "ยังไม่มี route") — mask ที่นี่สร้างจากกรอบสี่เหลี่ยมที่ลาก ไม่ใช่จาก
-        # การเลือกสีแบบ selective_color_mask
+        # Function page "ลบพื้นหลัง" (Background Removal — Lecture 4 หน้า 52 & Lecture 1 หน้า 6)
+        # วิเคราะห์ภาพเพื่อแยกตัววัตถุ (Foreground) ออกจากพื้นหลัง ผู้ใช้ลากกรอบขอบเขต
+        # วัตถุที่ต้องการเก็บไว้ ระบบวิเคราะห์ด้วย GrabCut และ HSV selective color segmentation
+        # เพื่อเก็บวัตถุไว้ (Alpha = 255) และตัดพื้นหลังรอบนอกออกให้โปร่งใส (Alpha = 0)
+        # ใช้ segmentation.remove_background(pixels, mask) สร้างภาพ BGRA ที่มี alpha channel
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             return jsonify({"error": "Expected a JSON object"}), 400
@@ -275,6 +273,9 @@ def create_app(config=None):
                for name in required):
             return jsonify({"error": "region values must be integers"}), 400
 
+        # Function page "ลบพื้นหลัง" (Background Removal, Lecture 4 หน้า 52 & Lecture 1 หน้า 6)
+        # วิเคราะห์ภาพเพื่อแยกวัตถุที่เลือก (Foreground) ออกจากพื้นหลัง โดยผู้ใช้ลากกรอบ
+        # เพื่อกำหนดขอบเขตของวัตถุที่ต้องการเก็บไว้ แล้วทำให้พื้นหลังรอบนอกโปร่งใส
         x, y = region["x"], region["y"]
         width, height = region["width"], region["height"]
         if x < 0 or y < 0 or width < 1 or height < 1:
@@ -283,21 +284,63 @@ def create_app(config=None):
         if x + width > image_width or y + height > image_height:
             return jsonify({"error": "region must stay within the image bounds"}), 400
 
-        mask = np.full((image_height, image_width), 255, dtype=np.uint8)
-        center = (x + width // 2, y + height // 2)
-        axes = (max(width // 2, 1), max(height // 2, 1))
-        cv2.ellipse(mask, center, axes, 0, 0, 360, 0, thickness=-1)
-        # axes ปัดขึ้นขั้นต่ำ 1 พิกเซลเสมอ (เผื่อกรอบแคบกว่า 2px) ทำให้กรอบเล็กมาก
-        # เช่น 1x1 อาจลบล้นออกนอกกรอบที่เลือกไปถึง 4 พิกเซล — จำกัด mask ให้อยู่แค่
-        # ในกรอบสี่เหลี่ยมที่เลือกเท่านั้น ไม่ว่ารูปทรงวงรีจะคำนวณล้นแค่ไหนก็ตาม
-        mask[:y, :] = 255
-        mask[y + height:, :] = 255
-        mask[:, :x] = 255
-        mask[:, x + width:] = 255
+        # 1. วิเคราะห์และสกัด Foreground Mask ภายในขอบเขต ROI
+        # ลองใช้ GrabCut เพื่อตัดขอบวัตถุอย่างละเอียด
+        fg_mask = None
+        if width >= 4 and height >= 4:
+            bgd = np.zeros((1, 65), np.float64)
+            fgd = np.zeros((1, 65), np.float64)
+            gc_mask = np.zeros((image_height, image_width), np.uint8)
+            try:
+                cv2.grabCut(pixels, gc_mask, (x, y, width, height), bgd, fgd, 1, cv2.GC_INIT_WITH_RECT)
+                candidate = np.where((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
+                if np.count_nonzero(candidate[y:y + height, x:x + width]) > 0:
+                    fg_mask = candidate
+            except (cv2.error, ValueError):
+                fg_mask = None
+
+        # 2. กรณีภาพสีเดียว/รูปแบบที่ GrabCut ไม่พบ Foreground ให้ Fallback เป็น HSV / Color distance
+        if fg_mask is None:
+            cx = x + width // 2
+            cy = y + height // 2
+            hsv = cv2.cvtColor(pixels, cv2.COLOR_BGR2HSV)
+            center_hsv = hsv[cy, cx]
+            hue = float(center_hsv[0]) * 2
+            sat = int(center_hsv[1])
+            val = int(center_hsv[2])
+
+            if sat >= 25 and val >= 25:
+                raw = segmentation.selective_color_mask(
+                    pixels,
+                    center_degrees=hue,
+                    tolerance_degrees=40,
+                    saturation_min=max(20, sat - 50),
+                    value_min=max(20, val - 50),
+                )
+                cleaned = segmentation.clean_mask(raw)
+            else:
+                center_bgr = pixels[cy, cx].astype(int)
+                dist = np.max(np.abs(pixels.astype(int) - center_bgr), axis=2)
+                cleaned = np.where(dist <= 40, 255, 0).astype(np.uint8)
+
+            fg_mask = np.zeros((image_height, image_width), np.uint8)
+            fg_mask[y:y + height, x:x + width] = cleaned[y:y + height, x:x + width]
+
+            if np.count_nonzero(fg_mask[y:y + height, x:x + width]) == 0:
+                fg_mask[y:y + height, x:x + width] = 255
+
+        # ตัดส่วนนอกกรอบที่ผู้ใช้ไม่ได้เลือกให้เป็นพื้นหลังโปร่งใสเสมอ (ROI bounds)
+        fg_mask[:y, :] = 0
+        fg_mask[y + height:, :] = 0
+        fg_mask[:, :x] = 0
+        fg_mask[:, x + width:] = 0
+
+        # ถ้าภาพมี alpha เดิมอยู่แล้ว (เช่น กดลบหรือเลือกวัตถุเพิ่มหลายรอบ) ให้ผสานคงพื้นที่โปร่งใสเดิมไว้
         if existing_alpha is not None:
-            # รักษาพื้นที่ที่เคยลบไปแล้วในรอบก่อนไว้ — ไม่งั้นลบซ้ำรอบใหม่จะทำให้
-            # พื้นที่เดิมกลับมาทึบแสง (alpha 255) เพราะ mask ใหม่ไม่รู้จักพื้นที่เดิม
-            mask = np.minimum(mask, existing_alpha)
+            # พื้นที่โปร่งใสเดิม (existing_alpha == 0) ต้องคงโปร่งใสต่อไป
+            mask = np.minimum(fg_mask, existing_alpha)
+        else:
+            mask = fg_mask
 
         try:
             result = segmentation.remove_background(pixels, mask)

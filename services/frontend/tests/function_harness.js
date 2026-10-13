@@ -256,10 +256,8 @@ async function main() {
       removebgDisabled: env.nodes["fn-removebg-btn"].disabled,
       blurSelectionText: env.nodes["fn-selection"].textContent,
       blurDisabled: env.nodes["fn-blur-btn"].disabled,
-      // พรีวิวต้องวาดเป็นวงรี (ellipse) ไม่ใช่กรอบสี่เหลี่ยม (strokeRect) สำหรับ removebg
-      ellipseCount: env.canvas.ellipses.length,
-      ellipse: env.canvas.ellipses[env.canvas.ellipses.length - 1] || null,
       rectStrokeCount: env.canvas.strokes.length,
+      stroke: env.canvas.strokes[env.canvas.strokes.length - 1] || null,
     }));
     return;
   }

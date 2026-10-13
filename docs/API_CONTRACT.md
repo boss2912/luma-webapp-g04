@@ -281,7 +281,7 @@ sorted(r.rule for r in create_app().url_map.iter_rules() if "pipeline" in r.rule
 |---|---|
 | `02_enhancement/blur` | `pipeline/02_enhancement/spatial_filters.py` |
 | `03_segmentation/contours` | `pipeline/03_segmentation/segmentation.py` (`find_faces`) — เดิมเป็นตีกรอบสี ตอนนี้เป็นจับหน้าจริงด้วย YuNet (DNN) |
-| `03_segmentation/remove-background` | `pipeline/03_segmentation/segmentation.py` (`remove_background`) — ฟังก์ชันที่ 3 ของหน้า Function: ลบพื้นหลังเป็นวงรีที่แนบในกรอบที่ลากเลือก |
+| `03_segmentation/remove-background` | `pipeline/03_segmentation/segmentation.py` (`remove_background`) — ฟังก์ชันที่ 3 ของหน้า Function: ลบพื้นหลังอัตโนมัติ เก็บวัตถุในกรอบที่ลากเลือกไว้และตัดพื้นหลังโปร่งใส |
 | `04_features/color_palette` | `pipeline/04_features/color_palette.py` |
 | `04_features/auto_tag` | `pipeline/04_features/auto_tag.py` |
 
@@ -359,13 +359,12 @@ error) · ค่า input ผิด รวมถึง bool ในช่อง�
 > เช็คด้วย `hasattr(cv2, "CascadeClassifier")` ได้ `False` — จึงไม่มีทางเลือกที่
 > เป็น classical CV ล้วนสำหรับงานนี้
 
-`POST /pipeline/03_segmentation/remove-background` ลบพื้นหลังให้โปร่งใสเป็น
-**วงรี/วงกลมที่แนบในกรอบสี่เหลี่ยม** ที่ผู้ใช้ลากเลือก (ไม่ใช่ทั้งกรอบสี่เหลี่ยม
-— ผู้ใช้ขอให้เป็นทรงกลมแทนสี่เหลี่ยมโดยเฉพาะ) ส่วนนอกวงรีคงทึบแสงเดิมทั้งหมด
-รวมถึงมุมของกรอบสี่เหลี่ยมที่ลากด้วย — ใช้ `segmentation.remove_background(image,
-mask)` ตรงๆ ที่มีอยู่แล้วในไพพ์ไลน์ (ไม่เคยมี route มาก่อน ดูหัวข้อยกเลิก
-`remove_bg` เดิมด้านบน) `mask` ที่นี่สร้างด้วย `cv2.ellipse()` แนบในกรอบสี่เหลี่ยม
-ที่ลาก ไม่ใช่จาก `selective_color_mask`:
+`POST /pipeline/03_segmentation/remove-background` ลบพื้นหลังให้โปร่งใส
+ตามสเปก Background Removal (Lecture 4 หน้า 52 & Lecture 1 หน้า 6): ผู้ใช้ลากกรอบ
+สี่เหลี่ยมรอบวัตถุที่ต้องการเก็บไว้ ระบบวิเคราะห์ภาพด้วย GrabCut และ HSV selective
+color segmentation เพื่อรักษาตัววัตถุ (Foreground) ไว้ (alpha 255) และตัดพื้นหลังรอบนอก
+ให้โปร่งใส (alpha 0) — ใช้ `segmentation.remove_background(image, mask)` ตรงๆ ที่มีอยู่แล้ว
+ในไพพ์ไลน์ โดย `mask` สร้างจากการวิเคราะห์ภาพภายในกรอบสี่เหลี่ยม ROI:
 
 ```json
 {
@@ -376,13 +375,11 @@ mask)` ตรงๆ ที่มีอยู่แล้วในไพพ์ไ
 }
 ```
 
-`region` ยังเป็นกรอบสี่เหลี่ยมเหมือนเดิม (ใช้กำหนดขอบเขตของวงรีเท่านั้น) พิกัด
-ต้องเป็น integer ที่ไม่ใช่ bool และกรอบต้องอยู่ภายในภาพ (เงื่อนไขเดียวกับ
-`region` ของ `02_enhancement/blur`) ตอบ `image` เป็น PNG ที่มี alpha channel —
-โปร่งใส (alpha 0) เฉพาะในวงรีที่แนบในกรอบ ส่วนที่เหลือทั้งหมด alpha 255
-(ทึบแสง) พร้อม `metrics.erased_pixels` (นับจากพิกเซลที่ถูกลบจริงในวงรี ไม่ใช่
-พื้นที่กรอบสี่เหลี่ยม), `stage: "03_segmentation"` และ `operation:
-"remove-background"` · ค่า input ผิด รวมถึง bool ในช่องตัวเลข ให้ตอบ 400
+`region` เป็นกรอบสี่เหลี่ยม ROI กำหนดขอบเขตของวัตถุ พิกัดต้องเป็น integer ที่ไม่ใช่ bool
+และกรอบต้องอยู่ภายในภาพ (เงื่อนไขเดียวกับ `region` ของ `02_enhancement/blur`) ตอบ `image`
+เป็น PNG ที่มี alpha channel — วัตถุที่เลือกคงอยู่ (alpha 255) และพื้นหลังโปร่งใส (alpha 0)
+พร้อม `metrics.erased_pixels` (นับจากพิกเซลที่ถูกลบจริงเป็นโปร่งใส), `stage: "03_segmentation"`
+และ `operation: "remove-background"` · ค่า input ผิด รวมถึง bool ในช่องตัวเลข ให้ตอบ 400
 
 ---
 

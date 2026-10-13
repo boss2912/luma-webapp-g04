@@ -205,8 +205,8 @@ def _remove_bg_body(region=None):
     return {"image": _encode_png(_checkerboard()), "params": params}
 
 
-def test_remove_background_route_erases_an_ellipse_inscribed_in_the_region_not_the_whole_box():
-    """[กรณีทดสอบ]: ลบเป็นวงรี/วงกลมที่แนบในกรอบที่ลาก ไม่ใช่ทั้งกรอบสี่เหลี่ยม (ตามที่ผู้ใช้ขอ)"""
+def test_remove_background_route_retains_foreground_object_and_erases_background():
+    """[กรณีทดสอบ]: ลบพื้นหลังต้องคงตัววัตถุในกรอบไว้ (alpha 255) และทำให้พื้นหลังรอบนอกโปร่งใส (alpha 0)"""
     client = create_app({"TESTING": True}).test_client()
 
     response = client.post("/pipeline/03_segmentation/remove-background", json=_remove_bg_body())
@@ -218,22 +218,37 @@ def test_remove_background_route_erases_an_ellipse_inscribed_in_the_region_not_t
     assert result.shape == (24, 24, 4)
     alpha = result[:, :, 3]
 
-    # region = {x:8, y:8, width:8, height:8} -> วงกลมรัศมี 4 จุดศูนย์กลาง (12, 12)
-    assert alpha[12, 12] == 0, "จุดกึ่งกลางวงกลมต้องถูกลบเป็นโปร่งใส"
-    assert alpha[8, 8] == 255, "มุมของกรอบสี่เหลี่ยมต้องไม่ถูกลบ เพราะอยู่นอกวงกลมที่แนบใน"
-    assert alpha[0, 0] == 255, "นอกกรอบทั้งหมดต้องทึบแสงเหมือนเดิม"
+    # region = {x:8, y:8, width:8, height:8}
+    assert alpha[12, 12] == 255, "ตัววัตถุภายในกรอบที่เลือกต้องคงอยู่ (ทึบแสง)"
+    assert alpha[0, 0] == 0, "นอกกรอบที่เลือก (พื้นหลัง) ต้องถูกลบเป็นโปร่งใส"
 
     erased = int(np.count_nonzero(alpha == 0))
-    assert 0 < erased < 64, "พื้นที่ที่ลบต้องน้อยกว่าทั้งกรอบสี่เหลี่ยม (8x8=64) เพราะเป็นวงกลมข้างใน"
+    assert erased > 0, "ต้องมีการลบพื้นหลังให้โปร่งใส"
     assert response.json["metrics"] == {"erased_pixels": erased}
 
 
-def test_remove_background_route_never_erases_outside_a_tiny_region():
-    """[กรณีทดสอบ]: กรอบเล็กมาก (1x1) ต้องไม่ลบล้นออกนอกกรอบ (ROI leak, รีวิว #207)
-
-    axes คำนวณขั้นต่ำ 1 พิกเซลเสมอ — ถ้าไม่จำกัด mask ให้อยู่แค่ในกรอบที่เลือก
-    วงกลมรัศมี 1 จะล้นไปลบพิกเซลข้างเคียงนอกกรอบที่ผู้ใช้ไม่ได้เลือกไว้ด้วย
+def test_remove_background_route_astronaut_keeps_person_and_removes_background():
+    """[กรณีทดสอบ]: ทดสอบกับภาพ astronaut.png (skimage) ตามเงื่อนไขใน Issue #218
+    ลากกรอบ (60, 0, 400, 512) รอบตัวคน -> คนต้องอยู่ (alpha 255) พื้นหลังมุมภาพต้องโปร่งใส (alpha 0)
     """
+    import skimage.data
+    client = create_app({"TESTING": True}).test_client()
+    astronaut = cv2.cvtColor(skimage.data.astronaut(), cv2.COLOR_RGB2BGR)
+    body = {
+        "image": _encode_png(astronaut),
+        "params": {"region": {"x": 60, "y": 0, "width": 400, "height": 512}},
+    }
+
+    response = client.post("/pipeline/03_segmentation/remove-background", json=body)
+    assert response.status_code == 200
+    alpha = _decode_png_with_alpha(response.json["image"])[:, :, 3]
+
+    assert alpha[256, 260] == 255, "กลางตัวคน (260, 256) ต้องยังอยู่ (alpha 255)"
+    assert alpha[5, 5] == 0, "มุมพื้นหลัง (5, 5) ต้องโปร่งใส (alpha 0)"
+
+
+def test_remove_background_route_never_retains_outside_region():
+    """[กรณีทดสอบ]: กรอบเล็กมาก (1x1) ต้องตัดพื้นหลังรอบนอกทั้งหมดให้โปร่งใส ไม่ล้นออกนอกกรอบ"""
     client = create_app({"TESTING": True}).test_client()
     body = {
         "image": _encode_png(_checkerboard()),
@@ -244,19 +259,17 @@ def test_remove_background_route_never_erases_outside_a_tiny_region():
 
     assert response.status_code == 200
     alpha = _decode_png_with_alpha(response.json["image"])[:, :, 3]
-    # เพื่อนบ้านทั้ง 4 ทิศของกรอบ 1x1 ต้องทึบแสงเหมือนเดิม ไม่ถูกลบล้นออกมา
-    assert alpha[11, 12] == 255, "พิกเซลด้านบนนอกกรอบต้องไม่ถูกลบ"
-    assert alpha[13, 12] == 255, "พิกเซลด้านล่างนอกกรอบต้องไม่ถูกลบ"
-    assert alpha[12, 11] == 255, "พิกเซลด้านซ้ายนอกกรอบต้องไม่ถูกลบ"
-    assert alpha[12, 13] == 255, "พิกเซลด้านขวานอกกรอบต้องไม่ถูกลบ"
+    # จุดที่เลือก 1x1 ต้องถูกเก็บไว้
+    assert alpha[12, 12] == 255, "พิกเซลในกรอบที่เลือกต้องถูกเก็บไว้"
+    # เพื่อนบ้านทั้ง 4 ทิศนอกกรอบ 1x1 ต้องโปร่งใส (เป็นพื้นหลัง)
+    assert alpha[11, 12] == 0, "พิกเซลด้านบนนอกกรอบต้องโปร่งใส"
+    assert alpha[13, 12] == 0, "พิกเซลด้านล่างนอกกรอบต้องโปร่งใส"
+    assert alpha[12, 11] == 0, "พิกเซลด้านซ้ายนอกกรอบต้องโปร่งใส"
+    assert alpha[12, 13] == 0, "พิกเซลด้านขวานอกกรอบต้องโปร่งใส"
 
 
 def test_remove_background_route_preserves_previously_erased_area_on_repeat():
-    """[กรณีทดสอบ]: ลบพื้นหลังซ้ำรอบสองต้องไม่ทำให้พื้นที่ที่ลบไปแล้วในรอบแรกกลับมาทึบแสง
-
-    บั๊กเดิม: สร้าง mask 255 ใหม่ทุกรอบโดยไม่สนใจ alpha เดิมของภาพที่ส่งเข้ามา
-    ทำให้พื้นที่ที่เคยโปร่งใสจากรอบก่อนกลับมาทึบแสงเมื่อกดลบรอบใหม่ (รีวิว #207)
-    """
+    """[กรณีทดสอบ]: ลบพื้นหลังซ้ำรอบสองต้องไม่ทำให้พื้นที่ที่โปร่งใสไปแล้วในรอบแรกกลับมาทึบแสง"""
     client = create_app({"TESTING": True}).test_client()
     original = _checkerboard()
 
@@ -267,18 +280,17 @@ def test_remove_background_route_preserves_previously_erased_area_on_repeat():
     assert first.status_code == 200
     first_png_b64 = first.json["image"]
     first_alpha = _decode_png_with_alpha(first_png_b64)[:, :, 3]
-    assert first_alpha[5, 5] == 0, "setup: รอบแรกต้องลบตรงกลางกรอบแรกสำเร็จ"
+    assert first_alpha[0, 0] == 0, "setup: รอบแรกต้องลบพื้นหลังนอกกรอบสำเร็จ"
 
-    # ส่งผลลัพธ์รอบแรก (มี alpha ติดมาแล้ว) กลับเข้าไปลบซ้ำที่กรอบอื่นที่ไม่ทับกัน
+    # ส่งผลลัพธ์รอบแรกกลับเข้าไปประมวลผลซ้ำ
     second = client.post("/pipeline/03_segmentation/remove-background", json={
         "image": first_png_b64,
-        "params": {"region": {"x": 16, "y": 16, "width": 6, "height": 6}},
+        "params": {"region": {"x": 2, "y": 2, "width": 6, "height": 6}},
     })
     assert second.status_code == 200
     second_alpha = _decode_png_with_alpha(second.json["image"])[:, :, 3]
 
-    assert second_alpha[5, 5] == 0, "พื้นที่ที่ลบไปแล้วในรอบแรกต้องยังโปร่งใสอยู่ ไม่กลับมาทึบแสง"
-    assert second_alpha[19, 19] == 0, "พื้นที่ที่เพิ่งลบในรอบสองต้องโปร่งใสด้วย"
+    assert second_alpha[0, 0] == 0, "พื้นที่ที่โปร่งใสไปแล้วในรอบแรกต้องยังโปร่งใสอยู่ ไม่กลับมาทึบแสง"
 
 
 @pytest.mark.parametrize("params", [
