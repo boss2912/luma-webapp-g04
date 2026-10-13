@@ -3,6 +3,7 @@ LUMA Auth Routes
 Endpoints สำหรับระบบสมาชิก Authentication พร้อมระบบ Rate Limiting (Issue #50/#51)
 """
 
+import hashlib
 import time
 from collections import defaultdict
 from flask import Blueprint, jsonify, request, session, current_app
@@ -58,6 +59,40 @@ def record_failed_attempt(key: str):
 def reset_rate_limit(key: str):
     """ล้างประวัติการพยายามเมื่อ Login สำเร็จ"""
     _login_failed_attempts.pop(key, None)
+
+
+def password_stamp(user) -> str:
+    """ตราประจำรหัสผ่านของผู้ใช้ — เปลี่ยนทุกครั้งที่ password_hash เปลี่ยน
+
+    ตอนล็อกอินเก็บตรานี้ลง session แล้วทุกคำขอเอามาเทียบกับค่าในฐานข้อมูล
+    ถ้า admin ตั้งรหัสใหม่ ตราในฐานข้อมูลจะเปลี่ยน session เก่าจึงเทียบไม่ตรงและใช้ไม่ได้
+
+    ใช้ sha256 ของ password_hash อีกชั้น ไม่เก็บท่อนของ password_hash ตรงๆ
+    เพราะ cookie ของ session อ่านได้ที่เครื่องผู้ใช้ (แค่เซ็นชื่อกันแก้ ไม่ได้เข้ารหัส)
+    """
+    return hashlib.sha256(user.password_hash.encode("utf-8")).hexdigest()[:16]
+
+
+@auth_bp.before_app_request
+def drop_session_after_password_change():
+    """รันก่อนทุกคำขอของทั้งแอป — เตะ session ที่ล็อกอินไว้ก่อนรหัสผ่านถูกเปลี่ยน
+
+    ลบ user_id ออกจาก session แล้วปล่อยให้คำขอเดินต่อ
+    route ทุกตัวเช็ค session.get("user_id") อยู่แล้ว จึงตอบ 401 เองโดยไม่ต้องแก้ทีละ route
+
+    ข้อจำกัด: session ที่ไม่มี pw_stamp (cookie ที่ออกก่อนมีระบบนี้) จะไม่ถูกเช็ค
+    ล็อกอินครั้งถัดไปถึงจะได้ตรา ถ้าต้องการเตะ cookie เก่าทั้งหมดตอนอัปเดต ให้เปลี่ยน SECRET_KEY
+    """
+    user_id = session.get("user_id")
+    stamp = session.get("pw_stamp")
+    if not user_id or stamp is None:
+        return None
+
+    user = db.session.get(User, user_id)
+    if user is not None and stamp != password_stamp(user):
+        session.pop("user_id", None)
+        session.pop("pw_stamp", None)
+    return None
 
 
 @auth_bp.route("/ping", methods=["GET"])
@@ -178,6 +213,8 @@ def login():
 
     # เก็บแค่ user_id ใน session ไม่ยัดข้อมูล user ทั้งก้อนลง cookie
     session["user_id"] = user.id
+    # ตราของรหัสผ่านตอนล็อกอิน — ใช้เตะ session นี้เมื่อรหัสถูกเปลี่ยนทีหลัง
+    session["pw_stamp"] = password_stamp(user)
 
     return jsonify({
         "status": "success",
@@ -190,6 +227,7 @@ def login():
 def logout():
     """POST /api/auth/logout — ออกจากระบบและล้าง Session (Issue #50)"""
     session.pop("user_id", None)
+    session.pop("pw_stamp", None)
     return jsonify({
         "status": "success",
         "message": "ออกจากระบบสำเร็จ",

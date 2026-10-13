@@ -16,7 +16,7 @@ from werkzeug.security import generate_password_hash
 
 from app.models import User, db
 from app.routes.api import ID
-from app.routes.auth import _ALREADY_TAKEN, _invalid
+from app.routes.auth import _ALREADY_TAKEN, _invalid, password_stamp
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
@@ -118,5 +118,10 @@ def update_user(user_id):
         # rollback เพื่อทิ้งค่าที่แก้ค้างไว้ทั้งหมด ไม่ให้บันทึกครึ่งเดียว
         db.session.rollback()
         return jsonify({"error": _ALREADY_TAKEN}), 400
+
+    # ตั้งรหัสใหม่แล้ว session เก่าของผู้ใช้คนนั้นใช้ไม่ได้ทันที (ดู password_stamp ใน auth.py)
+    # ยกเว้น admin แก้รหัสของตัวเอง — อัปเดตตราใน session นี้ ไม่งั้น admin จะเตะตัวเองออก
+    if "password" in data and user.id == session.get("user_id"):
+        session["pw_stamp"] = password_stamp(user)
 
     return jsonify({"status": "success", "user": user_to_dict(user)}), 200

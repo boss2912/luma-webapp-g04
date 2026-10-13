@@ -180,6 +180,56 @@ def test_admin_sets_new_password_and_it_works(app, client):
     assert login(client, "Boss", "new-password").status_code == 200
 
 
+def test_password_reset_kicks_the_old_session(app, client):
+    """admin ตั้งรหัสใหม่ให้ Boss แล้ว session ที่ Boss ล็อกอินค้างไว้ต้องใช้ไม่ได้ทันที
+
+    กรณีจริง: รหัสของ Boss หลุด คนร้ายล็อกอินค้างไว้ admin ตั้งรหัสใหม่ให้
+    ถ้า session เก่ายังใช้ได้ การตั้งรหัสใหม่ก็ไล่คนร้ายออกไม่ได้
+    """
+    add_user(app, "admin", "admin@example.com", "admin1234", role="admin")
+    user_id = add_user(app, "Boss", "boss@example.com", "old-password")
+
+    # client = เบราว์เซอร์ของ Boss · admin_client = เบราว์เซอร์ของ admin (cookie แยกกัน)
+    admin_client = app.test_client()
+    login(client, "Boss", "old-password")
+    login(admin_client, "admin", "admin1234")
+    assert client.get("/api/auth/me").status_code == 200
+
+    res = admin_client.patch(f"/api/admin/users/{user_id}", json={"password": "new-password"})
+    assert res.status_code == 200
+
+    # session เก่าของ Boss โดนเตะ ทั้ง /me และ route ที่ต้องล็อกอิน
+    assert client.get("/api/auth/me").status_code == 401
+    assert client.get("/api/assets").status_code == 401
+    # ล็อกอินใหม่ด้วยรหัสใหม่แล้วกลับมาใช้ได้
+    assert login(client, "Boss", "new-password").status_code == 200
+    assert client.get("/api/auth/me").status_code == 200
+
+
+def test_admin_changing_own_password_stays_logged_in(app, client):
+    admin_id = add_user(app, "admin", "admin@example.com", "admin1234", role="admin")
+    login(client, "admin", "admin1234")
+
+    res = client.patch(f"/api/admin/users/{admin_id}", json={"password": "new-admin-password"})
+    assert res.status_code == 200
+    assert client.get("/api/admin/users").status_code == 200
+
+
+def test_editing_name_or_email_does_not_kick_the_session(app, client):
+    """แก้แค่ชื่อหรืออีเมล รหัสผ่านไม่เปลี่ยน session ของผู้ใช้คนนั้นต้องยังใช้ได้"""
+    add_user(app, "admin", "admin@example.com", "admin1234", role="admin")
+    user_id = add_user(app, "Boss", "boss@example.com", "password123")
+
+    admin_client = app.test_client()
+    login(client, "Boss", "password123")
+    login(admin_client, "admin", "admin1234")
+
+    res = admin_client.patch(f"/api/admin/users/{user_id}",
+                             json={"displayName": "Boss2", "email": "boss2@example.com"})
+    assert res.status_code == 200
+    assert client.get("/api/auth/me").status_code == 200
+
+
 def test_admin_edit_rejects_bad_values(app, client):
     add_user(app, "admin", "admin@example.com", "admin1234", role="admin")
     user_id = add_user(app, "Boss", "boss@example.com", "password123")
