@@ -47,7 +47,8 @@ def app(tmp_path):
     (test ล้มแบบสุ่ม FOREIGN KEY constraint failed) — ไฟล์จริงใช้ QueuePool แยก connection
     ต่อ thread เหมือนตอนรันจริง
     """
-    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///" + str(tmp_path / "jobs.db").replace("\\", "/")})
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///" + str(tmp_path / "jobs.db").replace("\\", "/"),
+                      "ALLOWED_EMAIL_DOMAINS": None})
     with app.app_context():
         db.create_all()
     yield app

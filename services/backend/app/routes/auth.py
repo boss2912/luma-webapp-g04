@@ -90,6 +90,12 @@ def register():
         return _invalid("displayName", "ชื่อแสดงผลยาวได้ไม่เกิน 80 ตัวอักษร / displayName must be at most 80 characters")
     if len(email) > 255:
         return _invalid("email", "อีเมลยาวได้ไม่เกิน 255 ตัวอักษร / email must be at most 255 characters")
+    # โดเมนต้องอยู่ใน ALLOWED_EMAIL_DOMAINS (ค่าเริ่มต้นอยู่ใน create_app) · None = รับทุกโดเมน
+    allowed_domains = current_app.config["ALLOWED_EMAIL_DOMAINS"]
+    email_domain = email.rsplit("@", 1)[1]
+    if allowed_domains and email_domain not in allowed_domains:
+        domain_list = ", ".join("@" + domain for domain in allowed_domains)
+        return _invalid("email", f"สมัครได้เฉพาะอีเมล {domain_list} / Only {domain_list} emails can register")
     if not password or len(password) < 8:
         return _invalid("password", "รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร / Password must be at least 8 chars")
 

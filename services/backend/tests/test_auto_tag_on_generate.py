@@ -34,7 +34,8 @@ def app(tmp_path):
     """ไฟล์ .db จริงแบบเดียวกับ test_jobs.py · instance_path ชี้ tmp_path
     ภาพที่ fake Forge เขียนจึงไม่ไปปนกับ services/backend/instance/ จริง
     """
-    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///" + str(tmp_path / "tags.db").replace("\\", "/")})
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///" + str(tmp_path / "tags.db").replace("\\", "/"),
+                      "ALLOWED_EMAIL_DOMAINS": None})
     app.instance_path = str(tmp_path)
     with app.app_context():
         db.create_all()

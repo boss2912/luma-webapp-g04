@@ -231,7 +231,7 @@ def test_list_assets_empty_returns_empty_items():
     """[กรณีทดสอบ]: ยังไม่มี asset เลย ต้องได้ items ว่าง ไม่ error"""
     from app import create_app
 
-    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "ALLOWED_EMAIL_DOMAINS": None})
     with app.app_context():
         db.create_all()
 
@@ -465,7 +465,7 @@ if __name__ == "__main__":
         ตกค้างข้ามไปเทสถัดไป (pytest ผ่านเพราะ fixture แยก DB ให้ แต่รันไฟล์นี้ตรงๆ
         ได้ total=8 แทนที่จะเป็น 5) — รีวิว PR #99 ข้อ 4
         """
-        fresh_app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+        fresh_app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "ALLOWED_EMAIL_DOMAINS": None})
         with fresh_app.app_context():
             db.create_all()
         return fresh_app, fresh_app.test_client()

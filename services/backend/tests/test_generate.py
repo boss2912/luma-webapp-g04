@@ -58,7 +58,7 @@ def _login(client):
 
 def _app_with_db():
     from app.models import db
-    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "ALLOWED_EMAIL_DOMAINS": None})
     with app.app_context():
         db.create_all()
     return app

@@ -175,7 +175,8 @@ _NEW_USER = {"email": "csrf@luma.ai", "displayName": "Csrf", "password": "passwo
 
 
 def _csrf_client():
-    app = create_app({"TESTING": True, "WTF_CSRF_ENABLED": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    app = create_app({"TESTING": True, "WTF_CSRF_ENABLED": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+                      "ALLOWED_EMAIL_DOMAINS": None})
     with app.app_context():
         db.create_all()
     return app.test_client()

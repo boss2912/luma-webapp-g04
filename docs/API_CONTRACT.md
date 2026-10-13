@@ -36,17 +36,18 @@
 
 ### `POST /api/auth/register`
 ```json
-{ "username": "boss", "email": "boss@example.com", "password": "อย่างน้อย 8 ตัว" }
+{ "displayName": "boss", "email": "you@cdti.ac.th", "password": "อย่างน้อย 8 ตัว" }
 ```
 | ผล | status |
 |---|---|
-| สำเร็จ | 200 |
+| สำเร็จ | 201 |
 | ข้อมูลไม่ผ่าน | 400 + `errors` รายฟิลด์ |
-| ซ้ำ | 400 + ข้อความ**กลางๆ** ไม่บอกว่า username หรือ email ซ้ำ (กัน account enumeration) |
+| ซ้ำ | 400 + ข้อความ**กลางๆ** ไม่บอกว่า displayName หรือ email ซ้ำ (กัน account enumeration) |
 | `displayName` เกิน 80 ตัว / `email` เกิน 255 ตัว | 400 — ตามความยาวคอลัมน์ `users` (SQLite ไม่บังคับให้เอง) |
+| อีเมลไม่ใช่ `@cdti.ac.th` หรือ `@gmail.com` | 400 + `errors.email` — รายการโดเมนอยู่ที่ `ALLOWED_EMAIL_DOMAINS` (ค่าเริ่มต้นใน `create_app`) · จำกัดเฉพาะตอนสมัคร login ไม่เช็ค |
 
 ```json
-{ "errors": { "username": "...", "email": "...", "password": "...", "general": "..." } }
+{ "errors": { "displayName": "...", "email": "...", "password": "...", "general": "..." } }
 ```
 
 ### `POST /api/auth/login`
