@@ -11,6 +11,8 @@
   <img src="https://img.shields.io/badge/milestone-V2%20(กำลังทำ)-yellow" alt="Milestone">
 </div>
 
+> 📽️ **สไลด์นำเสนอการทำงานของระบบ** — [เปิดดู PDF](docs/presentation/LUMA_presentation_v10.pdf) · [ดาวน์โหลด PowerPoint](docs/presentation/LUMA_presentation_v10.pptx)
+
 ---
 
 ## 📌 สถานะปัจจุบัน
