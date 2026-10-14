@@ -14,6 +14,7 @@ backend ไม่ประมวลผลภาพเอง หน้าที�
 อยู่ใน services/ai-engine/pipeline/ ซึ่งเป็นของคนที่ 3
 """
 
+import os
 import requests
 from flask import current_app
 
@@ -23,6 +24,14 @@ class PipelineClientError(Exception):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+
+
+def _get_engine_headers() -> dict:
+    headers = {}
+    engine_key = current_app.config.get("AI_ENGINE_KEY") or os.environ.get("AI_ENGINE_KEY")
+    if engine_key:
+        headers["X-LUMA-Engine-Key"] = engine_key
+    return headers
 
 
 def _post_pipeline(stage: str, operation: str, image_b64: str, params: dict) -> dict:
@@ -40,8 +49,13 @@ def _post_pipeline(stage: str, operation: str, image_b64: str, params: dict) -> 
     if "," in image_b64:
         image_b64 = image_b64.split(",", 1)[1]
 
+    kwargs = {"json": {"image": image_b64, "params": params}, "timeout": timeout}
+    headers = _get_engine_headers()
+    if headers:
+        kwargs["headers"] = headers
+
     try:
-        response = requests.post(endpoint, json={"image": image_b64, "params": params}, timeout=timeout)
+        response = requests.post(endpoint, **kwargs)
     except requests.exceptions.RequestException as exc:
         # host/port ภายในอยู่ใน log เท่านั้น — ข้อความที่ส่งให้ browser ต้องไม่มี
         current_app.logger.error("เชื่อมต่อ AI engine ที่ %s ไม่สำเร็จ: %s", endpoint, exc)

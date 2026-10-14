@@ -18,6 +18,14 @@ class ForgeClientError(Exception):
         self.status_code = status_code
 
 
+def _get_engine_headers() -> dict:
+    headers = {}
+    engine_key = current_app.config.get("AI_ENGINE_KEY") or os.environ.get("AI_ENGINE_KEY")
+    if engine_key:
+        headers["X-LUMA-Engine-Key"] = engine_key
+    return headers
+
+
 def generate_image(
     prompt: str,
     negative_prompt: str = "",
@@ -52,8 +60,12 @@ def generate_image(
 def list_checkpoints():
     """Read the sanitized model catalogue from ai-engine."""
     ai_url = current_app.config.get("AI_ENGINE_URL", "http://127.0.0.1:8000").rstrip("/")
+    kwargs = {"timeout": 30}
+    headers = _get_engine_headers()
+    if headers:
+        kwargs["headers"] = headers
     try:
-        response = requests.get(f"{ai_url}/forge/checkpoints", timeout=30)
+        response = requests.get(f"{ai_url}/forge/checkpoints", **kwargs)
         response.raise_for_status()
         data = response.json()
     except requests.Timeout as exc:
@@ -116,8 +128,13 @@ def _call_ai_engine(path: str, payload: dict, seed: int) -> tuple[str, int]:
     endpoint = f"{ai_url}{path}"
     timeout = current_app.config.get("FORGE_TIMEOUT_SECONDS", 120)
 
+    kwargs = {"json": payload, "timeout": timeout}
+    headers = _get_engine_headers()
+    if headers:
+        kwargs["headers"] = headers
+
     try:
-        response = requests.post(endpoint, json=payload, timeout=timeout)
+        response = requests.post(endpoint, **kwargs)
     except requests.exceptions.Timeout as exc:
         current_app.logger.error("เชื่อมต่อ AI engine ที่ %s เกินเวลา (%ss): %s", endpoint, timeout, exc)
         raise ForgeClientError(

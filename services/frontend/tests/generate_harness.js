@@ -37,7 +37,7 @@ async function seed() {
   for (const [k, v] of Object.entries(values)) form[k] = { value: v };
   const nodes = { "generate-form": form };
   for (const id of ["generate-submit", "generate-error", "generate-spinner", "preview-container", "preview-image",
-    "preview-placeholder", "preview-meta", "meta-asset-id", "meta-prompt"]) nodes[id] = el();
+    "preview-placeholder", "preview-meta", "meta-prompt"]) nodes[id] = el();
   load(nodes, async (_, opts) => {
     sent = JSON.parse(opts.body);
     return { ok: true, status: 200, json: async () => ({ image_url: "/api/assets/1/image", asset_id: 1 }) };
@@ -54,7 +54,7 @@ async function seedClamp() {
   const seedInput = el();
   const nodes = { "generate-form": form, seed: seedInput };
   for (const id of ["generate-submit", "generate-error", "generate-spinner", "preview-container", "preview-image",
-    "preview-placeholder", "preview-meta", "meta-asset-id", "meta-prompt"]) nodes[id] = el();
+    "preview-placeholder", "preview-meta", "meta-prompt"]) nodes[id] = el();
   load(nodes, async () => ({ ok: true, status: 200, json: async () => ({}) }));
 
   const results = {};

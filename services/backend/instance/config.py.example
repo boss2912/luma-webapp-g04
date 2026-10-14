@@ -44,6 +44,15 @@ AI_ENGINE_URL = "http://127.0.0.1:8000"
 #
 # Real 3-machine deployment - replace with the actual IP of the AI box:
 # AI_ENGINE_URL = "http://192.168.1.30:8000"
+#
+# Shared secret for service-to-service authentication (Issue #210):
+# AI_ENGINE_KEY = "CHANGE-ME-shared-token-matching-ai-engine"
+
+# --- Register ----------------------------------------------------------------
+# Email domains that can sign up. The default lives in create_app():
+# ("cdti.ac.th", "gmail.com"). Login is not affected.
+# Set to None to accept every domain (for example on a benchmark machine).
+# ALLOWED_EMAIL_DOMAINS = None
 
 # --- Generation defaults ----------------------------------------------------
 # Values follow what the lecturer recommends in Lecture 2:

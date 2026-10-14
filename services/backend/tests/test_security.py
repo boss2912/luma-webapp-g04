@@ -175,7 +175,8 @@ _NEW_USER = {"email": "csrf@luma.ai", "displayName": "Csrf", "password": "passwo
 
 
 def _csrf_client():
-    app = create_app({"TESTING": True, "WTF_CSRF_ENABLED": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    app = create_app({"TESTING": True, "WTF_CSRF_ENABLED": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+                      "ALLOWED_EMAIL_DOMAINS": None})
     with app.app_context():
         db.create_all()
     return app.test_client()
@@ -284,5 +285,35 @@ def test_oversized_request_returns_json_not_html():
     assert res.is_json, f"ต้องเป็น JSON แต่ได้ {res.content_type}"
     assert "error" in res.get_json()
     assert "32" in res.get_json()["error"]
+
+
+# ---------------------------------------------- Memory leak & Dependency (#212)
+
+def test_rate_limit_prunes_expired_keys_and_prevents_memory_leak():
+    """[กรณีทดสอบ #212]: ยิงอีเมลสุ่ม N ครั้ง เมื่อพ้น window แล้ว dict ต้องล้าง expired keys ออก ไม่โตค้างตาม N"""
+    import time
+    from app.routes.auth import _login_failed_attempts, check_rate_limit, record_failed_attempt
+
+    _login_failed_attempts.clear()
+
+    # จำลองยิง login ผิดด้วย 100 อีเมลที่ไม่ซ้ำกันเมื่อ 120 วินาทีก่อน (หมดอายุแล้ว)
+    old_time = time.time() - 120
+    for i in range(100):
+        email = f"attacker_{i}@example.com"
+        _login_failed_attempts[email] = [old_time]
+
+    assert len(_login_failed_attempts) == 100
+
+    # เมื่อเรียก check_rate_limit ของอีเมลใหม่ expired keys ทั้ง 100 คีย์ต้องถูก prune ออกทั้งหมด
+    is_blocked = check_rate_limit("new_user@example.com", max_attempts=5, window_seconds=60)
+    assert not is_blocked
+    assert len(_login_failed_attempts) == 0
+
+    # ตรวจสอบว่าพฤติกรรมเดิมยังทำงานถูกต้อง: ยิง 5 ครั้งติดกันต้องถูกบล็อก
+    for _ in range(5):
+        record_failed_attempt("spam@example.com")
+    assert check_rate_limit("spam@example.com", max_attempts=5, window_seconds=60) is True
+    assert len(_login_failed_attempts) == 1
+
 
 

@@ -65,7 +65,7 @@ def test_returns_every_tag_the_user_has_regardless_of_paging():
     """
     from app import create_app
     app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-                      "SECRET_KEY": "test-secret-key"})
+                      "SECRET_KEY": "test-secret-key", "ALLOWED_EMAIL_DOMAINS": None})
     client = app.test_client()
     with app.app_context():
         db.create_all()
