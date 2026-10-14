@@ -17,13 +17,13 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from app import create_app
+from conftest import log_in_test_user
 
 
 def _make_client():
     app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
     client = app.test_client()
-    with client.session_transaction() as sess:
-        sess["user_id"] = 1
+    log_in_test_user(app, client)
     return app, client
 
 

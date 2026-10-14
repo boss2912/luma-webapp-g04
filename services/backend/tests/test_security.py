@@ -18,6 +18,7 @@ if BASE_DIR not in sys.path:
 from werkzeug.security import generate_password_hash
 
 from app import create_app
+from conftest import log_in_test_user
 from app.models import User, db
 from app.routes.auth import reset_rate_limit
 
@@ -274,8 +275,7 @@ def test_oversized_request_returns_json_not_html():
     """
     app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
     client = app.test_client()
-    with client.session_transaction() as sess:
-        sess["user_id"] = 1
+    log_in_test_user(app, client)
 
     too_big = b"A" * (33 * 1024 * 1024)
     res = client.post("/api/pipeline/palette/extract", data=too_big,

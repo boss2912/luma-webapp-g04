@@ -99,12 +99,17 @@ def drop_session_after_password_change():
     ลบ user_id ออกจาก session แล้วปล่อยให้คำขอเดินต่อ
     route ทุกตัวเช็ค session.get("user_id") อยู่แล้ว จึงตอบ 401 เองโดยไม่ต้องแก้ทีละ route
 
-    ข้อจำกัด: session ที่ไม่มี pw_stamp (cookie ที่ออกก่อนมีระบบนี้) จะไม่ถูกเช็ค
-    ล็อกอินครั้งถัดไปถึงจะได้ตรา ถ้าต้องการเตะ cookie เก่าทั้งหมดตอนอัปเดต ให้เปลี่ยน SECRET_KEY
+    session ที่มี user_id แต่ไม่มี pw_stamp (cookie ที่ออกก่อนมีระบบนี้) ถูกเตะออกด้วย
+    ถ้าปล่อยไว้ cookie เก่าจะรอดจากการตั้งรหัสใหม่ของ admin (#228 รีวิว)
+    ผลข้างเคียง: ทุกคนที่ล็อกอินค้างไว้ก่อนอัปเดตต้องล็อกอินใหม่ 1 ครั้ง
     """
     user_id = session.get("user_id")
+    if not user_id:
+        return None
+
     stamp = session.get("pw_stamp")
-    if not user_id or stamp is None:
+    if stamp is None:
+        session.pop("user_id", None)
         return None
 
     user = db.session.get(User, user_id)

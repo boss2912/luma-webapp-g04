@@ -223,6 +223,22 @@ def test_password_reset_kicks_the_old_session(app, client):
     assert client.get("/api/auth/me").status_code == 200
 
 
+def test_session_from_before_the_update_is_logged_out(app, client):
+    """cookie ที่ออกก่อนมี pw_stamp (มีแค่ user_id) ต้องใช้ไม่ได้
+
+    ถ้าปล่อยไว้ คนร้ายที่ถือ cookie เก่าอยู่ก่อนอัปเดตจะรอดจากการตั้งรหัสใหม่ของ admin
+    """
+    user_id = add_user(app, "Boss", "boss@example.com", "old-password")
+    with client.session_transaction() as sess:   # จำลอง cookie เก่า: ไม่มี pw_stamp
+        sess["user_id"] = user_id
+
+    assert client.get("/api/auth/me").status_code == 401
+    assert client.get("/api/assets").status_code == 401
+    # ล็อกอินใหม่ได้ตรา pw_stamp แล้วใช้งานต่อได้
+    assert login(client, "Boss", "old-password").status_code == 200
+    assert client.get("/api/auth/me").status_code == 200
+
+
 def test_admin_changing_own_password_stays_logged_in(app, client):
     admin_id = add_user(app, "admin", "admin@example.com", "admin1234", role="admin")
     login(client, "admin", "admin1234")

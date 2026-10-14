@@ -86,16 +86,38 @@ def test_existing_users_become_role_user(app):
         assert rows["admin"][0] == "admin"
 
 
-def test_existing_admin_name_is_promoted_and_keeps_password(app):
-    """มีคนสมัครชื่อ Admin ไว้แล้ว -> ไม่สร้างแถวซ้ำ ไม่เปลี่ยนรหัส แค่ยกเป็น admin"""
+@pytest.mark.parametrize("username, email", [
+    ("Admin", "someone@example.com"),       # ชื่อชน (NOCASE)
+    ("someone", "admin@luma.local"),        # อีเมลชน
+    ("admin", "admin@luma.local"),          # ชื่อและอีเมลชน แต่รหัสไม่ใช่รหัสตั้งต้น
+])
+def test_ordinary_account_matching_admin_is_not_promoted(app, username, email):
+    """บัญชีที่ใครก็สมัครได้ ชื่อหรืออีเมลชนกับ admin -> migration หยุด ไม่ยกเป็น admin
+
+    และต้องไม่แก้อะไรเลย: ไม่มีคอลัมน์ role, แถวเดิมไม่เปลี่ยน, revision ยังอยู่ที่เดิม
+    ฐานจึงแก้ชื่อบัญชีนั้นแล้ว upgrade ใหม่ได้
+    """
     from app.models import db
 
     with app.app_context():
-        _insert_user(db, "Admin", "someone@example.com")
-        upgrade(revision=REVISION_ROLE)
+        _insert_user(db, username, email)
+        with pytest.raises(SystemExit):   # Flask-Migrate แปลง RuntimeError เป็น exit 1
+            upgrade(revision=REVISION_ROLE)
+        db.session.remove()
 
-        rows = _rows(db)
-        assert rows == {"Admin": ("admin", "old-hash")}
+        columns = {c["name"] for c in inspect(db.engine).get_columns("users")}
+        assert "role" not in columns
+        rows = db.session.execute(text("SELECT username, email, password_hash FROM users")).all()
+        assert [tuple(r) for r in rows] == [(username, email, "old-hash")]
+        version = db.session.execute(text("SELECT version_num FROM alembic_version")).scalar()
+        assert version == REVISION_BEFORE
+
+        # เปลี่ยนชื่อและอีเมลแล้ว upgrade ใหม่ได้ บัญชีนั้นเป็น user ธรรมดา
+        db.session.execute(text("UPDATE users SET username = 'renamed', email = 'renamed@example.com'"))
+        db.session.commit()
+        upgrade(revision=REVISION_ROLE)
+        assert _rows(db)["renamed"] == ("user", "old-hash")
+        assert _rows(db)["admin"][0] == "admin"
 
 
 def test_downgrade_drops_role_and_keeps_users(app):
