@@ -167,6 +167,23 @@ def test_admin_edits_name_and_email(app, client):
         assert user.email == "boss2@example.com"
 
 
+def test_admin_email_follows_allowed_domains(app, client):
+    # conftest ตั้ง ALLOWED_EMAIL_DOMAINS = None ไว้ — test นี้เปิดกติกาโดเมนเหมือนเครื่องจริง (#232)
+    app.config["ALLOWED_EMAIL_DOMAINS"] = ("example.com",)
+    add_user(app, "admin", "admin@example.com", "admin1234", role="admin")
+    user_id = add_user(app, "Boss", "boss@example.com", "password123")
+    login(client, "admin", "admin1234")
+
+    res = client.patch(f"/api/admin/users/{user_id}", json={"email": "boss@example.net"})
+    assert res.status_code == 400
+    with app.app_context():
+        assert db.session.get(User, user_id).email == "boss@example.com"
+
+    res = client.patch(f"/api/admin/users/{user_id}", json={"email": "boss2@example.com"})
+    assert res.status_code == 200
+    assert res.get_json()["user"]["email"] == "boss2@example.com"
+
+
 def test_admin_sets_new_password_and_it_works(app, client):
     add_user(app, "admin", "admin@example.com", "admin1234", role="admin")
     user_id = add_user(app, "Boss", "boss@example.com", "old-password")

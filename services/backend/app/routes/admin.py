@@ -10,7 +10,7 @@ LUMA Admin Routes
 ซึ่งแปลงกลับเป็นรหัสจริงไม่ได้ — admin ทำได้แค่ตั้งรหัสใหม่
 """
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, current_app, jsonify, request, session
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
@@ -102,6 +102,11 @@ def update_user(user_id):
         email = email.strip().lower()
         if len(email) > 255:
             return _invalid("email", "อีเมลยาวได้ไม่เกิน 255 ตัวอักษร / email must be at most 255 characters")
+        # โดเมนใช้กติกาเดียวกับตอนสมัคร (#232) — ไม่งั้น admin ตั้งอีเมลที่สมัครเองไม่ได้ให้ผู้ใช้ได้
+        allowed_domains = current_app.config.get("ALLOWED_EMAIL_DOMAINS")
+        if allowed_domains and email.rsplit("@", 1)[1] not in allowed_domains:
+            domain_list = ", ".join("@" + domain for domain in allowed_domains)
+            return _invalid("email", f"ใช้ได้เฉพาะอีเมล {domain_list} / Only {domain_list} emails are allowed")
         user.email = email
 
     if "password" in data:
