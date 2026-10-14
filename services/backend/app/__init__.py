@@ -215,9 +215,11 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     # ==========================================================================
     from app.routes.api import api_bp
     from app.routes.auth import auth_bp
+    from app.routes.admin import admin_bp
 
     app.register_blueprint(api_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
 
     # Route ตรวจสอบสถานะ Server
     @app.route("/health", methods=["GET"])

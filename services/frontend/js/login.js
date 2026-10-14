@@ -23,7 +23,7 @@
     // ตรวจสอบว่าเพิ่งสมัครสมาชิกสำเร็จมาหรือไม่
     const params = new URLSearchParams(window.location.search);
     if (params.get("registered") === "true" && successBox) {
-      successBox.textContent = "สมัครสมาชิกสำเร็จเรียบร้อย! กรุณาเข้าสู่ระบบด้วยอีเมลและรหัสผ่านของคุณ";
+      successBox.textContent = "สมัครสมาชิกสำเร็จเรียบร้อย! กรุณาเข้าสู่ระบบด้วยชื่อหรืออีเมล และรหัสผ่านของคุณ";
       successBox.removeAttribute("hidden");
     }
 
@@ -44,11 +44,12 @@
       e.preventDefault();
       hideMessages();
 
-      const email = form.email ? form.email.value.trim() : "";
+      // ช่องเดียวรับได้ทั้งชื่อและอีเมล — backend เป็นคนแยกเองว่าเป็นอย่างไหน
+      const login = form.login ? form.login.value.trim() : "";
       const password = form.password ? form.password.value : "";
 
-      if (!email || !password) {
-        showError("กรุณากรอกอีเมลและรหัสผ่าน");
+      if (!login || !password) {
+        showError("กรุณากรอกชื่อหรืออีเมล และรหัสผ่าน");
         return;
       }
 
@@ -66,7 +67,7 @@
           },
           credentials: "include",
           body: JSON.stringify({
-            email,
+            login,
             password,
           }),
         });
@@ -77,7 +78,8 @@
           throw new Error(data.error || `เข้าสู่ระบบไม่สำเร็จ (HTTP ${res.status})`);
         }
 
-        localStorage.setItem("luma_user_email", email);
+        // เก็บอีเมลจากคำตอบของ server ไม่ใช่ค่าที่พิมพ์ เพราะผู้ใช้อาจพิมพ์ชื่อมา
+        localStorage.setItem("luma_user_email", data.user.email);
 
         if (successBox) {
           successBox.textContent = "เข้าสู่ระบบสำเร็จ! กำลังนำท่านเข้าสู่ระบบ…";

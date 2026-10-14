@@ -51,13 +51,13 @@ def test_deleting_user_cascades_to_jobs(app):
         with db.engine.begin() as conn:
             conn.execute(text(
                 "INSERT INTO users (id, username, email, password_hash, created_at) "
-                "VALUES (1, 'owner', 'owner@example.com', 'hash', '2026-01-01')"
+                "VALUES (2, 'owner', 'owner@example.com', 'hash', '2026-01-01')"
             ))
             conn.execute(text(
                 "INSERT INTO jobs (user_id, prompt, params, status, created_at, updated_at) "
-                "VALUES (1, 'image', '{}', 'pending', '2026-01-01', '2026-01-01')"
+                "VALUES (2, 'image', '{}', 'pending', '2026-01-01', '2026-01-01')"
             ))
-            conn.execute(text("DELETE FROM users WHERE id = 1"))
+            conn.execute(text("DELETE FROM users WHERE id = 2"))
             assert conn.execute(text("SELECT COUNT(*) FROM jobs")).scalar_one() == 0
 
 
@@ -68,17 +68,17 @@ def test_jobs_status_check_rejects_unknown_value(app):
         with db.engine.begin() as conn:
             conn.execute(text(
                 "INSERT INTO users (id, username, email, password_hash, created_at) "
-                "VALUES (1, 'owner', 'owner@example.com', 'hash', '2026-01-01')"
+                "VALUES (2, 'owner', 'owner@example.com', 'hash', '2026-01-01')"
             ))
             for status in ("pending", "running", "done", "failed"):
                 conn.execute(text(
                     "INSERT INTO jobs (user_id, prompt, params, status, created_at, updated_at) "
-                    "VALUES (1, 'image', '{}', :status, '2026-01-01', '2026-01-01')"
+                    "VALUES (2, 'image', '{}', :status, '2026-01-01', '2026-01-01')"
                 ), {"status": status})
             with pytest.raises(IntegrityError):
                 conn.execute(text(
                     "INSERT INTO jobs (user_id, prompt, params, status, created_at, updated_at) "
-                    "VALUES (1, 'image', '{}', 'runing', '2026-01-01', '2026-01-01')"
+                    "VALUES (2, 'image', '{}', 'runing', '2026-01-01', '2026-01-01')"
                 ))
             assert conn.execute(text("SELECT COUNT(*) FROM jobs")).scalar_one() == 4
 

@@ -56,6 +56,19 @@
 
         userSlot.appendChild(userGreeting);
         userSlot.appendChild(logoutBtn);
+
+        // เมนู "จัดการผู้ใช้" สร้างเฉพาะตอนที่ server บอกว่าเป็น admin
+        // นี่เป็นแค่การซ่อนเมนู — คนที่พิมพ์ admin.html เองก็เปิดหน้าได้
+        // แต่ดึงข้อมูลไม่ได้ เพราะ /api/admin/* เช็คสิทธิ์ที่ server อีกรอบ
+        if (data.role === "admin") {
+          const adminLink = document.createElement("a");
+          adminLink.className = "app-nav__link";
+          adminLink.dataset.page = "admin";
+          adminLink.href = "admin.html";
+          adminLink.textContent = "จัดการผู้ใช้";
+          userSlot.parentNode.insertBefore(adminLink, userSlot);
+          markCurrentPage();
+        }
       } else {
         userSlot.innerHTML = '<a class="app-nav__link" data-page="login" href="login.html">เข้าสู่ระบบ</a>';
       }

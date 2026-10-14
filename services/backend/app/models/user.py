@@ -33,6 +33,14 @@ class User(db.Model):
     # ตัวแฮชเป็นงานของคนที่ 1 ตอนทำ #49/#50 ฝั่งนี้แค่เตรียมที่เก็บให้
     password_hash = db.Column(db.String(255), nullable=False)
 
+    # สิทธิ์ของบัญชี: "user" (ทุกคนที่สมัครเอง) หรือ "admin" (เข้าหน้าจัดการผู้ใช้ได้)
+    # สิทธิ์ดูจากคอลัมน์นี้ ไม่ดูจากชื่อ เพราะ admin แก้ชื่อผู้ใช้ได้
+    # ถ้าดูจากชื่อ การแก้ชื่อจะกลายเป็นการให้/ถอนสิทธิ์ไปด้วย
+    # default= ใช้ตอนสร้างผ่าน ORM · server_default= ใช้กับแถวเดิมตอน migration เพิ่มคอลัมน์
+    role = db.Column(
+        db.String(20), nullable=False, default="user", server_default="user"
+    )
+
     # 2 คอลัมน์นี้ยังไม่มีใครใช้ตอนนี้ แต่ใบงาน #16 ระบุไว้ใน schema
     # ใส่ตั้งแต่แรกถูกกว่าค่อยมา ALTER ทีหลัง (SQLite แก้คอลัมน์ยาก)
     avatar_url = db.Column(db.String(500), nullable=True)
